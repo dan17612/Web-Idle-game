@@ -538,3 +538,78 @@ grant execute on function public.admin_force_rotation() to authenticated;
 
 drop function if exists public.admin_restock(text[], int);
 drop function if exists public._rotate_shop_random(int);
+
+-- ====================================================================
+-- Gewichtete Rotation (Migration: species_weights)
+-- Höhere weight = höhere Wahrscheinlichkeit im Shop zu erscheinen.
+-- Auswahl per Efraimidis-Spirakis (deterministisch pro Slot).
+-- ====================================================================
+
+alter table public.species_costs
+  add column if not exists weight int not null default 10 check (weight > 0);
+
+update public.species_costs set weight = case
+  when cost <=       500 then 100
+  when cost <=      5000 then  60
+  when cost <=     50000 then  30
+  when cost <=    500000 then  12
+  when cost <=   5000000 then   5
+  when cost <=  50000000 then   2
+  else                           1
+end
+where weight = 10;
+
+create or replace function public._rotate_if_needed()
+returns public.shop_state language plpgsql security definer set search_path = public as $$
+declare
+  slot      timestamptz := public._current_slot();
+  next_slot timestamptz := slot + interval '5 minutes';
+  state     public.shop_state;
+  picked    text[];
+  forced    text[];
+  needed    int;
+begin
+  select * into state from public.shop_state where id = 1 for update;
+  if state.updated_at < slot then
+    forced := coalesce(state.forced_species, '{}');
+    needed := greatest(0, 5 - coalesce(array_length(forced, 1), 0));
+    if needed > 0 then
+      select array_agg(species order by score desc) into picked
+      from (
+        select sc.species,
+          power(
+            greatest(
+              (abs(('x' || substr(md5(sc.species || extract(epoch from slot)::text), 1, 8))::bit(32)::int) % 1000000 + 1) / 1000001.0,
+              1e-9
+            ),
+            1.0 / sc.weight
+          ) as score
+        from public.species_costs sc
+        where sc.enabled and not (sc.species = any(forced))
+        order by score desc
+        limit needed
+      ) s;
+    else picked := '{}'; end if;
+    update public.shop_state
+      set available_species = coalesce(forced,'{}') || coalesce(picked,'{}'),
+          rotates_at = next_slot,
+          updated_at = slot
+      where id = 1
+      returning * into state;
+  end if;
+  return state;
+end $$;
+
+create or replace function public.admin_set_species_weight(p_species text, p_weight int)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); is_admin bool;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin, false) then raise exception 'admin only'; end if;
+  if p_weight <= 0 then raise exception 'weight must be > 0'; end if;
+  update public.species_costs set weight = p_weight where species = p_species;
+  if not found then raise exception 'unknown species'; end if;
+  return jsonb_build_object('species', p_species, 'weight', p_weight);
+end $$;
+grant execute on function public.admin_set_species_weight(text, int) to authenticated;

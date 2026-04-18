@@ -18,7 +18,9 @@ const forced = ref([])
 const rotatesAt = ref(0)
 const serverOffset = ref(0) // Differenz server - client in ms
 const now = ref(Date.now())
-const enabledMap = ref({}) // { species: boolean } — Admin-Status
+const enabledMap = ref({}) // { species: boolean }
+const weightMap = ref({})  // { species: number }
+const weightDraft = ref({}) // lokale Edits
 let timer
 
 async function loadShop() {
@@ -34,10 +36,19 @@ async function loadShop() {
 
 async function loadAdminData() {
   if (!auth.profile?.is_admin) return
-  const { data } = await supabase.from('species_costs').select('species, enabled')
-  const map = {}
-  for (const r of data || []) map[r.species] = r.enabled
-  enabledMap.value = map
+  const { data } = await supabase.from('species_costs').select('species, enabled, weight')
+  const em = {}, wm = {}, wd = {}
+  for (const r of data || []) { em[r.species] = r.enabled; wm[r.species] = r.weight; wd[r.species] = r.weight }
+  enabledMap.value = em
+  weightMap.value = wm
+  weightDraft.value = wd
+}
+
+async function saveWeight(species) {
+  const val = parseInt(weightDraft.value[species], 10)
+  if (!(val > 0)) { error.value = 'Gewicht muss > 0 sein'; return }
+  if (val === weightMap.value[species]) return
+  await callAdmin('admin_set_species_weight', { p_species: species, p_weight: val }, 'w-' + species)
 }
 
 onMounted(async () => {
@@ -149,6 +160,18 @@ async function callAdmin(rpc, args, key) {
           </div>
         </div>
         <div class="admin-actions">
+          <label class="weight" :title="'Höheres Gewicht = öfter im Shop. Default 1-100.'">
+            <span>⚖️</span>
+            <input
+              type="number"
+              min="1"
+              max="9999"
+              v-model.number="weightDraft[s.key]"
+              :disabled="busyAdmin===('w-'+s.key)"
+              @blur="saveWeight(s.key)"
+              @keydown.enter.prevent="saveWeight(s.key); $event.target.blur()"
+            />
+          </label>
           <label class="toggle">
             <input
               type="checkbox"
@@ -233,4 +256,12 @@ async function callAdmin(rpc, args, key) {
   font-size: 12px; color: var(--muted);
 }
 .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
+.weight {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; color: var(--muted);
+}
+.weight input {
+  width: 58px; padding: 4px 6px; font-size: 12px;
+  border-radius: 8px; text-align: right;
+}
 </style>
