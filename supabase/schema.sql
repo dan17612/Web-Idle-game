@@ -898,3 +898,211 @@ begin
     where id = uid returning coins into new_balance;
   return jsonb_build_object('coins', new_balance);
 end $$;
+
+-- ====================================================================
+-- Shop: Per-Species Stock Counts (Migration: shop_per_species_stock)
+-- Jedes Tier ist pro Bestand nur 1x kaufbar; Admin kann dieselbe Spezies
+-- mehrfach (kumulativ) restocken. random_stock wird alle 5 Min gewürfelt,
+-- forced_stock ist admin-kontrolliert und wird NICHT bei Rotation geleert.
+-- ====================================================================
+
+-- Neue Stock-Spalten: jsonb {species: qty}
+alter table public.shop_state
+  add column if not exists random_stock jsonb not null default '{}'::jsonb,
+  add column if not exists forced_stock jsonb not null default '{}'::jsonb;
+
+-- Alte Spalten abräumen
+alter table public.shop_state drop column if exists available_species;
+alter table public.shop_state drop column if exists forced_species;
+
+-- Rotation: alle 5 Min werden 5 gewichtete Zufalls-Tiere als Stock=1 gesetzt
+create or replace function public._rotate_if_needed()
+returns public.shop_state language plpgsql security definer set search_path = public as $$
+declare
+  slot      timestamptz := public._current_slot();
+  next_slot timestamptz := slot + interval '5 minutes';
+  state     public.shop_state;
+  new_rand  jsonb;
+begin
+  select * into state from public.shop_state where id = 1 for update;
+  if state.updated_at < slot then
+    select coalesce(jsonb_object_agg(species, 1), '{}'::jsonb) into new_rand
+    from (
+      select sc.species
+      from public.species_costs sc
+      where sc.enabled
+      order by power(
+        greatest(
+          (abs(('x' || substr(md5(sc.species || extract(epoch from slot)::text), 1, 8))::bit(32)::int) % 1000000 + 1) / 1000001.0,
+          1e-9
+        ),
+        1.0 / sc.weight
+      ) desc
+      limit 5
+    ) s;
+
+    update public.shop_state
+      set random_stock = new_rand,
+          rotates_at   = next_slot,
+          updated_at   = slot
+      where id = 1
+      returning * into state;
+  end if;
+  return state;
+end $$;
+
+-- Hilfsfunktion: Stock-Menge (random + forced) für eine Spezies
+create or replace function public._stock_qty(state public.shop_state, p_species text)
+returns int language sql immutable as $$
+  select coalesce((state.random_stock->>p_species)::int, 0)
+       + coalesce((state.forced_stock->>p_species)::int, 0);
+$$;
+
+-- Öffentliches Shop-Read
+create or replace function public.get_shop()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare state public.shop_state; merged jsonb;
+begin
+  state := public._rotate_if_needed();
+  with combined as (
+    select key as species, sum(value::int) as qty
+    from (
+      select key, value from jsonb_each_text(state.random_stock)
+      union all
+      select key, value from jsonb_each_text(state.forced_stock)
+    ) t
+    group by key
+    having sum(value::int) > 0
+  )
+  select coalesce(jsonb_object_agg(species, qty), '{}'::jsonb) into merged from combined;
+
+  return jsonb_build_object(
+    'stock',        merged,
+    'forced_stock', state.forced_stock,
+    'rotates_at',   state.rotates_at,
+    'server_now',   now()
+  );
+end $$;
+grant execute on function public.get_shop() to anon, authenticated;
+
+-- Kauf zieht 1 Stock ab (erst random, dann forced)
+create or replace function public.buy_animal(p_species text, p_cost bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid         uuid := auth.uid();
+  real_cost   bigint;
+  new_animal  public.animals%rowtype;
+  new_balance bigint;
+  state       public.shop_state;
+  rand_qty    int;
+  force_qty   int;
+  slots       int;
+  equipped_cnt int;
+  auto_equip  boolean;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select cost into real_cost from public.species_costs where species = p_species;
+  if real_cost is null then raise exception 'unknown species'; end if;
+
+  state := public._rotate_if_needed();
+  rand_qty  := coalesce((state.random_stock->>p_species)::int, 0);
+  force_qty := coalesce((state.forced_stock->>p_species)::int, 0);
+  if rand_qty + force_qty <= 0 then
+    raise exception 'species not available (out of stock)';
+  end if;
+
+  update public.profiles
+    set coins = coins - real_cost
+    where id = uid and coins >= real_cost
+    returning coins into new_balance;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+
+  -- Stock abziehen: erst random, dann forced
+  if rand_qty > 0 then
+    if rand_qty <= 1 then
+      update public.shop_state set random_stock = random_stock - p_species where id = 1;
+    else
+      update public.shop_state
+        set random_stock = jsonb_set(random_stock, array[p_species], to_jsonb(rand_qty - 1))
+        where id = 1;
+    end if;
+  else
+    if force_qty <= 1 then
+      update public.shop_state set forced_stock = forced_stock - p_species where id = 1;
+    else
+      update public.shop_state
+        set forced_stock = jsonb_set(forced_stock, array[p_species], to_jsonb(force_qty - 1))
+        where id = 1;
+    end if;
+  end if;
+
+  select equip_slots into slots from public.profiles where id = uid;
+  select count(*) into equipped_cnt from public.animals where owner_id = uid and equipped = true;
+  auto_equip := equipped_cnt < slots;
+
+  insert into public.animals(owner_id, species, equipped)
+    values (uid, p_species, auto_equip)
+    returning * into new_animal;
+
+  return jsonb_build_object('coins', new_balance, 'animal', to_jsonb(new_animal));
+end $$;
+
+-- Admin: Tier in den Shop legen (kumulativ, Menge frei wählbar)
+drop function if exists public.admin_force_add(text);
+create or replace function public.admin_force_add(p_species text, p_qty int default 1)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  is_admin bool;
+  state public.shop_state;
+  current_qty int;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin, false) then raise exception 'admin only'; end if;
+  if p_qty is null or p_qty < 1 then raise exception 'qty must be >= 1'; end if;
+  if not exists (select 1 from public.species_costs where species = p_species) then
+    raise exception 'unknown species'; end if;
+
+  current_qty := coalesce((
+    select (forced_stock->>p_species)::int from public.shop_state where id = 1
+  ), 0);
+
+  update public.shop_state
+    set forced_stock = jsonb_set(forced_stock, array[p_species], to_jsonb(current_qty + p_qty))
+    where id = 1 returning * into state;
+
+  return jsonb_build_object('forced_stock', state.forced_stock, 'species', p_species, 'qty', current_qty + p_qty);
+end $$;
+grant execute on function public.admin_force_add(text, int) to authenticated;
+
+-- Admin: Spezies komplett aus Shop entfernen (random + forced)
+create or replace function public.admin_force_remove(p_species text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); is_admin bool; state public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin, false) then raise exception 'admin only'; end if;
+
+  update public.shop_state
+    set forced_stock = forced_stock - p_species,
+        random_stock = random_stock - p_species
+    where id = 1 returning * into state;
+  return jsonb_build_object('forced_stock', state.forced_stock, 'random_stock', state.random_stock);
+end $$;
+grant execute on function public.admin_force_remove(text) to authenticated;
+
+-- Admin: Sofort neu würfeln (nur random_stock, forced bleibt erhalten)
+create or replace function public.admin_force_rotation()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); is_admin bool; state public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin, false) then raise exception 'admin only'; end if;
+  update public.shop_state set updated_at = 'epoch' where id = 1;
+  state := public._rotate_if_needed();
+  return jsonb_build_object('random_stock', state.random_stock, 'forced_stock', state.forced_stock, 'rotates_at', state.rotates_at);
+end $$;
+grant execute on function public.admin_force_rotation() to authenticated;

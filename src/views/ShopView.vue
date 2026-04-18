@@ -13,21 +13,26 @@ const busyKey = ref('')
 const busyAdmin = ref('')
 const adminOpen = ref(false)
 
-const available = ref([])
-const forced = ref([])
+const stock = ref({})         // { species: qty } (random)
+const forcedStock = ref({})   // { species: qty } (admin-erzwungen, kumulativ)
 const rotatesAt = ref(0)
-const serverOffset = ref(0) // Differenz server - client in ms
+const serverOffset = ref(0)
 const now = ref(Date.now())
-const enabledMap = ref({}) // { species: boolean }
-const weightMap = ref({})  // { species: number }
-const weightDraft = ref({}) // lokale Edits
+const enabledMap = ref({})
+const weightMap = ref({})
+const weightDraft = ref({})
+const restockQty = ref({})   // lokale Mengen-Eingabe pro Spezies
 let timer
+
+function totalStock(key) {
+  return (stock.value[key] || 0) + (forcedStock.value[key] || 0)
+}
 
 async function loadShop() {
   const { data, error: e } = await supabase.rpc('get_shop')
   if (e) { error.value = e.message; return }
-  available.value = data?.available || []
-  forced.value = data?.forced || []
+  stock.value = data?.stock || {}
+  forcedStock.value = data?.forced_stock || {}
   rotatesAt.value = data?.rotates_at ? new Date(data.rotates_at).getTime() : 0
   if (data?.server_now) {
     serverOffset.value = new Date(data.server_now).getTime() - Date.now()
@@ -55,7 +60,6 @@ onMounted(async () => {
   await Promise.all([loadShop(), loadAdminData()])
   timer = setInterval(() => {
     now.value = Date.now()
-    // Reload 1 s nach Rotations-Deadline (Server-Zeit)
     if (rotatesAt.value && serverNow() >= rotatesAt.value + 500) loadShop()
   }, 500)
 })
@@ -72,14 +76,26 @@ const countdown = computed(() => {
 })
 
 const speciesList = computed(() => {
-  return Object.entries(SPECIES).map(([key, info]) => ({
-    key,
-    info,
-    inStock: available.value.includes(key),
-    isForced: forced.value.includes(key),
-    enabled: enabledMap.value[key] !== false
-  }))
+  return Object.entries(SPECIES).map(([key, info]) => {
+    const randomQty = stock.value[key] || 0
+    const forcedQty = forcedStock.value[key] || 0
+    const qty = randomQty + forcedQty
+    return {
+      key,
+      info,
+      qty,
+      randomQty,
+      forcedQty,
+      inStock: qty > 0,
+      isForced: forcedQty > 0,
+      enabled: enabledMap.value[key] !== false
+    }
+  })
 })
+
+const stockTotal = computed(() =>
+  speciesList.value.reduce((sum, s) => sum + s.qty, 0)
+)
 
 async function buy(key) {
   error.value = ''; success.value = ''
@@ -87,9 +103,10 @@ async function buy(key) {
   try {
     await game.buyAnimal(key)
     success.value = SPECIES[key].name + ' gekauft!'
+    await loadShop()
   } catch (e) {
     error.value = e.message
-    if (/rotation/i.test(e.message)) await loadShop()
+    if (/rotation|ausverkauft|stock/i.test(e.message)) await loadShop()
   } finally {
     busyKey.value = ''
     setTimeout(() => success.value = '', 2000)
@@ -106,6 +123,11 @@ async function callAdmin(rpc, args, key) {
   } catch (e) { error.value = e.message }
   finally { busyAdmin.value = '' }
 }
+
+function adminRestock(species) {
+  const qty = Math.max(1, parseInt(restockQty.value[species] || 1, 10))
+  return callAdmin('admin_force_add', { p_species: species, p_qty: qty }, 'f-' + species)
+}
 </script>
 
 <template>
@@ -119,8 +141,8 @@ async function callAdmin(rpc, args, key) {
       </div>
     </div>
     <div style="text-align:right">
-      <div class="subtitle" style="margin:0">Im Angebot</div>
-      <div style="font-weight:800">{{ available.length }} / {{ Object.keys(SPECIES).length }}</div>
+      <div class="subtitle" style="margin:0">Im Bestand</div>
+      <div style="font-weight:800">{{ stockTotal }} Tier{{ stockTotal === 1 ? '' : 'e' }}</div>
     </div>
   </div>
 
@@ -128,7 +150,7 @@ async function callAdmin(rpc, args, key) {
     <div class="row between" @click="adminOpen = !adminOpen" style="cursor:pointer">
       <div>
         <div style="font-weight:800">🛠️ Admin-Panel</div>
-        <div class="subtitle" style="margin:2px 0 0">Tiere aktivieren, erzwingen, Rotation auslösen</div>
+        <div class="subtitle" style="margin:2px 0 0">Tiere aktivieren, restocken, Rotation auslösen</div>
       </div>
       <div>{{ adminOpen ? '▲' : '▼' }}</div>
     </div>
@@ -152,10 +174,12 @@ async function callAdmin(rpc, args, key) {
           <span style="font-size:22px">{{ s.info.emoji }}</span>
           <div>
             <div style="font-weight:700">{{ s.info.name }}</div>
-            <div class="subtitle" style="margin:0">
-              <span v-if="s.isForced" class="badge" style="background:rgba(255,209,102,0.15);color:var(--accent)">erzwungen</span>
-              <span v-else-if="s.inStock" class="badge">im Shop</span>
-              <span v-else style="color:var(--muted)">—</span>
+            <div class="subtitle" style="margin:0;display:flex;gap:4px;flex-wrap:wrap">
+              <span v-if="s.forcedQty > 0" class="badge" style="background:rgba(255,209,102,0.15);color:var(--accent)">
+                Restock ×{{ s.forcedQty }}
+              </span>
+              <span v-if="s.randomQty > 0" class="badge">Rotation ×{{ s.randomQty }}</span>
+              <span v-if="s.qty === 0" style="color:var(--muted)">leer</span>
             </div>
           </div>
         </div>
@@ -181,14 +205,23 @@ async function callAdmin(rpc, args, key) {
             />
             <span>{{ s.enabled ? 'aktiv' : 'aus' }}</span>
           </label>
+          <label class="weight" title="Menge zum Restocken">
+            <span>＋</span>
+            <input
+              type="number"
+              min="1"
+              max="99"
+              v-model.number="restockQty[s.key]"
+              placeholder="1"
+            />
+          </label>
           <button
-            v-if="!s.isForced"
             class="btn secondary small"
             :disabled="busyAdmin===('f-'+s.key)"
-            @click="callAdmin('admin_force_add', { p_species: s.key }, 'f-'+s.key)"
+            @click="adminRestock(s.key)"
           >Restock</button>
           <button
-            v-else
+            v-if="s.forcedQty > 0"
             class="btn danger small"
             :disabled="busyAdmin===('u-'+s.key)"
             @click="callAdmin('admin_force_remove', { p_species: s.key }, 'u-'+s.key)"
@@ -198,7 +231,7 @@ async function callAdmin(rpc, args, key) {
     </div>
   </div>
 
-  <p class="subtitle">Angebot rotiert alle 5 Minuten im festen Takt (:00, :05, :10, …).</p>
+  <p class="subtitle">Angebot rotiert alle 5 Minuten im festen Takt (:00, :05, :10, …). Jedes Tier ist pro Bestand einmal kaufbar.</p>
 
   <div v-if="error" class="error">{{ error }}</div>
   <div v-if="success" class="success">{{ success }}</div>
@@ -211,6 +244,7 @@ async function callAdmin(rpc, args, key) {
       :class="{ 'out-of-stock': !s.inStock, 'is-forced': s.isForced }"
     >
       <div v-if="s.isForced" class="ribbon">⭐ Restock</div>
+      <div v-if="s.qty > 1" class="qty-badge">×{{ s.qty }}</div>
       <div class="animal-emoji">{{ s.info.emoji }}</div>
       <div class="animal-name">{{ s.info.name }}</div>
       <div class="animal-meta">+{{ formatCoins(s.info.rate) }} / Sek</div>
@@ -237,6 +271,11 @@ async function callAdmin(rpc, args, key) {
   background: var(--accent); color: #1b1300;
   font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 999px;
 }
+.qty-badge {
+  position: absolute; top: 6px; left: 6px;
+  background: var(--accent-2); color: #001a15;
+  font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px;
+}
 .stock-badge {
   margin-top: 8px; padding: 10px; border-radius: 10px;
   background: rgba(239, 71, 111, 0.15); color: var(--danger);
@@ -245,11 +284,11 @@ async function callAdmin(rpc, args, key) {
 .admin-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
-  gap: 8px;
+  gap: 8px; flex-wrap: wrap;
 }
 .admin-row:last-child { border-bottom: none; }
 .admin-left { display: flex; gap: 10px; align-items: center; min-width: 0; }
-.admin-actions { display: flex; gap: 6px; align-items: center; }
+.admin-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .btn.small { padding: 6px 10px; font-size: 12px; }
 .toggle {
   display: inline-flex; align-items: center; gap: 6px;
@@ -261,7 +300,7 @@ async function callAdmin(rpc, args, key) {
   font-size: 12px; color: var(--muted);
 }
 .weight input {
-  width: 58px; padding: 4px 6px; font-size: 12px;
+  width: 54px; padding: 4px 6px; font-size: 12px;
   border-radius: 8px; text-align: right;
 }
 </style>
