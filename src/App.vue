@@ -10,7 +10,6 @@ const game = useGameStore()
 const route = useRoute()
 
 onMounted(async () => {
-  await auth.init()
   if (auth.isAuth) await game.load()
 
   let last = performance.now()
