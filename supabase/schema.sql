@@ -273,3 +273,628 @@ begin
 end $$;
 
 grant execute on function public.cancel_trade_offer(uuid) to authenticated;
+
+-- ====================================================================
+-- Shop Rotation & Admin Restock (Migration: shop_rotation)
+-- ====================================================================
+
+alter table public.profiles add column if not exists is_admin boolean not null default false;
+
+create table if not exists public.shop_state (
+  id int primary key default 1,
+  available_species text[] not null default '{}',
+  rotates_at timestamptz not null default now() + interval '4 hours',
+  updated_at timestamptz not null default now(),
+  constraint shop_state_single_row check (id = 1)
+);
+insert into public.shop_state (id) values (1) on conflict (id) do nothing;
+
+alter table public.shop_state enable row level security;
+drop policy if exists "shop_state public read" on public.shop_state;
+create policy "shop_state public read" on public.shop_state for select using (true);
+
+create or replace function public._rotate_shop_random(p_count int default 5)
+returns public.shop_state language plpgsql security definer set search_path = public as $$
+declare
+  picked text[];
+  result public.shop_state;
+begin
+  select array_agg(species) into picked
+  from (
+    select species from public.species_costs order by random() limit p_count
+  ) s;
+  update public.shop_state
+    set available_species = coalesce(picked, '{}'),
+        rotates_at = now() + interval '4 hours',
+        updated_at = now()
+    where id = 1
+    returning * into result;
+  return result;
+end $$;
+
+create or replace function public.get_shop()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare state public.shop_state;
+begin
+  select * into state from public.shop_state where id = 1;
+  if state.rotates_at <= now() or coalesce(array_length(state.available_species, 1), 0) = 0 then
+    state := public._rotate_shop_random(5);
+  end if;
+  return jsonb_build_object('available', state.available_species, 'rotates_at', state.rotates_at);
+end $$;
+grant execute on function public.get_shop() to anon, authenticated;
+
+create or replace function public.admin_restock(
+  p_species text[] default null,
+  p_count int default 5
+) returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  is_admin bool;
+  state public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin, false) then raise exception 'admin only'; end if;
+
+  if p_species is not null and array_length(p_species, 1) > 0 then
+    if exists (
+      select 1 from unnest(p_species) s
+      where not exists (select 1 from public.species_costs where species = s)
+    ) then raise exception 'unknown species in list'; end if;
+    update public.shop_state
+      set available_species = p_species,
+          rotates_at = now() + interval '4 hours',
+          updated_at = now()
+      where id = 1
+      returning * into state;
+  else
+    state := public._rotate_shop_random(greatest(1, coalesce(p_count, 5)));
+  end if;
+  return jsonb_build_object('available', state.available_species, 'rotates_at', state.rotates_at);
+end $$;
+grant execute on function public.admin_restock(text[], int) to authenticated;
+
+-- buy_animal: prüft jetzt auch die Shop-Rotation
+create or replace function public.buy_animal(p_species text, p_cost bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  real_cost bigint;
+  new_animal public.animals%rowtype;
+  new_balance bigint;
+  state public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select cost into real_cost from public.species_costs where species = p_species;
+  if real_cost is null then raise exception 'unknown species'; end if;
+
+  select * into state from public.shop_state where id = 1;
+  if state.rotates_at <= now() then state := public._rotate_shop_random(5); end if;
+  if not (p_species = any(state.available_species)) then
+    raise exception 'species not in current shop rotation';
+  end if;
+
+  update public.profiles
+    set coins = coins - real_cost
+    where id = uid and coins >= real_cost
+    returning coins into new_balance;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+
+  insert into public.animals(owner_id, species)
+    values (uid, p_species) returning * into new_animal;
+
+  return jsonb_build_object('coins', new_balance, 'animal', to_jsonb(new_animal));
+end $$;
+
+-- ====================================================================
+-- 5-Minuten-Raster + Aktivieren/Deaktivieren + Forced Species
+-- (Migration: shop_5min_grid_and_forced)
+-- ====================================================================
+
+alter table public.species_costs add column if not exists enabled boolean not null default true;
+alter table public.shop_state   add column if not exists forced_species text[] not null default '{}';
+
+-- Aktueller 5-Minuten-Slot (z.B. 12:20:00, 12:25:00 …)
+create or replace function public._current_slot()
+returns timestamptz language sql stable parallel safe set search_path = public as $$
+  select to_timestamp(floor(extract(epoch from now()) / 300) * 300);
+$$;
+
+-- Slot-synchrone, deterministische Rotation
+create or replace function public._rotate_if_needed()
+returns public.shop_state language plpgsql security definer set search_path = public as $$
+declare
+  slot      timestamptz := public._current_slot();
+  next_slot timestamptz := slot + interval '5 minutes';
+  state     public.shop_state;
+  picked    text[];
+  forced    text[];
+  needed    int;
+begin
+  select * into state from public.shop_state where id = 1 for update;
+  if state.updated_at < slot then
+    forced := coalesce(state.forced_species, '{}');
+    needed := greatest(0, 5 - coalesce(array_length(forced, 1), 0));
+    if needed > 0 then
+      select array_agg(species) into picked
+      from (
+        select sc.species from public.species_costs sc
+        where sc.enabled and not (sc.species = any(forced))
+        order by md5(sc.species || extract(epoch from slot)::text)
+        limit needed
+      ) s;
+    else picked := '{}'; end if;
+    update public.shop_state
+      set available_species = coalesce(forced,'{}') || coalesce(picked,'{}'),
+          rotates_at = next_slot,
+          updated_at = slot
+      where id = 1
+      returning * into state;
+  end if;
+  return state;
+end $$;
+
+create or replace function public.get_shop()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare state public.shop_state;
+begin
+  state := public._rotate_if_needed();
+  return jsonb_build_object(
+    'available',  state.available_species,
+    'forced',     state.forced_species,
+    'rotates_at', state.rotates_at,
+    'server_now', now()
+  );
+end $$;
+grant execute on function public.get_shop() to anon, authenticated;
+
+-- buy_animal prüft aktuelle Rotation
+create or replace function public.buy_animal(p_species text, p_cost bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  real_cost bigint;
+  new_animal public.animals%rowtype;
+  new_balance bigint;
+  state public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select cost into real_cost from public.species_costs where species = p_species;
+  if real_cost is null then raise exception 'unknown species'; end if;
+
+  state := public._rotate_if_needed();
+  if not (p_species = any(state.available_species)) then
+    raise exception 'species not in current shop rotation';
+  end if;
+
+  update public.profiles set coins = coins - real_cost
+    where id = uid and coins >= real_cost returning coins into new_balance;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+
+  insert into public.animals(owner_id, species) values (uid, p_species) returning * into new_animal;
+  return jsonb_build_object('coins', new_balance, 'animal', to_jsonb(new_animal));
+end $$;
+
+-- Admin RPCs --------------------------------------------------------------
+create or replace function public.admin_set_species_enabled(p_species text, p_enabled boolean)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); is_admin bool;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin,false) then raise exception 'admin only'; end if;
+  update public.species_costs set enabled = p_enabled where species = p_species;
+  if not found then raise exception 'unknown species'; end if;
+  return jsonb_build_object('species', p_species, 'enabled', p_enabled);
+end $$;
+grant execute on function public.admin_set_species_enabled(text, boolean) to authenticated;
+
+create or replace function public.admin_force_add(p_species text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); is_admin bool; state public.shop_state; slot timestamptz := public._current_slot();
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin,false) then raise exception 'admin only'; end if;
+  if not exists(select 1 from public.species_costs where species = p_species) then
+    raise exception 'unknown species'; end if;
+  update public.shop_state
+    set forced_species = case when p_species = any(forced_species) then forced_species else forced_species || array[p_species] end,
+        available_species = case when p_species = any(available_species) then available_species else available_species || array[p_species] end,
+        updated_at = slot
+    where id = 1 returning * into state;
+  return jsonb_build_object('forced', state.forced_species, 'available', state.available_species);
+end $$;
+grant execute on function public.admin_force_add(text) to authenticated;
+
+create or replace function public.admin_force_remove(p_species text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); is_admin bool; state public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin,false) then raise exception 'admin only'; end if;
+  update public.shop_state
+    set forced_species = array_remove(forced_species, p_species),
+        available_species = array_remove(available_species, p_species)
+    where id = 1 returning * into state;
+  return jsonb_build_object('forced', state.forced_species, 'available', state.available_species);
+end $$;
+grant execute on function public.admin_force_remove(text) to authenticated;
+
+create or replace function public.admin_force_rotation()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); is_admin bool; state public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin,false) then raise exception 'admin only'; end if;
+  update public.shop_state set updated_at = 'epoch' where id = 1;
+  state := public._rotate_if_needed();
+  return jsonb_build_object('available', state.available_species, 'forced', state.forced_species, 'rotates_at', state.rotates_at);
+end $$;
+grant execute on function public.admin_force_rotation() to authenticated;
+
+drop function if exists public.admin_restock(text[], int);
+drop function if exists public._rotate_shop_random(int);
+
+-- ====================================================================
+-- Gewichtete Rotation (Migration: species_weights)
+-- Höhere weight = höhere Wahrscheinlichkeit im Shop zu erscheinen.
+-- Auswahl per Efraimidis-Spirakis (deterministisch pro Slot).
+-- ====================================================================
+
+alter table public.species_costs
+  add column if not exists weight int not null default 10 check (weight > 0);
+
+update public.species_costs set weight = case
+  when cost <=       500 then 100
+  when cost <=      5000 then  60
+  when cost <=     50000 then  30
+  when cost <=    500000 then  12
+  when cost <=   5000000 then   5
+  when cost <=  50000000 then   2
+  else                           1
+end
+where weight = 10;
+
+create or replace function public._rotate_if_needed()
+returns public.shop_state language plpgsql security definer set search_path = public as $$
+declare
+  slot      timestamptz := public._current_slot();
+  next_slot timestamptz := slot + interval '5 minutes';
+  state     public.shop_state;
+  picked    text[];
+  forced    text[];
+  needed    int;
+begin
+  select * into state from public.shop_state where id = 1 for update;
+  if state.updated_at < slot then
+    forced := coalesce(state.forced_species, '{}');
+    needed := greatest(0, 5 - coalesce(array_length(forced, 1), 0));
+    if needed > 0 then
+      select array_agg(species order by score desc) into picked
+      from (
+        select sc.species,
+          power(
+            greatest(
+              (abs(('x' || substr(md5(sc.species || extract(epoch from slot)::text), 1, 8))::bit(32)::int) % 1000000 + 1) / 1000001.0,
+              1e-9
+            ),
+            1.0 / sc.weight
+          ) as score
+        from public.species_costs sc
+        where sc.enabled and not (sc.species = any(forced))
+        order by score desc
+        limit needed
+      ) s;
+    else picked := '{}'; end if;
+    update public.shop_state
+      set available_species = coalesce(forced,'{}') || coalesce(picked,'{}'),
+          rotates_at = next_slot,
+          updated_at = slot
+      where id = 1
+      returning * into state;
+  end if;
+  return state;
+end $$;
+
+create or replace function public.admin_set_species_weight(p_species text, p_weight int)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); is_admin bool;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin, false) then raise exception 'admin only'; end if;
+  if p_weight <= 0 then raise exception 'weight must be > 0'; end if;
+  update public.species_costs set weight = p_weight where species = p_species;
+  if not found then raise exception 'unknown species'; end if;
+  return jsonb_build_object('species', p_species, 'weight', p_weight);
+end $$;
+grant execute on function public.admin_set_species_weight(text, int) to authenticated;
+
+-- ====================================================================
+-- Fix (Migration: fix_buy_animal_array_comparison)
+-- Vorherige Version verglich text mit text[] in einer OR-Klausel, was
+-- in Postgres nicht erlaubt ist. Sauber umgeschrieben: Preis immer aus
+-- species_costs holen, Verfügbarkeit über _rotate_if_needed() prüfen
+-- (available_species enthält bereits die forced_species).
+-- ====================================================================
+
+create or replace function public.buy_animal(p_species text, p_cost bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid         uuid := auth.uid();
+  real_cost   bigint;
+  new_animal  public.animals%rowtype;
+  new_balance bigint;
+  state       public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+
+  select cost into real_cost from public.species_costs where species = p_species;
+  if real_cost is null then raise exception 'unknown species'; end if;
+
+  state := public._rotate_if_needed();
+  if not (p_species = any(state.available_species)) then
+    raise exception 'species not in current shop rotation';
+  end if;
+
+  update public.profiles
+    set coins = coins - real_cost
+    where id = uid and coins >= real_cost
+    returning coins into new_balance;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+
+  insert into public.animals(owner_id, species)
+    values (uid, p_species)
+    returning * into new_animal;
+
+  return jsonb_build_object('coins', new_balance, 'animal', to_jsonb(new_animal));
+end $$;
+
+-- ====================================================================
+-- Freundes-System (Migration: friends_system)
+-- ====================================================================
+
+create table if not exists public.friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references public.profiles(id) on delete cascade,
+  addressee_id uuid not null references public.profiles(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending','accepted','declined')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  constraint friendship_pair_unique unique (requester_id, addressee_id),
+  constraint friendship_not_self check (requester_id <> addressee_id)
+);
+create index if not exists friendships_req_idx on public.friendships(requester_id);
+create index if not exists friendships_add_idx on public.friendships(addressee_id);
+
+alter table public.friendships enable row level security;
+drop policy if exists "friends self read" on public.friendships;
+create policy "friends self read" on public.friendships for select
+  using (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+create or replace view public.friends_view as
+  select f.id as friendship_id, f.status, f.created_at, f.responded_at,
+    case when f.requester_id = auth.uid() then f.addressee_id else f.requester_id end as friend_id,
+    case when f.requester_id = auth.uid() then pa.username else pr.username end as friend_username,
+    case when f.requester_id = auth.uid() then pa.coins   else pr.coins   end as friend_coins,
+    case when f.requester_id = auth.uid() then 'outgoing' else 'incoming' end as direction
+  from public.friendships f
+  join public.profiles pr on pr.id = f.requester_id
+  join public.profiles pa on pa.id = f.addressee_id
+  where f.requester_id = auth.uid() or f.addressee_id = auth.uid();
+alter view public.friends_view set (security_invoker = on);
+grant select on public.friends_view to authenticated;
+
+create or replace function public.friend_request(p_username text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); target uuid; existing public.friendships%rowtype; new_row public.friendships%rowtype;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select id into target from public.profiles where username = p_username;
+  if target is null then raise exception 'user not found'; end if;
+  if target = uid then raise exception 'cannot friend yourself'; end if;
+  select * into existing from public.friendships
+    where (requester_id = uid and addressee_id = target)
+       or (requester_id = target and addressee_id = uid) limit 1;
+  if existing.id is not null then
+    if existing.addressee_id = uid and existing.status = 'pending' then
+      update public.friendships set status='accepted', responded_at=now()
+        where id = existing.id returning * into new_row;
+      return jsonb_build_object('status','accepted','id',new_row.id);
+    end if;
+    return jsonb_build_object('status',existing.status,'id',existing.id);
+  end if;
+  insert into public.friendships(requester_id, addressee_id) values (uid, target) returning * into new_row;
+  return jsonb_build_object('status','pending','id',new_row.id);
+end $$;
+grant execute on function public.friend_request(text) to authenticated;
+
+create or replace function public.friend_respond(p_id uuid, p_accept boolean)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); row public.friendships%rowtype;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select * into row from public.friendships where id = p_id;
+  if not found then raise exception 'request not found'; end if;
+  if row.addressee_id <> uid then raise exception 'not your request'; end if;
+  if row.status <> 'pending' then raise exception 'already responded'; end if;
+  update public.friendships set status = case when p_accept then 'accepted' else 'declined' end,
+    responded_at = now() where id = p_id;
+  return jsonb_build_object('status', case when p_accept then 'accepted' else 'declined' end);
+end $$;
+grant execute on function public.friend_respond(uuid, boolean) to authenticated;
+
+create or replace function public.friend_remove(p_friend_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  delete from public.friendships
+    where (requester_id = uid and addressee_id = p_friend_id)
+       or (requester_id = p_friend_id and addressee_id = uid);
+  return jsonb_build_object('ok', true);
+end $$;
+grant execute on function public.friend_remove(uuid) to authenticated;
+
+-- ====================================================================
+-- Inventar + Ausrüst-Slots (Migration: inventory_and_equip_slots)
+-- Nur ausgerüstete (equipped) Tiere produzieren Münzen.
+-- Slots kostet man nach stark steigender Formel, Start-Slot = 1.
+-- ====================================================================
+
+alter table public.animals  add column if not exists equipped boolean not null default false;
+create index if not exists animals_equipped_idx on public.animals(owner_id, equipped);
+alter table public.profiles add column if not exists equip_slots int not null default 1 check (equip_slots between 1 and 20);
+
+-- Migration bestehender Spieler: ältestes Tier pro User auto-equippen
+with firsts as (
+  select distinct on (owner_id) id, owner_id from public.animals order by owner_id, acquired_at asc
+)
+update public.animals a set equipped = true from firsts f
+  where a.id = f.id
+    and not exists (select 1 from public.animals x where x.owner_id = a.owner_id and x.equipped = true);
+
+create or replace function public._slot_cost(p_slot int)
+returns bigint language sql immutable as $$
+  select case
+    when p_slot <= 1 then 0
+    when p_slot = 2 then 2500
+    when p_slot = 3 then 15000
+    when p_slot = 4 then 80000
+    when p_slot = 5 then 400000
+    when p_slot = 6 then 2000000
+    when p_slot = 7 then 10000000
+    when p_slot = 8 then 50000000
+    when p_slot = 9 then 250000000
+    when p_slot = 10 then 1000000000
+    else null
+  end::bigint;
+$$;
+
+create or replace function public.equip_animal(p_animal_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); slots int; equipped_cnt int; animal public.animals%rowtype;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select * into animal from public.animals where id = p_animal_id and owner_id = uid;
+  if not found then raise exception 'animal not found'; end if;
+  if animal.equipped then return jsonb_build_object('ok', true); end if;
+  select equip_slots into slots from public.profiles where id = uid;
+  select count(*) into equipped_cnt from public.animals where owner_id = uid and equipped = true;
+  if equipped_cnt >= slots then raise exception 'no free equip slots'; end if;
+  update public.animals set equipped = true where id = p_animal_id;
+  return jsonb_build_object('ok', true);
+end $$;
+grant execute on function public.equip_animal(uuid) to authenticated;
+
+create or replace function public.unequip_animal(p_animal_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  update public.animals set equipped = false where id = p_animal_id and owner_id = uid;
+  if not found then raise exception 'animal not found'; end if;
+  return jsonb_build_object('ok', true);
+end $$;
+grant execute on function public.unequip_animal(uuid) to authenticated;
+
+create or replace function public.buy_equip_slot()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); slots int; cost bigint; new_balance bigint;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select equip_slots into slots from public.profiles where id = uid for update;
+  cost := public._slot_cost(slots + 1);
+  if cost is null then raise exception 'max slots reached'; end if;
+  update public.profiles set coins = coins - cost, equip_slots = equip_slots + 1
+    where id = uid and coins >= cost returning coins, equip_slots into new_balance, slots;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+  return jsonb_build_object('coins', new_balance, 'equip_slots', slots, 'cost', cost);
+end $$;
+grant execute on function public.buy_equip_slot() to authenticated;
+
+create or replace function public.get_next_slot_cost()
+returns jsonb language sql security definer set search_path = public as $$
+  select jsonb_build_object(
+    'current_slots', (select equip_slots from public.profiles where id = auth.uid()),
+    'next_slot',     (select equip_slots + 1 from public.profiles where id = auth.uid()),
+    'next_cost',     public._slot_cost((select equip_slots + 1 from public.profiles where id = auth.uid()))
+  );
+$$;
+grant execute on function public.get_next_slot_cost() to authenticated;
+
+-- buy_animal: Auto-Equip wenn freier Slot vorhanden
+create or replace function public.buy_animal(p_species text, p_cost bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid(); real_cost bigint; new_animal public.animals%rowtype;
+  new_balance bigint; state public.shop_state; slots int; equipped_cnt int; auto_equip boolean;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select cost into real_cost from public.species_costs where species = p_species;
+  if real_cost is null then raise exception 'unknown species'; end if;
+  state := public._rotate_if_needed();
+  if not (p_species = any(state.available_species)) then
+    raise exception 'species not in current shop rotation';
+  end if;
+  update public.profiles set coins = coins - real_cost
+    where id = uid and coins >= real_cost returning coins into new_balance;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+
+  select equip_slots into slots from public.profiles where id = uid;
+  select count(*) into equipped_cnt from public.animals where owner_id = uid and equipped = true;
+  auto_equip := equipped_cnt < slots;
+
+  insert into public.animals(owner_id, species, equipped)
+    values (uid, p_species, auto_equip) returning * into new_animal;
+  return jsonb_build_object('coins', new_balance, 'animal', to_jsonb(new_animal));
+end $$;
+
+-- accept_trade_offer: gekaufte Tiere starten unequipped
+create or replace function public.accept_trade_offer(p_offer_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); offer public.trade_offers%rowtype; buyer_balance bigint;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select * into offer from public.trade_offers where id = p_offer_id for update;
+  if not found then raise exception 'offer not found'; end if;
+  if offer.status <> 'open' then raise exception 'offer not available'; end if;
+  if offer.seller_id = uid then raise exception 'cannot buy your own offer'; end if;
+  if offer.to_user is not null and offer.to_user <> uid then
+    raise exception 'offer is reserved for another player';
+  end if;
+  update public.profiles set coins = coins - offer.price
+    where id = uid and coins >= offer.price returning coins into buyer_balance;
+  if buyer_balance is null then raise exception 'insufficient coins'; end if;
+  update public.profiles set coins = coins + offer.price where id = offer.seller_id;
+  update public.animals set owner_id = uid, equipped = false where id = offer.animal_id;
+  update public.trade_offers set status = 'sold', closed_at = now() where id = offer.id;
+  insert into public.transactions(from_user, to_user, amount, kind, meta)
+    values (uid, offer.seller_id, offer.price, 'trade',
+            jsonb_build_object('animal_id', offer.animal_id, 'species', offer.species));
+  return jsonb_build_object('coins', buyer_balance);
+end $$;
+
+-- collect_offline: zählt nur equipped Tiere
+create or replace function public.collect_offline(p_coins bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); elapsed_sec float; max_rate bigint; max_earn bigint; new_balance bigint;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  if p_coins <= 0 then return jsonb_build_object('coins', (select coins from public.profiles where id = uid)); end if;
+  select extract(epoch from (now() - last_collected_at)) into elapsed_sec from public.profiles where id = uid;
+  elapsed_sec := least(elapsed_sec, 28800);
+  select coalesce(sum(sc.cost / 50), 0) into max_rate
+    from public.animals a join public.species_costs sc on sc.species = a.species
+    where a.owner_id = uid and a.equipped = true;
+  max_earn := ceil(max_rate * elapsed_sec);
+  p_coins := least(p_coins, (max_earn * 1.2)::bigint + 1);
+  update public.profiles set coins = coins + p_coins, last_collected_at = now()
+    where id = uid returning coins into new_balance;
+  return jsonb_build_object('coins', new_balance);
+end $$;

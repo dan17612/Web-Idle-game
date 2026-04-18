@@ -7,16 +7,25 @@ export const useGameStore = defineStore('game', {
   state: () => ({
     coins: 0,
     animals: [],
+    equipSlots: 1,
     lastCollected: null,
     loading: false,
     tickCoins: 0
   }),
   getters: {
     ratePerSec(state) {
-      return state.animals.reduce((sum, a) => sum + (speciesInfo(a.species).rate * (a.level || 1)), 0)
+      return state.animals
+        .filter(a => a.equipped)
+        .reduce((sum, a) => sum + speciesInfo(a.species).rate * (a.level || 1), 0)
     },
     displayCoins(state) {
       return state.coins + state.tickCoins
+    },
+    equippedCount(state) {
+      return state.animals.filter(a => a.equipped).length
+    },
+    freeSlots(state) {
+      return Math.max(0, state.equipSlots - state.animals.filter(a => a.equipped).length)
     }
   },
   actions: {
@@ -25,10 +34,11 @@ export const useGameStore = defineStore('game', {
       if (!auth.user) return
       this.loading = true
       const [{ data: p }, { data: animals }] = await Promise.all([
-        supabase.from('profiles').select('coins, last_collected_at').eq('id', auth.user.id).maybeSingle(),
+        supabase.from('profiles').select('coins, last_collected_at, equip_slots').eq('id', auth.user.id).maybeSingle(),
         supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at')
       ])
       this.coins = Number(p?.coins ?? 0)
+      this.equipSlots = Number(p?.equip_slots ?? 1)
       this.lastCollected = p?.last_collected_at ? new Date(p.last_collected_at) : new Date()
       this.animals = animals || []
       this.applyOffline()
@@ -48,21 +58,17 @@ export const useGameStore = defineStore('game', {
       if (!auth.user) return
       const pending = Math.floor(this.tickCoins)
       if (pending <= 0 && this.lastCollected && (Date.now() - this.lastCollected.getTime()) < 15000) return
-      const now = new Date()
       this.coins += pending
       this.tickCoins -= pending
-      this.lastCollected = now
-      await supabase.from('profiles').update({
-        coins: this.coins,
-        last_collected_at: now.toISOString()
-      }).eq('id', auth.user.id)
+      const { data, error } = await supabase.rpc('collect_offline', { p_coins: pending })
+      if (!error && data?.coins != null) this.coins = Number(data.coins)
+      this.lastCollected = new Date()
     },
     async buyAnimal(speciesKey) {
       const info = SPECIES[speciesKey]
       if (!info) throw new Error('Unbekannte Spezies')
       await this.persist()
-      if (this.coins < info.cost) throw new Error('Nicht genug Münzen')
-      const auth = useAuthStore()
+      if (this.displayCoins < info.cost) throw new Error('Nicht genug Münzen')
       const { data, error } = await supabase.rpc('buy_animal', {
         p_species: speciesKey,
         p_cost: info.cost
@@ -71,6 +77,27 @@ export const useGameStore = defineStore('game', {
       this.coins = Number(data?.coins ?? this.coins - info.cost)
       if (data?.animal) this.animals.push(data.animal)
       else await this.load()
+      return data
+    },
+    async equipAnimal(animalId) {
+      const { error } = await supabase.rpc('equip_animal', { p_animal_id: animalId })
+      if (error) throw error
+      const a = this.animals.find(x => x.id === animalId)
+      if (a) a.equipped = true
+    },
+    async unequipAnimal(animalId) {
+      await this.persist()
+      const { error } = await supabase.rpc('unequip_animal', { p_animal_id: animalId })
+      if (error) throw error
+      const a = this.animals.find(x => x.id === animalId)
+      if (a) a.equipped = false
+    },
+    async buyEquipSlot() {
+      await this.persist()
+      const { data, error } = await supabase.rpc('buy_equip_slot')
+      if (error) throw error
+      this.coins = Number(data?.coins ?? this.coins)
+      this.equipSlots = Number(data?.equip_slots ?? this.equipSlots)
       return data
     },
     async sendCoins(recipientUsername, amount) {

@@ -7,14 +7,14 @@ import { speciesInfo, formatCoins } from '../animals'
 const game = useGameStore()
 const auth = useAuthStore()
 
-const grouped = computed(() => {
-  const map = {}
-  for (const a of game.animals) {
-    const k = a.species
-    if (!map[k]) map[k] = { species: k, count: 0, info: speciesInfo(k) }
-    map[k].count++
-  }
-  return Object.values(map).sort((a, b) => a.info.cost - b.info.cost)
+const equipped = computed(() =>
+  game.animals.filter(a => a.equipped).map(a => ({ ...a, info: speciesInfo(a.species) }))
+)
+
+const slotCells = computed(() => {
+  const cells = []
+  for (let i = 0; i < game.equipSlots; i++) cells.push(equipped.value[i] || null)
+  return cells
 })
 
 const floats = ref([])
@@ -55,22 +55,54 @@ async function logout() {
       </div>
       <div class="tap-zone" @pointerdown="tap">🐾</div>
       <span v-for="f in floats" :key="f.id" class="float" :style="{ left: f.x+'px', top: f.y+'px' }">{{ f.v }}</span>
-      <p class="subtitle" style="margin:0">Tippe das Pfoten-Symbol für Bonus-Münzen.</p>
+      <p class="subtitle" style="margin:0">Tippe für einen Bonus in Höhe einer Sekunden-Produktion.</p>
     </div>
 
     <div class="card">
       <div class="row between">
-        <h2 class="title" style="margin:0;font-size:18px">Deine Tiere</h2>
-        <router-link to="/shop" class="badge">Shop öffnen →</router-link>
+        <h2 class="title" style="margin:0;font-size:18px">
+          🎯 Ausgerüstet
+          <span class="badge" style="margin-left:6px">{{ game.equippedCount }} / {{ game.equipSlots }}</span>
+        </h2>
+        <router-link to="/inventory" class="badge">Inventar →</router-link>
       </div>
-      <div v-if="!grouped.length" class="subtitle" style="margin-top:10px">Noch keine Tiere. Geh ins Shop und kauf dein erstes Küken!</div>
-      <div v-else class="grid" style="margin-top:10px">
-        <div v-for="g in grouped" :key="g.species" class="animal-card">
-          <div class="animal-emoji">{{ g.info.emoji }}</div>
-          <div class="animal-name">{{ g.info.name }}</div>
-          <div class="animal-meta">x{{ g.count }} · +{{ formatCoins(g.info.rate * g.count) }}/s</div>
+      <div class="slot-grid">
+        <div
+          v-for="(cell, i) in slotCells"
+          :key="i"
+          class="slot-cell"
+          :class="{ empty: !cell }"
+        >
+          <template v-if="cell">
+            <div class="animal-emoji">{{ cell.info.emoji }}</div>
+            <div class="animal-name">{{ cell.info.name }}</div>
+            <div class="animal-meta">+{{ formatCoins(cell.info.rate) }}/s</div>
+          </template>
+          <template v-else>
+            <div style="font-size:36px;opacity:0.4">＋</div>
+            <div class="animal-meta">Freier Slot</div>
+          </template>
         </div>
       </div>
+      <router-link to="/inventory" class="btn secondary full" style="margin-top:10px;text-align:center">
+        Tiere verwalten
+      </router-link>
     </div>
   </div>
 </template>
+
+<style scoped>
+.slot-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px; margin-top: 10px;
+}
+.slot-cell {
+  background: var(--card-2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 10px 6px; text-align: center; min-height: 110px;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+}
+.slot-cell.empty { border-style: dashed; color: var(--muted); }
+.slot-cell .animal-emoji { font-size: 34px; line-height: 1; }
+.slot-cell .animal-name { font-weight: 700; margin-top: 4px; font-size: 13px; }
+.slot-cell .animal-meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+</style>

@@ -70,8 +70,8 @@ input:focus { border-color: var(--accent); }
 
 .bottom-nav {
   position: sticky; bottom: 0;
-  display: grid; grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  gap: 2px;
   padding: 6px 8px calc(6px + var(--safe-bot));
   background: rgba(11, 18, 32, 0.92);
   backdrop-filter: blur(10px);
@@ -79,12 +79,15 @@ input:focus { border-color: var(--accent); }
 }
 .nav-item {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 8px 4px;
-  font-size: 11px;
+  padding: 6px 2px;
+  font-size: 10px;
   color: var(--muted);
   border-radius: 10px;
+  min-width: 0;
+  text-align: center;
 }
-.nav-item .ico { font-size: 22px; }
+.nav-item span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.nav-item .ico { font-size: 20px; }
 .nav-item.router-link-active { color: var(--accent); background: rgba(255, 209, 102, 0.08); }
 
 .card {

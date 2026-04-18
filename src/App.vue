@@ -10,7 +10,6 @@ const game = useGameStore()
 const route = useRoute()
 
 onMounted(async () => {
-  await auth.init()
   if (auth.isAuth) await game.load()
 
   let last = performance.now()
@@ -58,6 +57,9 @@ const showNav = computed(() => auth.isAuth && route.name !== 'login')
       </router-link>
       <router-link to="/send" class="nav-item">
         <span class="ico">💸</span><span>Senden</span>
+      </router-link>
+      <router-link to="/friends" class="nav-item">
+        <span class="ico">🤝</span><span>Freunde</span>
       </router-link>
       <router-link to="/leaderboard" class="nav-item">
         <span class="ico">🏆</span><span>Rang</span>

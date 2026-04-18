@@ -3,11 +3,13 @@ import { reactive, ref, onMounted } from 'vue'
 import { useGameStore } from '../stores/game'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
+import { useRoute } from 'vue-router'
 import { formatCoins } from '../animals'
 
 const game = useGameStore()
 const auth = useAuthStore()
-const form = reactive({ username: '', amount: 100 })
+const route = useRoute()
+const form = reactive({ username: route.query.to || '', amount: 100 })
 const msg = ref('')
 const error = ref('')
 const busy = ref(false)
