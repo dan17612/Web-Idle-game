@@ -740,3 +740,161 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 grant execute on function public.friend_remove(uuid) to authenticated;
+
+-- ====================================================================
+-- Inventar + Ausrüst-Slots (Migration: inventory_and_equip_slots)
+-- Nur ausgerüstete (equipped) Tiere produzieren Münzen.
+-- Slots kostet man nach stark steigender Formel, Start-Slot = 1.
+-- ====================================================================
+
+alter table public.animals  add column if not exists equipped boolean not null default false;
+create index if not exists animals_equipped_idx on public.animals(owner_id, equipped);
+alter table public.profiles add column if not exists equip_slots int not null default 1 check (equip_slots between 1 and 20);
+
+-- Migration bestehender Spieler: ältestes Tier pro User auto-equippen
+with firsts as (
+  select distinct on (owner_id) id, owner_id from public.animals order by owner_id, acquired_at asc
+)
+update public.animals a set equipped = true from firsts f
+  where a.id = f.id
+    and not exists (select 1 from public.animals x where x.owner_id = a.owner_id and x.equipped = true);
+
+create or replace function public._slot_cost(p_slot int)
+returns bigint language sql immutable as $$
+  select case
+    when p_slot <= 1 then 0
+    when p_slot = 2 then 2500
+    when p_slot = 3 then 15000
+    when p_slot = 4 then 80000
+    when p_slot = 5 then 400000
+    when p_slot = 6 then 2000000
+    when p_slot = 7 then 10000000
+    when p_slot = 8 then 50000000
+    when p_slot = 9 then 250000000
+    when p_slot = 10 then 1000000000
+    else null
+  end::bigint;
+$$;
+
+create or replace function public.equip_animal(p_animal_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); slots int; equipped_cnt int; animal public.animals%rowtype;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select * into animal from public.animals where id = p_animal_id and owner_id = uid;
+  if not found then raise exception 'animal not found'; end if;
+  if animal.equipped then return jsonb_build_object('ok', true); end if;
+  select equip_slots into slots from public.profiles where id = uid;
+  select count(*) into equipped_cnt from public.animals where owner_id = uid and equipped = true;
+  if equipped_cnt >= slots then raise exception 'no free equip slots'; end if;
+  update public.animals set equipped = true where id = p_animal_id;
+  return jsonb_build_object('ok', true);
+end $$;
+grant execute on function public.equip_animal(uuid) to authenticated;
+
+create or replace function public.unequip_animal(p_animal_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  update public.animals set equipped = false where id = p_animal_id and owner_id = uid;
+  if not found then raise exception 'animal not found'; end if;
+  return jsonb_build_object('ok', true);
+end $$;
+grant execute on function public.unequip_animal(uuid) to authenticated;
+
+create or replace function public.buy_equip_slot()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); slots int; cost bigint; new_balance bigint;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select equip_slots into slots from public.profiles where id = uid for update;
+  cost := public._slot_cost(slots + 1);
+  if cost is null then raise exception 'max slots reached'; end if;
+  update public.profiles set coins = coins - cost, equip_slots = equip_slots + 1
+    where id = uid and coins >= cost returning coins, equip_slots into new_balance, slots;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+  return jsonb_build_object('coins', new_balance, 'equip_slots', slots, 'cost', cost);
+end $$;
+grant execute on function public.buy_equip_slot() to authenticated;
+
+create or replace function public.get_next_slot_cost()
+returns jsonb language sql security definer set search_path = public as $$
+  select jsonb_build_object(
+    'current_slots', (select equip_slots from public.profiles where id = auth.uid()),
+    'next_slot',     (select equip_slots + 1 from public.profiles where id = auth.uid()),
+    'next_cost',     public._slot_cost((select equip_slots + 1 from public.profiles where id = auth.uid()))
+  );
+$$;
+grant execute on function public.get_next_slot_cost() to authenticated;
+
+-- buy_animal: Auto-Equip wenn freier Slot vorhanden
+create or replace function public.buy_animal(p_species text, p_cost bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid(); real_cost bigint; new_animal public.animals%rowtype;
+  new_balance bigint; state public.shop_state; slots int; equipped_cnt int; auto_equip boolean;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select cost into real_cost from public.species_costs where species = p_species;
+  if real_cost is null then raise exception 'unknown species'; end if;
+  state := public._rotate_if_needed();
+  if not (p_species = any(state.available_species)) then
+    raise exception 'species not in current shop rotation';
+  end if;
+  update public.profiles set coins = coins - real_cost
+    where id = uid and coins >= real_cost returning coins into new_balance;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+
+  select equip_slots into slots from public.profiles where id = uid;
+  select count(*) into equipped_cnt from public.animals where owner_id = uid and equipped = true;
+  auto_equip := equipped_cnt < slots;
+
+  insert into public.animals(owner_id, species, equipped)
+    values (uid, p_species, auto_equip) returning * into new_animal;
+  return jsonb_build_object('coins', new_balance, 'animal', to_jsonb(new_animal));
+end $$;
+
+-- accept_trade_offer: gekaufte Tiere starten unequipped
+create or replace function public.accept_trade_offer(p_offer_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); offer public.trade_offers%rowtype; buyer_balance bigint;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select * into offer from public.trade_offers where id = p_offer_id for update;
+  if not found then raise exception 'offer not found'; end if;
+  if offer.status <> 'open' then raise exception 'offer not available'; end if;
+  if offer.seller_id = uid then raise exception 'cannot buy your own offer'; end if;
+  if offer.to_user is not null and offer.to_user <> uid then
+    raise exception 'offer is reserved for another player';
+  end if;
+  update public.profiles set coins = coins - offer.price
+    where id = uid and coins >= offer.price returning coins into buyer_balance;
+  if buyer_balance is null then raise exception 'insufficient coins'; end if;
+  update public.profiles set coins = coins + offer.price where id = offer.seller_id;
+  update public.animals set owner_id = uid, equipped = false where id = offer.animal_id;
+  update public.trade_offers set status = 'sold', closed_at = now() where id = offer.id;
+  insert into public.transactions(from_user, to_user, amount, kind, meta)
+    values (uid, offer.seller_id, offer.price, 'trade',
+            jsonb_build_object('animal_id', offer.animal_id, 'species', offer.species));
+  return jsonb_build_object('coins', buyer_balance);
+end $$;
+
+-- collect_offline: zählt nur equipped Tiere
+create or replace function public.collect_offline(p_coins bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); elapsed_sec float; max_rate bigint; max_earn bigint; new_balance bigint;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  if p_coins <= 0 then return jsonb_build_object('coins', (select coins from public.profiles where id = uid)); end if;
+  select extract(epoch from (now() - last_collected_at)) into elapsed_sec from public.profiles where id = uid;
+  elapsed_sec := least(elapsed_sec, 28800);
+  select coalesce(sum(sc.cost / 50), 0) into max_rate
+    from public.animals a join public.species_costs sc on sc.species = a.species
+    where a.owner_id = uid and a.equipped = true;
+  max_earn := ceil(max_rate * elapsed_sec);
+  p_coins := least(p_coins, (max_earn * 1.2)::bigint + 1);
+  update public.profiles set coins = coins + p_coins, last_collected_at = now()
+    where id = uid returning coins into new_balance;
+  return jsonb_build_object('coins', new_balance);
+end $$;
