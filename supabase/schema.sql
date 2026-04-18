@@ -273,3 +273,116 @@ begin
 end $$;
 
 grant execute on function public.cancel_trade_offer(uuid) to authenticated;
+
+-- ====================================================================
+-- Shop Rotation & Admin Restock (Migration: shop_rotation)
+-- ====================================================================
+
+alter table public.profiles add column if not exists is_admin boolean not null default false;
+
+create table if not exists public.shop_state (
+  id int primary key default 1,
+  available_species text[] not null default '{}',
+  rotates_at timestamptz not null default now() + interval '4 hours',
+  updated_at timestamptz not null default now(),
+  constraint shop_state_single_row check (id = 1)
+);
+insert into public.shop_state (id) values (1) on conflict (id) do nothing;
+
+alter table public.shop_state enable row level security;
+drop policy if exists "shop_state public read" on public.shop_state;
+create policy "shop_state public read" on public.shop_state for select using (true);
+
+create or replace function public._rotate_shop_random(p_count int default 5)
+returns public.shop_state language plpgsql security definer set search_path = public as $$
+declare
+  picked text[];
+  result public.shop_state;
+begin
+  select array_agg(species) into picked
+  from (
+    select species from public.species_costs order by random() limit p_count
+  ) s;
+  update public.shop_state
+    set available_species = coalesce(picked, '{}'),
+        rotates_at = now() + interval '4 hours',
+        updated_at = now()
+    where id = 1
+    returning * into result;
+  return result;
+end $$;
+
+create or replace function public.get_shop()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare state public.shop_state;
+begin
+  select * into state from public.shop_state where id = 1;
+  if state.rotates_at <= now() or coalesce(array_length(state.available_species, 1), 0) = 0 then
+    state := public._rotate_shop_random(5);
+  end if;
+  return jsonb_build_object('available', state.available_species, 'rotates_at', state.rotates_at);
+end $$;
+grant execute on function public.get_shop() to anon, authenticated;
+
+create or replace function public.admin_restock(
+  p_species text[] default null,
+  p_count int default 5
+) returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  is_admin bool;
+  state public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select p.is_admin into is_admin from public.profiles p where p.id = uid;
+  if not coalesce(is_admin, false) then raise exception 'admin only'; end if;
+
+  if p_species is not null and array_length(p_species, 1) > 0 then
+    if exists (
+      select 1 from unnest(p_species) s
+      where not exists (select 1 from public.species_costs where species = s)
+    ) then raise exception 'unknown species in list'; end if;
+    update public.shop_state
+      set available_species = p_species,
+          rotates_at = now() + interval '4 hours',
+          updated_at = now()
+      where id = 1
+      returning * into state;
+  else
+    state := public._rotate_shop_random(greatest(1, coalesce(p_count, 5)));
+  end if;
+  return jsonb_build_object('available', state.available_species, 'rotates_at', state.rotates_at);
+end $$;
+grant execute on function public.admin_restock(text[], int) to authenticated;
+
+-- buy_animal: prüft jetzt auch die Shop-Rotation
+create or replace function public.buy_animal(p_species text, p_cost bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  real_cost bigint;
+  new_animal public.animals%rowtype;
+  new_balance bigint;
+  state public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select cost into real_cost from public.species_costs where species = p_species;
+  if real_cost is null then raise exception 'unknown species'; end if;
+
+  select * into state from public.shop_state where id = 1;
+  if state.rotates_at <= now() then state := public._rotate_shop_random(5); end if;
+  if not (p_species = any(state.available_species)) then
+    raise exception 'species not in current shop rotation';
+  end if;
+
+  update public.profiles
+    set coins = coins - real_cost
+    where id = uid and coins >= real_cost
+    returning coins into new_balance;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+
+  insert into public.animals(owner_id, species)
+    values (uid, p_species) returning * into new_animal;
+
+  return jsonb_build_object('coins', new_balance, 'animal', to_jsonb(new_animal));
+end $$;
