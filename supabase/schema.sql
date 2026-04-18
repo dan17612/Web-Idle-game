@@ -117,6 +117,8 @@ from public.trade_offers o
 join public.profiles ps on ps.id = o.seller_id
 left join public.profiles pt on pt.id = o.to_user;
 
+alter view public.trade_offers_with_names set (security_invoker = on);
+
 grant select on public.trade_offers_with_names to anon, authenticated;
 
 -- RPC: buy_animal --------------------------------------------------------
