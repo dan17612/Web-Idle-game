@@ -1106,3 +1106,136 @@ begin
   return jsonb_build_object('random_stock', state.random_stock, 'forced_stock', state.forced_stock, 'rotates_at', state.rotates_at);
 end $$;
 grant execute on function public.admin_force_rotation() to authenticated;
+
+-- ====================================================================
+-- Barter (Migration: trade_barter)
+-- Tausch Tier gegen Tier (optional mit Coin-Aufpreis).
+-- ====================================================================
+
+alter table public.trade_offers add column if not exists wanted_species text;
+alter table public.trade_offers drop constraint if exists trade_offers_price_check;
+alter table public.trade_offers
+  add constraint trade_offers_price_check
+  check (price >= 0 and (price > 0 or wanted_species is not null));
+
+-- wanted_species ans Ende anhängen (CREATE OR REPLACE VIEW darf Spalten nur am Ende ergänzen)
+drop view if exists public.trade_offers_with_names;
+create view public.trade_offers_with_names as
+select
+  o.id, o.seller_id, o.animal_id, o.species, o.price, o.status,
+  o.created_at, o.closed_at, o.to_user,
+  ps.username as seller_username,
+  pt.username as to_username,
+  o.wanted_species
+from public.trade_offers o
+join public.profiles ps on ps.id = o.seller_id
+left join public.profiles pt on pt.id = o.to_user;
+alter view public.trade_offers_with_names set (security_invoker = on);
+grant select on public.trade_offers_with_names to anon, authenticated;
+
+-- Alte Variante ablegen, neue Signatur mit p_wanted_species
+drop function if exists public.create_trade_offer(uuid, bigint, text);
+create or replace function public.create_trade_offer(
+  p_animal_id uuid,
+  p_price bigint,
+  p_to_username text,
+  p_wanted_species text default null
+) returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  animal public.animals%rowtype;
+  target uuid := null;
+  offer_id uuid;
+  want text := nullif(p_wanted_species, '');
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  if p_price < 0 then raise exception 'price cannot be negative'; end if;
+  if p_price = 0 and want is null then
+    raise exception 'price or wanted_species required';
+  end if;
+
+  select * into animal from public.animals where id = p_animal_id and owner_id = uid;
+  if not found then raise exception 'animal not found'; end if;
+
+  if want is not null
+     and not exists(select 1 from public.species_costs where species = want) then
+    raise exception 'unknown wanted species';
+  end if;
+
+  if exists (select 1 from public.trade_offers where animal_id = p_animal_id and status = 'open') then
+    raise exception 'animal is already listed';
+  end if;
+
+  if p_to_username is not null and p_to_username <> '' then
+    select id into target from public.profiles where username = p_to_username;
+    if target is null then raise exception 'recipient not found'; end if;
+    if target = uid then raise exception 'cannot target yourself'; end if;
+  end if;
+
+  insert into public.trade_offers(seller_id, animal_id, species, price, to_user, wanted_species)
+    values (uid, p_animal_id, animal.species, p_price, target, want)
+    returning id into offer_id;
+
+  return jsonb_build_object('offer_id', offer_id);
+end $$;
+grant execute on function public.create_trade_offer(uuid, bigint, text, text) to authenticated;
+
+-- accept_trade_offer: unterstützt Barter; tauscht Tiere atomar
+create or replace function public.accept_trade_offer(p_offer_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  offer public.trade_offers%rowtype;
+  buyer_balance bigint;
+  give_animal uuid;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+
+  select * into offer from public.trade_offers where id = p_offer_id for update;
+  if not found then raise exception 'offer not found'; end if;
+  if offer.status <> 'open' then raise exception 'offer not available'; end if;
+  if offer.seller_id = uid then raise exception 'cannot buy your own offer'; end if;
+  if offer.to_user is not null and offer.to_user <> uid then
+    raise exception 'offer is reserved for another player';
+  end if;
+
+  if offer.wanted_species is not null then
+    select id into give_animal from public.animals
+      where owner_id = uid and species = offer.wanted_species and equipped = false
+      order by acquired_at asc
+      limit 1
+      for update;
+    if give_animal is null then
+      raise exception 'you need a % to trade (unequipped)', offer.wanted_species;
+    end if;
+  end if;
+
+  if offer.price > 0 then
+    update public.profiles set coins = coins - offer.price
+      where id = uid and coins >= offer.price
+      returning coins into buyer_balance;
+    if buyer_balance is null then raise exception 'insufficient coins'; end if;
+    update public.profiles set coins = coins + offer.price where id = offer.seller_id;
+  else
+    select coins into buyer_balance from public.profiles where id = uid;
+  end if;
+
+  update public.animals set owner_id = uid, equipped = false where id = offer.animal_id;
+  if give_animal is not null then
+    update public.animals set owner_id = offer.seller_id, equipped = false where id = give_animal;
+  end if;
+  update public.trade_offers set status = 'sold', closed_at = now() where id = offer.id;
+
+  if offer.price > 0 then
+    insert into public.transactions(from_user, to_user, amount, kind, meta)
+      values (uid, offer.seller_id, offer.price, 'trade',
+              jsonb_build_object(
+                'animal_id', offer.animal_id,
+                'species', offer.species,
+                'given_species', offer.wanted_species,
+                'given_animal_id', give_animal));
+  end if;
+
+  return jsonb_build_object('coins', buyer_balance);
+end $$;
+grant execute on function public.accept_trade_offer(uuid) to authenticated;

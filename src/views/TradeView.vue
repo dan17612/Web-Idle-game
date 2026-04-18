@@ -1,262 +1,484 @@
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { useGameStore } from '../stores/game'
-import { speciesInfo, formatCoins, SPECIES } from '../animals'
+import { speciesInfo, formatCoins } from '../animals'
+import CoinInput from '../components/CoinInput.vue'
 
 const auth = useAuthStore()
 const game = useGameStore()
 
-const tab = ref('browse')
-const offers = ref([])
-const myOffers = ref([])
-const friendIds = ref(new Set())
+const tab = ref('new')
 const error = ref('')
 const success = ref('')
 const busy = ref(false)
 
-const form = reactive({
-  animalId: '',
-  price: 1000,
-  toUsername: ''
+const incoming = ref([])
+const outgoing = ref([])
+const history = ref([])
+
+// --- Partner + dessen Inventar
+const partnerUsername = ref('')
+const partnerProfile = ref(null)
+const partnerAnimals = ref([])
+const partnerSearching = ref(false)
+const partnerError = ref('')
+
+// --- Mein Angebot
+const offer = reactive({
+  myAnimals: new Set(),
+  myCoins: 0,
+  theirAnimals: new Set(),
+  theirCoins: 0,
+  note: ''
 })
+const mode = ref('trade')   // 'trade' | 'send'
+const sendForm = reactive({ username: '', amount: 0 })
+const pickerOpen = ref('') // 'mine' | 'theirs' | ''
 
-const filters = reactive({
-  species: '',        // '' = alle
-  minPrice: null,
-  maxPrice: null,
-  onlyFriends: false,
-  affordable: false,
-  sort: 'new'         // new | price_asc | price_desc
-})
+const myTradableAnimals = computed(() =>
+  game.animals.filter(a => !a.equipped).map(a => ({ ...a, info: speciesInfo(a.species) }))
+)
 
-const myAnimals = computed(() => game.animals.map(a => ({ ...a, info: speciesInfo(a.species) })))
-
-async function loadOffers() {
-  const [{ data: browse }, { data: mine }, { data: fr }] = await Promise.all([
-    supabase.from('trade_offers_with_names').select('*')
-      .eq('status', 'open').neq('seller_id', auth.user.id)
-      .order('created_at', { ascending: false }).limit(200),
-    supabase.from('trade_offers_with_names').select('*')
-      .eq('seller_id', auth.user.id)
-      .order('created_at', { ascending: false }).limit(50),
-    supabase.from('friends_view').select('friend_id, status').eq('status', 'accepted')
-  ])
-  offers.value = browse || []
-  myOffers.value = mine || []
-  friendIds.value = new Set((fr || []).map(f => f.friend_id))
+function toggleMine(id) {
+  if (offer.myAnimals.has(id)) offer.myAnimals.delete(id); else offer.myAnimals.add(id)
+}
+function toggleTheirs(id) {
+  if (offer.theirAnimals.has(id)) offer.theirAnimals.delete(id); else offer.theirAnimals.add(id)
 }
 
-const filteredOffers = computed(() => {
-  let list = offers.value.slice()
-
-  if (filters.species) list = list.filter(o => o.species === filters.species)
-  if (filters.minPrice != null && filters.minPrice !== '') {
-    const min = Number(filters.minPrice)
-    if (!isNaN(min)) list = list.filter(o => Number(o.price) >= min)
+async function lookupPartner() {
+  partnerError.value = ''
+  partnerProfile.value = null
+  partnerAnimals.value = []
+  offer.theirAnimals.clear()
+  const name = partnerUsername.value.trim()
+  if (!name) return
+  partnerSearching.value = true
+  try {
+    const { data: p } = await supabase.from('profiles')
+      .select('id, username, coins').eq('username', name).maybeSingle()
+    if (!p) { partnerError.value = 'Nicht gefunden'; return }
+    if (p.id === auth.user.id) { partnerError.value = 'Das bist du selbst'; return }
+    partnerProfile.value = p
+    const { data: animals } = await supabase.from('animals')
+      .select('id, species, equipped').eq('owner_id', p.id).eq('equipped', false)
+      .order('acquired_at')
+    partnerAnimals.value = (animals || []).map(a => ({ ...a, info: speciesInfo(a.species) }))
+  } finally {
+    partnerSearching.value = false
   }
-  if (filters.maxPrice != null && filters.maxPrice !== '') {
-    const max = Number(filters.maxPrice)
-    if (!isNaN(max)) list = list.filter(o => Number(o.price) <= max)
-  }
-  if (filters.onlyFriends) list = list.filter(o => friendIds.value.has(o.seller_id))
-  if (filters.affordable) list = list.filter(o => Number(o.price) <= game.displayCoins)
-
-  if (filters.sort === 'price_asc')  list.sort((a, b) => Number(a.price) - Number(b.price))
-  else if (filters.sort === 'price_desc') list.sort((a, b) => Number(b.price) - Number(a.price))
-  else list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-
-  return list
-})
-
-function resetFilters() {
-  filters.species = ''
-  filters.minPrice = null
-  filters.maxPrice = null
-  filters.onlyFriends = false
-  filters.affordable = false
-  filters.sort = 'new'
 }
 
-onMounted(async () => {
-  await game.load()
-  await loadOffers()
+let partnerTimer
+watch(partnerUsername, () => {
+  clearTimeout(partnerTimer)
+  partnerTimer = setTimeout(lookupPartner, 400)
 })
 
-async function createOffer() {
+function resetForm() {
+  offer.myAnimals.clear()
+  offer.theirAnimals.clear()
+  offer.myCoins = 0
+  offer.theirCoins = 0
+  offer.note = ''
+  partnerUsername.value = ''
+  partnerProfile.value = null
+  partnerAnimals.value = []
+}
+
+async function propose() {
   error.value = ''; success.value = ''
+  if (!partnerProfile.value) { error.value = 'Partner wählen'; return }
+  const reqAnimals = [...offer.myAnimals]
+  const addAnimals = [...offer.theirAnimals]
+  const reqCoins = Math.max(0, Math.floor(Number(offer.myCoins) || 0))
+  const addCoins = Math.max(0, Math.floor(Number(offer.theirCoins) || 0))
+  if (reqAnimals.length + addAnimals.length + reqCoins + addCoins === 0) {
+    error.value = 'Trade ist leer'; return
+  }
+  if (reqCoins > game.displayCoins) { error.value = 'Nicht genug Münzen'; return }
+
   busy.value = true
   try {
-    if (!form.animalId) throw new Error('Wähle ein Tier')
-    const { error: e } = await supabase.rpc('create_trade_offer', {
-      p_animal_id: form.animalId,
-      p_price: Math.floor(form.price),
-      p_to_username: form.toUsername?.trim() || null
+    await game.persist()
+    const { error: e } = await supabase.rpc('propose_trade', {
+      p_addressee: partnerProfile.value.username,
+      p_requester_animals: reqAnimals,
+      p_requester_coins: reqCoins,
+      p_addressee_animals: addAnimals,
+      p_addressee_coins: addCoins,
+      p_note: offer.note || null
     })
     if (e) throw e
-    success.value = 'Angebot erstellt!'
-    form.animalId = ''
-    await game.load()
-    await loadOffers()
-  } catch (e) { error.value = e.message } finally { busy.value = false }
+    success.value = 'Trade-Anfrage gesendet!'
+    resetForm()
+    tab.value = 'out'
+    await loadTrades()
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    busy.value = false
+  }
 }
 
-async function buyOffer(id) {
+async function sendGift() {
+  error.value = ''; success.value = ''
+  if (!sendForm.username.trim() || !sendForm.amount || sendForm.amount < 1) {
+    error.value = 'Empfänger + Betrag angeben'; return
+  }
+  busy.value = true
+  try {
+    await game.sendCoins(sendForm.username.trim(), sendForm.amount)
+    success.value = `${formatCoins(sendForm.amount)} 🪙 gesendet`
+    sendForm.username = ''
+    sendForm.amount = 0
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    busy.value = false
+  }
+}
+
+async function act(id, action) {
   error.value = ''; success.value = ''
   busy.value = true
   try {
     await game.persist()
-    const { error: e } = await supabase.rpc('accept_trade_offer', { p_offer_id: id })
+    const { error: e } = await supabase.rpc(action, { p_trade_id: id })
     if (e) throw e
-    success.value = 'Gekauft!'
-    await game.load()
-    await loadOffers()
-  } catch (e) { error.value = e.message } finally { busy.value = false }
+    success.value = action === 'accept_trade' ? 'Angenommen!'
+      : action === 'decline_trade' ? 'Abgelehnt'
+      : 'Zurückgezogen'
+    await Promise.all([loadTrades(), game.load()])
+  } catch (e) { error.value = e.message }
+  finally { busy.value = false; setTimeout(() => success.value = '', 2500) }
 }
 
-async function cancelOffer(id) {
-  error.value = ''; success.value = ''
-  busy.value = true
-  try {
-    const { error: e } = await supabase.rpc('cancel_trade_offer', { p_offer_id: id })
-    if (e) throw e
-    success.value = 'Angebot zurückgezogen.'
-    await game.load()
-    await loadOffers()
-  } catch (e) { error.value = e.message } finally { busy.value = false }
+async function loadTrades() {
+  const [{ data: inc }, { data: out }, { data: hist }] = await Promise.all([
+    supabase.from('trades_view').select('*')
+      .eq('addressee_id', auth.user.id).eq('status','pending')
+      .order('created_at', { ascending: false }),
+    supabase.from('trades_view').select('*')
+      .eq('requester_id', auth.user.id).eq('status','pending')
+      .order('created_at', { ascending: false }),
+    supabase.from('trades_view').select('*')
+      .or(`requester_id.eq.${auth.user.id},addressee_id.eq.${auth.user.id}`)
+      .neq('status','pending')
+      .order('closed_at', { ascending: false, nullsFirst: false })
+      .limit(30)
+  ])
+  incoming.value = inc || []
+  outgoing.value = out || []
+  history.value = hist || []
+}
+
+// --- Realtime
+let channel
+onMounted(async () => {
+  await game.load()
+  await loadTrades()
+  channel = supabase.channel('trades-' + auth.user.id)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'trades',
+      filter: `requester_id=eq.${auth.user.id}`
+    }, async () => { await loadTrades() })
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'trades',
+      filter: `addressee_id=eq.${auth.user.id}`
+    }, async () => { await loadTrades() })
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'profiles',
+      filter: `id=eq.${auth.user.id}`
+    }, (payload) => {
+      if (payload.new?.coins != null) game.coins = Number(payload.new.coins)
+    })
+    .subscribe()
+})
+onUnmounted(() => { if (channel) supabase.removeChannel(channel) })
+
+function summarize(t) {
+  const reqChips = (t.requester_animal_details || []).map(a => speciesInfo(a.species).emoji).join('')
+  const addChips = (t.addressee_animal_details || []).map(a => speciesInfo(a.species).emoji).join('')
+  return { reqChips, addChips }
 }
 </script>
 
 <template>
-  <h1 class="title">🔄 Marktplatz</h1>
+  <h1 class="title">🔄 Trade &amp; Senden</h1>
 
   <div class="tabs">
-    <button :class="{ active: tab==='browse' }" @click="tab='browse'">Angebote</button>
-    <button :class="{ active: tab==='create' }" @click="tab='create'">Verkaufen</button>
-    <button :class="{ active: tab==='mine' }" @click="tab='mine'">Meine</button>
+    <button :class="{ active: tab==='new' }" @click="tab='new'">➕ Neu</button>
+    <button :class="{ active: tab==='in' }" @click="tab='in'">
+      📥 Eingang<span v-if="incoming.length" class="pill">{{ incoming.length }}</span>
+    </button>
+    <button :class="{ active: tab==='out' }" @click="tab='out'">
+      📤 Ausgang<span v-if="outgoing.length" class="pill">{{ outgoing.length }}</span>
+    </button>
+    <button :class="{ active: tab==='hist' }" @click="tab='hist'">🗂️</button>
   </div>
 
   <p v-if="error" class="error">{{ error }}</p>
   <p v-if="success" class="success">{{ success }}</p>
 
-  <template v-if="tab==='browse'">
-    <div class="card filters">
-      <div class="filter-row">
-        <label class="filter">
-          <span class="lbl">Tier</span>
-          <select v-model="filters.species">
-            <option value="">Alle</option>
-            <option v-for="(info, key) in SPECIES" :key="key" :value="key">
-              {{ info.emoji }} {{ info.name }}
-            </option>
-          </select>
-        </label>
-        <label class="filter">
-          <span class="lbl">Sortieren</span>
-          <select v-model="filters.sort">
-            <option value="new">Neueste zuerst</option>
-            <option value="price_asc">Preis aufsteigend</option>
-            <option value="price_desc">Preis absteigend</option>
-          </select>
-        </label>
-      </div>
-      <div class="filter-row">
-        <label class="filter">
-          <span class="lbl">Preis von</span>
-          <input type="number" min="0" v-model.number="filters.minPrice" placeholder="0" />
-        </label>
-        <label class="filter">
-          <span class="lbl">bis</span>
-          <input type="number" min="0" v-model.number="filters.maxPrice" placeholder="∞" />
-        </label>
-      </div>
-      <div class="filter-chips">
-        <label class="chip" :class="{ active: filters.onlyFriends }">
-          <input type="checkbox" v-model="filters.onlyFriends" hidden />
-          🤝 Nur Freunde
-        </label>
-        <label class="chip" :class="{ active: filters.affordable }">
-          <input type="checkbox" v-model="filters.affordable" hidden />
-          💰 Bezahlbar
-        </label>
-        <button class="chip reset" @click="resetFilters">↺ Zurücksetzen</button>
-      </div>
+  <!-- NEU -->
+  <template v-if="tab === 'new'">
+    <div class="tabs small" style="margin-bottom:10px">
+      <button :class="{ active: mode==='trade' }" @click="mode='trade'">🔄 Tausch</button>
+      <button :class="{ active: mode==='send' }" @click="mode='send'">💸 Senden</button>
     </div>
 
-    <div class="card">
-      <div v-if="!offers.length" class="subtitle">Aktuell keine Angebote. Sei der Erste!</div>
-      <div v-else-if="!filteredOffers.length" class="subtitle">
-        Keine Angebote passen zu den Filtern.
-      </div>
-      <div v-else>
-        <div class="subtitle" style="margin-bottom:6px">
-          {{ filteredOffers.length }} Angebot{{ filteredOffers.length === 1 ? '' : 'e' }}
-        </div>
-        <div v-for="o in filteredOffers" :key="o.id" class="list-item">
-          <div class="left">{{ speciesInfo(o.species).emoji }}</div>
-          <div class="body">
-            <div class="title-sm">
-              {{ speciesInfo(o.species).name }}
-              <span v-if="friendIds.has(o.seller_id)" class="badge" style="margin-left:4px">🤝 Freund</span>
-            </div>
-            <div class="sub">von {{ o.seller_username }} · 🪙 {{ formatCoins(o.price) }}</div>
+    <!-- SENDEN -->
+    <div v-if="mode === 'send'" class="card stack">
+      <div class="subtitle" style="margin:0">Einseitige Münz-Überweisung, kein Einverständnis nötig.</div>
+      <input v-model="sendForm.username" placeholder="Empfänger-Username" />
+      <CoinInput v-model="sendForm.amount" placeholder="Betrag (z.B. 10M)" />
+      <button class="btn full" :disabled="busy || !sendForm.username || !sendForm.amount" @click="sendGift">
+        {{ busy ? '...' : 'Senden' }}
+      </button>
+    </div>
+
+    <!-- TAUSCH -->
+    <div v-else>
+      <div class="card stack">
+        <label class="subtitle" style="margin:0">Handelspartner</label>
+        <input v-model="partnerUsername" placeholder="Username" autocomplete="off" />
+        <div v-if="partnerSearching" class="subtitle">Suche…</div>
+        <div v-else-if="partnerError" class="error">{{ partnerError }}</div>
+        <div v-else-if="partnerProfile" class="partner-card">
+          <span style="font-size:20px">👤</span>
+          <div style="flex:1">
+            <div style="font-weight:700">{{ partnerProfile.username }}</div>
+            <div class="subtitle" style="margin:0">🪙 {{ formatCoins(partnerProfile.coins) }} · {{ partnerAnimals.length }} tauschbare Tiere</div>
           </div>
-          <button class="btn" :disabled="busy || game.displayCoins < o.price" @click="buyOffer(o.id)">Kaufen</button>
         </div>
+      </div>
+
+      <div v-if="partnerProfile" class="trade-box">
+        <!-- Ich gebe -->
+        <div class="side">
+          <div class="side-title">
+            <span class="who">{{ auth.profile?.username }}</span>
+            <span class="arrow">→</span>
+          </div>
+          <div class="slots">
+            <div v-for="id in offer.myAnimals" :key="id" class="chip-anim"
+                 @click="toggleMine(id)">
+              <span>{{ speciesInfo(myTradableAnimals.find(a=>a.id===id)?.species).emoji }}</span>
+              <span class="x">×</span>
+            </div>
+            <button class="chip-add" @click="pickerOpen = pickerOpen==='mine'?'':'mine'">＋ Tier</button>
+          </div>
+          <CoinInput v-model="offer.myCoins" placeholder="Münzen (optional)" />
+
+          <div v-if="pickerOpen==='mine'" class="picker">
+            <div v-if="!myTradableAnimals.length" class="subtitle">Keine tauschbaren Tiere. Rüste sie zuerst ab.</div>
+            <div v-else class="picker-grid">
+              <div v-for="a in myTradableAnimals" :key="a.id" class="pick" :class="{ active: offer.myAnimals.has(a.id) }" @click="toggleMine(a.id)">
+                <div class="pick-emoji">{{ a.info.emoji }}</div>
+                <div class="pick-name">{{ a.info.name }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="vs">⇅</div>
+
+        <!-- Ich will -->
+        <div class="side">
+          <div class="side-title">
+            <span class="arrow">←</span>
+            <span class="who">{{ partnerProfile.username }}</span>
+          </div>
+          <div class="slots">
+            <div v-for="id in offer.theirAnimals" :key="id" class="chip-anim"
+                 @click="toggleTheirs(id)">
+              <span>{{ speciesInfo(partnerAnimals.find(a=>a.id===id)?.species).emoji }}</span>
+              <span class="x">×</span>
+            </div>
+            <button class="chip-add" @click="pickerOpen = pickerOpen==='theirs'?'':'theirs'">＋ Tier</button>
+          </div>
+          <CoinInput v-model="offer.theirCoins" placeholder="Münzen (optional)" />
+
+          <div v-if="pickerOpen==='theirs'" class="picker">
+            <div v-if="!partnerAnimals.length" class="subtitle">Dieser Spieler hat keine tauschbaren Tiere.</div>
+            <div v-else class="picker-grid">
+              <div v-for="a in partnerAnimals" :key="a.id" class="pick" :class="{ active: offer.theirAnimals.has(a.id) }" @click="toggleTheirs(a.id)">
+                <div class="pick-emoji">{{ a.info.emoji }}</div>
+                <div class="pick-name">{{ a.info.name }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="partnerProfile" class="card stack">
+        <input v-model="offer.note" maxlength="200" placeholder="Notiz (optional)" />
+        <button class="btn full" :disabled="busy" @click="propose">
+          {{ busy ? '...' : 'Trade-Anfrage senden' }}
+        </button>
       </div>
     </div>
   </template>
 
-  <div v-if="tab==='create'" class="card stack">
-    <div v-if="!myAnimals.length" class="subtitle">Du hast noch keine Tiere zum Verkaufen.</div>
-    <template v-else>
-      <label class="subtitle">Tier</label>
-      <select v-model="form.animalId">
-        <option value="">— wählen —</option>
-        <option v-for="a in myAnimals" :key="a.id" :value="a.id">
-          {{ a.info.emoji }} {{ a.info.name }}
-        </option>
-      </select>
-      <label class="subtitle">Preis (🪙)</label>
-      <input v-model.number="form.price" type="number" min="1" />
-      <label class="subtitle">Nur an Spieler (optional)</label>
-      <input v-model="form.toUsername" placeholder="Username oder leer = offen" />
-      <button class="btn full" :disabled="busy" @click="createOffer">Anbieten</button>
-    </template>
-  </div>
-
-  <div v-if="tab==='mine'" class="card">
-    <div v-if="!myOffers.length" class="subtitle">Keine eigenen Angebote.</div>
-    <div v-for="o in myOffers" :key="o.id" class="list-item">
-      <div class="left">{{ speciesInfo(o.species).emoji }}</div>
-      <div class="body">
-        <div class="title-sm">{{ speciesInfo(o.species).name }} · 🪙 {{ formatCoins(o.price) }}</div>
-        <div class="sub">
-          Status: <span class="badge">{{ o.status }}</span>
-          <template v-if="o.to_username"> · nur an {{ o.to_username }}</template>
+  <!-- EINGANG -->
+  <template v-if="tab === 'in'">
+    <div v-if="!incoming.length" class="card subtitle">Keine offenen Anfragen.</div>
+    <div v-for="t in incoming" :key="t.id" class="trade-row card">
+      <div class="row between">
+        <div style="font-weight:700">Von {{ t.requester_username }}</div>
+        <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString('de-DE') }}</span>
+      </div>
+      <div class="row sides-mini">
+        <div class="side-mini">
+          <div class="mini-label">Du bekommst</div>
+          <div class="mini-row">
+            <span v-for="a in t.requester_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
+            <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">nichts</span>
+          </div>
+        </div>
+        <div class="arrow-mini">⇄</div>
+        <div class="side-mini">
+          <div class="mini-label">Du gibst</div>
+          <div class="mini-row">
+            <span v-for="a in t.addressee_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
+            <span v-if="!t.addressee_animal_details.length && Number(t.addressee_coins) === 0" class="subtitle">nichts</span>
+          </div>
         </div>
       </div>
-      <button v-if="o.status==='open'" class="btn danger" :disabled="busy" @click="cancelOffer(o.id)">×</button>
+      <div v-if="t.note" class="subtitle" style="margin:4px 0 0">„{{ t.note }}"</div>
+      <div class="row" style="gap:6px;margin-top:8px">
+        <button class="btn" :disabled="busy" @click="act(t.id, 'accept_trade')">✓ Annehmen</button>
+        <button class="btn secondary" :disabled="busy" @click="act(t.id, 'decline_trade')">✗ Ablehnen</button>
+      </div>
     </div>
-  </div>
+  </template>
+
+  <!-- AUSGANG -->
+  <template v-if="tab === 'out'">
+    <div v-if="!outgoing.length" class="card subtitle">Keine gesendeten Anfragen offen.</div>
+    <div v-for="t in outgoing" :key="t.id" class="trade-row card">
+      <div class="row between">
+        <div style="font-weight:700">An {{ t.addressee_username }}</div>
+        <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString('de-DE') }}</span>
+      </div>
+      <div class="row sides-mini">
+        <div class="side-mini">
+          <div class="mini-label">Du gibst</div>
+          <div class="mini-row">
+            <span v-for="a in t.requester_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
+          </div>
+        </div>
+        <div class="arrow-mini">⇄</div>
+        <div class="side-mini">
+          <div class="mini-label">Du bekommst</div>
+          <div class="mini-row">
+            <span v-for="a in t.addressee_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn danger" :disabled="busy" @click="act(t.id, 'cancel_trade')" style="margin-top:8px">Zurückziehen</button>
+    </div>
+  </template>
+
+  <!-- HISTORIE -->
+  <template v-if="tab === 'hist'">
+    <div v-if="!history.length" class="card subtitle">Noch keine abgeschlossenen Trades.</div>
+    <div v-for="t in history" :key="t.id" class="trade-row card" :class="'status-' + t.status">
+      <div class="row between">
+        <div style="font-weight:700">
+          <template v-if="t.requester_id === auth.user.id">An {{ t.addressee_username }}</template>
+          <template v-else>Von {{ t.requester_username }}</template>
+          · <span class="badge">{{ t.status }}</span>
+        </div>
+        <span class="subtitle" style="margin:0">{{ new Date(t.closed_at || t.created_at).toLocaleString('de-DE') }}</span>
+      </div>
+      <div class="row sides-mini">
+        <div class="side-mini">
+          <div class="mini-row">
+            <span v-for="a in t.requester_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
+          </div>
+        </div>
+        <div class="arrow-mini">⇄</div>
+        <div class="side-mini">
+          <div class="mini-row">
+            <span v-for="a in t.addressee_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
 </template>
 
 <style scoped>
-.filters { padding: 10px 12px; }
-.filter-row {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-  margin-bottom: 8px;
+.tabs.small button { padding: 6px 10px; font-size: 13px; }
+.pill { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px; background:var(--danger); color:#fff; font-size:10px; font-weight:800; }
+.partner-card { display:flex; gap:10px; align-items:center; padding:8px; background:var(--card-2); border-radius:10px; }
+
+/* Trade-Box */
+.trade-box {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  gap: 6px; align-items: stretch;
+  margin-bottom: 12px;
 }
-.filter { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.filter .lbl { font-size: 11px; color: var(--muted); }
-.filter select, .filter input { padding: 8px 10px; font-size: 14px; }
-.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-.chip {
-  padding: 6px 12px; border-radius: 999px; font-size: 12px;
-  background: var(--card-2); border: 1px solid var(--border);
-  color: var(--muted); cursor: pointer;
+.side {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px; min-width: 0;
+  display: flex; flex-direction: column; gap: 8px;
 }
-.chip.active { background: rgba(255,209,102,0.15); border-color: var(--accent); color: var(--accent); }
-.chip.reset { color: var(--muted); }
+.side-title { display:flex; align-items:center; gap:6px; font-weight:700; font-size:13px; }
+.side-title .who { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.side-title .arrow { color:var(--accent); font-size:18px; }
+.vs {
+  display:flex; align-items:center; justify-content:center;
+  font-size: 22px; color: var(--accent); font-weight: 800;
+}
+.slots {
+  display:flex; flex-wrap:wrap; gap:6px; min-height:52px;
+  background: var(--card-2); border-radius: 10px; padding: 8px;
+}
+.chip-anim {
+  display:inline-flex; align-items:center; gap:4px;
+  background: rgba(255,209,102,0.1); border:1px solid var(--accent);
+  color: var(--accent); padding: 6px 8px; border-radius: 10px;
+  font-size: 20px; cursor: pointer;
+}
+.chip-anim .x { font-size: 12px; opacity: 0.6; }
+.chip-add {
+  background: transparent; border: 1px dashed var(--border);
+  color: var(--muted); padding: 6px 10px; border-radius: 10px;
+  font-size: 12px; cursor: pointer;
+}
+.picker {
+  margin-top: 4px; background: var(--card-2); border-radius: 10px; padding: 8px;
+  max-height: 220px; overflow: auto;
+}
+.picker-grid {
+  display:grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap:6px;
+}
+.pick {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 6px 4px; text-align: center; cursor: pointer;
+}
+.pick.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.pick-emoji { font-size: 22px; line-height: 1; }
+.pick-name { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* Mini-Zeilen (Eingang/Ausgang/History) */
+.sides-mini { display:flex; align-items:center; gap:6px; margin-top:6px; }
+.side-mini { flex:1; min-width:0; background: var(--card-2); border-radius: 10px; padding: 6px 8px; }
+.mini-label { font-size:10px; color: var(--muted); }
+.mini-row { display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size: 20px; }
+.mini-row .coins { font-size: 13px; color: var(--accent); font-weight: 700; }
+.arrow-mini { font-size: 16px; color: var(--accent); font-weight: 800; }
+.status-accepted .badge { background: rgba(6,214,160,0.15); color: var(--accent-2); }
+.status-declined .badge, .status-cancelled .badge { background: rgba(239,71,111,0.15); color: var(--danger); }
 </style>

@@ -5,6 +5,7 @@ import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { useRoute } from 'vue-router'
 import { formatCoins } from '../animals'
+import CoinInput from '../components/CoinInput.vue'
 
 const game = useGameStore()
 const auth = useAuthStore()
@@ -51,8 +52,8 @@ async function send() {
 
   <form class="card stack" @submit.prevent="send">
     <input v-model="form.username" placeholder="Empfänger-Username" required />
-    <input v-model.number="form.amount" type="number" min="1" step="1" placeholder="Betrag" required />
-    <button class="btn full" :disabled="busy || !form.username || form.amount < 1">
+    <CoinInput v-model="form.amount" placeholder="Betrag (z.B. 10M)" required />
+    <button class="btn full" :disabled="busy || !form.username || !form.amount || form.amount < 1">
       {{ busy ? '...' : 'Senden' }}
     </button>
     <p v-if="error" class="error">{{ error }}</p>

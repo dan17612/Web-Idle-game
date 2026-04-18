@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { supabase } from '../supabase'
+import { supabase, AUTH_REDIRECT_URL } from '../supabase'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -33,18 +33,32 @@ export const useAuthStore = defineStore('auth', {
       if (error) console.error(error)
       this.profile = data
     },
-    async signUp(email, password, username) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { username } }
-      })
+    async sendMagicLink(email, username) {
+      const options = { emailRedirectTo: AUTH_REDIRECT_URL }
+      if (username) {
+        options.shouldCreateUser = true
+        options.data = { username }
+      }
+      const { error } = await supabase.auth.signInWithOtp({ email, options })
       if (error) throw error
+    },
+    async updateEmail(newEmail) {
+      const { error } = await supabase.auth.updateUser(
+        { email: newEmail },
+        { emailRedirectTo: AUTH_REDIRECT_URL }
+      )
+      if (error) throw error
+    },
+    async changeUsername(newName) {
+      const { data, error } = await supabase.rpc('change_username', { p_new: newName })
+      if (error) throw error
+      if (this.profile) this.profile.username = data?.username || newName
       return data
     },
-    async signIn(email, password) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+    async sendBroadcast(message) {
+      const { data, error } = await supabase.rpc('admin_broadcast', { p_message: message })
       if (error) throw error
+      return data
     },
     async signOut() {
       await supabase.auth.signOut()

@@ -24,3 +24,26 @@ export function formatCoins(n) {
   while (v >= 1000 && i < units.length - 1) { v /= 1000; i++ }
   return v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0) + units[i]
 }
+
+// Parst Eingaben wie "10m", "1.5B", "100k", "1,5M", "2500" → ganze Zahl.
+// Liefert null bei ungültiger Eingabe, 0 bei leerem String.
+export function parseCoinInput(input) {
+  if (input == null) return null
+  let s = String(input).trim().toLowerCase().replace(/\s|_/g, '')
+  if (!s) return 0
+  s = s.replace(',', '.')
+  // Tausender-Punkte nur akzeptieren, wenn keine Dezimalstelle gemeint ist:
+  // "1.000" ohne Suffix → 1000; "1.5m" → 1.5 * 1e6.
+  const m = s.match(/^(\d+(?:\.\d+)?)([kmbt]?)$/)
+  if (!m) {
+    // Versuch mit Tausenderpunkten: "1.000.000"
+    const alt = s.match(/^(\d{1,3}(?:\.\d{3})+)$/)
+    if (!alt) return null
+    const n = parseInt(alt[1].replace(/\./g, ''), 10)
+    return isFinite(n) ? n : null
+  }
+  const mult = { '': 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12 }[m[2]]
+  const n = parseFloat(m[1]) * mult
+  if (!isFinite(n) || n < 0) return null
+  return Math.floor(n)
+}

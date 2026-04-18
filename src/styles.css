@@ -26,8 +26,9 @@ body {
 }
 button { font: inherit; color: inherit; }
 a { color: var(--accent); text-decoration: none; }
-input, button, select {
+input, button, select, textarea {
   font: inherit;
+  font-size: 16px; /* iOS: < 16px triggers Zoom-on-Focus */
   color: var(--text);
   background: var(--card);
   border: 1px solid var(--border);
@@ -64,6 +65,14 @@ input:focus { border-color: var(--accent); }
 }
 .balance .coin { font-size: 16px; }
 .balance .amount { color: var(--accent); }
+.top-right { display: inline-flex; align-items: center; gap: 8px; }
+.settings-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 999px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  text-decoration: none; font-size: 18px;
+}
+.settings-link:hover { background: rgba(255,255,255,0.12); }
 
 .content { flex: 1; padding: 14px 14px 90px; }
 .content.no-nav { padding-bottom: 14px; }
