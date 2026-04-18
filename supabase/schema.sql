@@ -613,3 +613,43 @@ begin
   return jsonb_build_object('species', p_species, 'weight', p_weight);
 end $$;
 grant execute on function public.admin_set_species_weight(text, int) to authenticated;
+
+-- ====================================================================
+-- Fix (Migration: fix_buy_animal_array_comparison)
+-- Vorherige Version verglich text mit text[] in einer OR-Klausel, was
+-- in Postgres nicht erlaubt ist. Sauber umgeschrieben: Preis immer aus
+-- species_costs holen, Verfügbarkeit über _rotate_if_needed() prüfen
+-- (available_species enthält bereits die forced_species).
+-- ====================================================================
+
+create or replace function public.buy_animal(p_species text, p_cost bigint)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  uid         uuid := auth.uid();
+  real_cost   bigint;
+  new_animal  public.animals%rowtype;
+  new_balance bigint;
+  state       public.shop_state;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+
+  select cost into real_cost from public.species_costs where species = p_species;
+  if real_cost is null then raise exception 'unknown species'; end if;
+
+  state := public._rotate_if_needed();
+  if not (p_species = any(state.available_species)) then
+    raise exception 'species not in current shop rotation';
+  end if;
+
+  update public.profiles
+    set coins = coins - real_cost
+    where id = uid and coins >= real_cost
+    returning coins into new_balance;
+  if new_balance is null then raise exception 'insufficient coins'; end if;
+
+  insert into public.animals(owner_id, species)
+    values (uid, p_species)
+    returning * into new_animal;
+
+  return jsonb_build_object('coins', new_balance, 'animal', to_jsonb(new_animal));
+end $$;
