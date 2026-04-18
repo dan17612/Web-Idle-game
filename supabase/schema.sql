@@ -653,3 +653,90 @@ begin
 
   return jsonb_build_object('coins', new_balance, 'animal', to_jsonb(new_animal));
 end $$;
+
+-- ====================================================================
+-- Freundes-System (Migration: friends_system)
+-- ====================================================================
+
+create table if not exists public.friendships (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references public.profiles(id) on delete cascade,
+  addressee_id uuid not null references public.profiles(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending','accepted','declined')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  constraint friendship_pair_unique unique (requester_id, addressee_id),
+  constraint friendship_not_self check (requester_id <> addressee_id)
+);
+create index if not exists friendships_req_idx on public.friendships(requester_id);
+create index if not exists friendships_add_idx on public.friendships(addressee_id);
+
+alter table public.friendships enable row level security;
+drop policy if exists "friends self read" on public.friendships;
+create policy "friends self read" on public.friendships for select
+  using (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+create or replace view public.friends_view as
+  select f.id as friendship_id, f.status, f.created_at, f.responded_at,
+    case when f.requester_id = auth.uid() then f.addressee_id else f.requester_id end as friend_id,
+    case when f.requester_id = auth.uid() then pa.username else pr.username end as friend_username,
+    case when f.requester_id = auth.uid() then pa.coins   else pr.coins   end as friend_coins,
+    case when f.requester_id = auth.uid() then 'outgoing' else 'incoming' end as direction
+  from public.friendships f
+  join public.profiles pr on pr.id = f.requester_id
+  join public.profiles pa on pa.id = f.addressee_id
+  where f.requester_id = auth.uid() or f.addressee_id = auth.uid();
+alter view public.friends_view set (security_invoker = on);
+grant select on public.friends_view to authenticated;
+
+create or replace function public.friend_request(p_username text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); target uuid; existing public.friendships%rowtype; new_row public.friendships%rowtype;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select id into target from public.profiles where username = p_username;
+  if target is null then raise exception 'user not found'; end if;
+  if target = uid then raise exception 'cannot friend yourself'; end if;
+  select * into existing from public.friendships
+    where (requester_id = uid and addressee_id = target)
+       or (requester_id = target and addressee_id = uid) limit 1;
+  if existing.id is not null then
+    if existing.addressee_id = uid and existing.status = 'pending' then
+      update public.friendships set status='accepted', responded_at=now()
+        where id = existing.id returning * into new_row;
+      return jsonb_build_object('status','accepted','id',new_row.id);
+    end if;
+    return jsonb_build_object('status',existing.status,'id',existing.id);
+  end if;
+  insert into public.friendships(requester_id, addressee_id) values (uid, target) returning * into new_row;
+  return jsonb_build_object('status','pending','id',new_row.id);
+end $$;
+grant execute on function public.friend_request(text) to authenticated;
+
+create or replace function public.friend_respond(p_id uuid, p_accept boolean)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); row public.friendships%rowtype;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select * into row from public.friendships where id = p_id;
+  if not found then raise exception 'request not found'; end if;
+  if row.addressee_id <> uid then raise exception 'not your request'; end if;
+  if row.status <> 'pending' then raise exception 'already responded'; end if;
+  update public.friendships set status = case when p_accept then 'accepted' else 'declined' end,
+    responded_at = now() where id = p_id;
+  return jsonb_build_object('status', case when p_accept then 'accepted' else 'declined' end);
+end $$;
+grant execute on function public.friend_respond(uuid, boolean) to authenticated;
+
+create or replace function public.friend_remove(p_friend_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  delete from public.friendships
+    where (requester_id = uid and addressee_id = p_friend_id)
+       or (requester_id = p_friend_id and addressee_id = uid);
+  return jsonb_build_object('ok', true);
+end $$;
+grant execute on function public.friend_remove(uuid) to authenticated;
