@@ -48,21 +48,21 @@ export const useGameStore = defineStore('game', {
       if (!auth.user) return
       const pending = Math.floor(this.tickCoins)
       if (pending <= 0 && this.lastCollected && (Date.now() - this.lastCollected.getTime()) < 15000) return
-      const now = new Date()
       this.coins += pending
       this.tickCoins -= pending
-      this.lastCollected = now
-      await supabase.from('profiles').update({
-        coins: this.coins,
-        last_collected_at: now.toISOString()
-      }).eq('id', auth.user.id)
+      // Server validiert max. Einkommen und aktualisiert last_collected_at
+      const { data, error } = await supabase.rpc('collect_offline', { p_coins: pending })
+      if (!error && data?.coins != null) {
+        this.coins = Number(data.coins)
+      }
+      this.lastCollected = new Date()
     },
     async buyAnimal(speciesKey) {
       const info = SPECIES[speciesKey]
       if (!info) throw new Error('Unbekannte Spezies')
       await this.persist()
-      if (this.coins < info.cost) throw new Error('Nicht genug Münzen')
-      const auth = useAuthStore()
+      if (this.displayCoins < info.cost) throw new Error('Nicht genug Münzen')
+      // p_cost wird serverseitig ignoriert — Preis kommt aus species_costs-Tabelle
       const { data, error } = await supabase.rpc('buy_animal', {
         p_species: speciesKey,
         p_cost: info.cost
