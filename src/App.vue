@@ -5,6 +5,9 @@ import { useGameStore } from './stores/game'
 import { useRoute } from 'vue-router'
 import { supabase } from './supabase'
 import { formatCoins } from './animals'
+import AdminModal from './components/AdminModal.vue'
+
+const adminOpen = ref(false)
 
 const auth = useAuthStore()
 const game = useGameStore()
@@ -88,15 +91,13 @@ const showNav = computed(() => auth.isAuth && route.name !== 'login')
     </transition>
 
     <nav v-if="showNav" class="bottom-nav">
-      <router-link to="/" class="nav-item">
-        <span class="ico">🏡</span><span>Farm</span>
-      </router-link>
       <router-link to="/shop" class="nav-item">
         <span class="ico">🛒</span><span>Shop</span>
       </router-link>
       <router-link to="/trade" class="nav-item">
         <span class="ico">🔄</span><span>Trade</span>
       </router-link>
+      <router-link to="/" class="nav-fab" title="Farm">🏡</router-link>
       <router-link to="/friends" class="nav-item">
         <span class="ico">🤝</span><span>Freunde</span>
       </router-link>
@@ -104,6 +105,10 @@ const showNav = computed(() => auth.isAuth && route.name !== 'login')
         <span class="ico">🏆</span><span>Rang</span>
       </router-link>
     </nav>
+
+    <button v-if="showNav && auth.profile?.is_admin" class="admin-fab" @click="adminOpen = true" title="Admin">🛠️</button>
+
+    <AdminModal v-if="adminOpen" @close="adminOpen = false" />
   </div>
 </template>
 

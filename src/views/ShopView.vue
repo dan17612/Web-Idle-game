@@ -168,7 +168,7 @@ function adminRestock(species) {
       </div>
     </div>
 
-    <div v-if="auth.profile?.is_admin" class="card" style="background:linear-gradient(135deg,#3a1d5c,#1d2a5c)">
+    <div v-if="false" class="card" style="background:linear-gradient(135deg,#3a1d5c,#1d2a5c)">
       <div class="row between" @click="adminOpen = !adminOpen" style="cursor:pointer">
         <div>
           <div style="font-weight:800">🛠️ Admin-Panel</div>

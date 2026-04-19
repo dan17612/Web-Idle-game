@@ -17,6 +17,9 @@ const busy = ref(false)
 const incoming = ref([])
 const outgoing = ref([])
 const history = ref([])
+const publicTrades = ref([])
+const publicAccept = ref({})
+const isPublicOffer = ref(false)
 
 // --- Partner + dessen Inventar
 const partnerUsername = ref('')
@@ -90,7 +93,7 @@ function resetForm() {
 
 async function propose() {
   error.value = ''; success.value = ''
-  if (!partnerProfile.value) { error.value = 'Partner wählen'; return }
+  if (!isPublicOffer.value && !partnerProfile.value) { error.value = 'Partner wählen oder öffentlich posten'; return }
   const reqAnimals = [...offer.myAnimals]
   const addAnimals = [...offer.theirAnimals]
   const reqCoins = Math.max(0, Math.floor(Number(offer.myCoins) || 0))
@@ -100,21 +103,26 @@ async function propose() {
   }
   if (reqCoins > game.displayCoins) { error.value = 'Nicht genug Münzen'; return }
 
+  if (isPublicOffer.value && addAnimals.length > 0) {
+    error.value = 'Öffentliche Trades können keine konkreten Tiere vom Annehmer verlangen (nur Münzen).'
+    return
+  }
   busy.value = true
   try {
     await game.persist()
     const { error: e } = await supabase.rpc('propose_trade', {
-      p_addressee: partnerProfile.value.username,
+      p_addressee: isPublicOffer.value ? null : partnerProfile.value.username,
       p_requester_animals: reqAnimals,
       p_requester_coins: reqCoins,
-      p_addressee_animals: addAnimals,
+      p_addressee_animals: isPublicOffer.value ? [] : addAnimals,
       p_addressee_coins: addCoins,
       p_note: offer.note || null
     })
     if (e) throw e
-    success.value = 'Trade-Anfrage gesendet!'
+    success.value = isPublicOffer.value ? 'Öffentlicher Trade veröffentlicht!' : 'Trade-Anfrage gesendet!'
     resetForm()
-    tab.value = 'out'
+    tab.value = isPublicOffer.value ? 'public' : 'out'
+    isPublicOffer.value = false
     await loadTrades()
   } catch (e) {
     error.value = e.message
@@ -157,7 +165,7 @@ async function act(id, action) {
 }
 
 async function loadTrades() {
-  const [{ data: inc }, { data: out }, { data: hist }] = await Promise.all([
+  const [{ data: inc }, { data: out }, { data: hist }, { data: pub }] = await Promise.all([
     supabase.from('trades_view').select('*')
       .eq('addressee_id', auth.user.id).eq('status','pending')
       .order('created_at', { ascending: false }),
@@ -168,11 +176,37 @@ async function loadTrades() {
       .or(`requester_id.eq.${auth.user.id},addressee_id.eq.${auth.user.id}`)
       .neq('status','pending')
       .order('closed_at', { ascending: false, nullsFirst: false })
-      .limit(30)
+      .limit(30),
+    supabase.from('trades_view').select('*')
+      .eq('is_public', true).eq('status','pending')
+      .order('created_at', { ascending: false }).limit(50)
   ])
   incoming.value = inc || []
   outgoing.value = out || []
   history.value = hist || []
+  publicTrades.value = pub || []
+}
+
+function togglePubAnimal(tradeId, animalId) {
+  const cur = publicAccept.value[tradeId] || new Set()
+  if (cur.has(animalId)) cur.delete(animalId); else cur.add(animalId)
+  publicAccept.value = { ...publicAccept.value, [tradeId]: cur }
+}
+
+async function acceptPublic(t) {
+  error.value = ''; success.value = ''
+  const ids = [...(publicAccept.value[t.id] || [])]
+  if (Number(t.addressee_coins) > game.displayCoins) { error.value = 'Nicht genug Münzen'; return }
+  busy.value = true
+  try {
+    await game.persist()
+    const { error: e } = await supabase.rpc('accept_public_trade', { p_trade_id: t.id, p_my_animals: ids })
+    if (e) throw e
+    success.value = 'Trade angenommen!'
+    publicAccept.value = { ...publicAccept.value, [t.id]: new Set() }
+    await Promise.all([loadTrades(), game.load()])
+  } catch (e) { error.value = e.message }
+  finally { busy.value = false; setTimeout(() => success.value = '', 2500) }
 }
 
 // --- Realtime
@@ -189,6 +223,11 @@ onMounted(async () => {
       event: '*', schema: 'public', table: 'trades',
       filter: `addressee_id=eq.${auth.user.id}`
     }, async () => { await loadTrades() })
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'trades'
+    }, async (payload) => {
+      if (payload.new?.is_public || payload.old?.is_public) await loadTrades()
+    })
     .on('postgres_changes', {
       event: 'UPDATE', schema: 'public', table: 'profiles',
       filter: `id=eq.${auth.user.id}`
@@ -217,6 +256,9 @@ function summarize(t) {
     <button :class="{ active: tab==='out' }" @click="tab='out'">
       📤 Ausgang<span v-if="outgoing.length" class="pill">{{ outgoing.length }}</span>
     </button>
+    <button :class="{ active: tab==='public' }" @click="tab='public'">
+      🌐 Public<span v-if="publicTrades.length" class="pill" style="background:var(--accent-2);color:#001a15">{{ publicTrades.length }}</span>
+    </button>
     <button :class="{ active: tab==='hist' }" @click="tab='hist'">🗂️</button>
   </div>
 
@@ -243,11 +285,18 @@ function summarize(t) {
     <!-- TAUSCH -->
     <div v-else>
       <div class="card stack">
-        <label class="subtitle" style="margin:0">Handelspartner</label>
-        <input v-model="partnerUsername" placeholder="Username" autocomplete="off" />
-        <div v-if="partnerSearching" class="subtitle">Suche…</div>
-        <div v-else-if="partnerError" class="error">{{ partnerError }}</div>
-        <div v-else-if="partnerProfile" class="partner-card">
+        <label class="row between" style="margin:0;gap:6px">
+          <span><input type="checkbox" v-model="isPublicOffer" /> 🌐 Öffentlich posten</span>
+          <span class="subtitle" style="margin:0">Jeder kann akzeptieren</span>
+        </label>
+        <template v-if="!isPublicOffer">
+          <label class="subtitle" style="margin:0">Handelspartner</label>
+          <input v-model="partnerUsername" placeholder="Username" autocomplete="off" />
+        </template>
+        <div v-else class="subtitle" style="margin:0">Nenne nur Münzen als Gegenleistung (keine konkreten Tier-IDs).</div>
+        <div v-if="!isPublicOffer && partnerSearching" class="subtitle">Suche…</div>
+        <div v-else-if="!isPublicOffer && partnerError" class="error">{{ partnerError }}</div>
+        <div v-else-if="!isPublicOffer && partnerProfile" class="partner-card">
           <span style="font-size:20px">👤</span>
           <div style="flex:1">
             <div style="font-weight:700">{{ partnerProfile.username }}</div>
@@ -256,7 +305,7 @@ function summarize(t) {
         </div>
       </div>
 
-      <div v-if="partnerProfile" class="trade-box">
+      <div v-if="isPublicOffer || partnerProfile" class="trade-box">
         <!-- Ich gebe -->
         <div class="side">
           <div class="side-title">
@@ -290,9 +339,9 @@ function summarize(t) {
         <div class="side">
           <div class="side-title">
             <span class="arrow">←</span>
-            <span class="who">{{ partnerProfile.username }}</span>
+            <span class="who">{{ isPublicOffer ? 'Beliebiger Annehmer' : partnerProfile.username }}</span>
           </div>
-          <div class="slots">
+          <div v-if="!isPublicOffer" class="slots">
             <div v-for="id in offer.theirAnimals" :key="id" class="chip-anim"
                  @click="toggleTheirs(id)">
               <span>{{ speciesInfo(partnerAnimals.find(a=>a.id===id)?.species).emoji }}</span>
@@ -314,11 +363,61 @@ function summarize(t) {
         </div>
       </div>
 
-      <div v-if="partnerProfile" class="card stack">
+      <div v-if="isPublicOffer || partnerProfile" class="card stack">
         <input v-model="offer.note" maxlength="200" placeholder="Notiz (optional)" />
         <button class="btn full" :disabled="busy" @click="propose">
-          {{ busy ? '...' : 'Trade-Anfrage senden' }}
+          {{ busy ? '...' : (isPublicOffer ? 'Öffentlich posten' : 'Trade-Anfrage senden') }}
         </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- PUBLIC -->
+  <template v-if="tab === 'public'">
+    <p class="subtitle">Öffentliche Angebote — jeder kann annehmen, der die verlangten Münzen/Tiere hat.</p>
+    <div v-if="!publicTrades.length" class="card subtitle">Keine öffentlichen Trades.</div>
+    <div v-for="t in publicTrades" :key="t.id" class="trade-row card">
+      <div class="row between">
+        <div style="font-weight:700">Von {{ t.requester_username }}</div>
+        <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString('de-DE') }}</span>
+      </div>
+      <div class="row sides-mini">
+        <div class="side-mini">
+          <div class="mini-label">Bietet</div>
+          <div class="mini-row">
+            <span v-for="a in t.requester_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
+            <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">nichts</span>
+          </div>
+        </div>
+        <div class="arrow-mini">⇄</div>
+        <div class="side-mini">
+          <div class="mini-label">Verlangt</div>
+          <div class="mini-row">
+            <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
+            <span v-else class="subtitle">frei (optional Tiere)</span>
+          </div>
+        </div>
+      </div>
+      <div v-if="t.note" class="subtitle" style="margin:4px 0 0">„{{ t.note }}"</div>
+      <template v-if="t.requester_id !== auth.user.id">
+        <div class="subtitle" style="margin:6px 0 4px">Optional: Tiere mitgeben</div>
+        <div class="picker-grid">
+          <div v-for="a in myTradableAnimals" :key="a.id"
+               class="pick"
+               :class="{ active: (publicAccept[t.id] || new Set()).has(a.id) }"
+               @click="togglePubAnimal(t.id, a.id)">
+            <div class="pick-emoji">{{ a.info.emoji }}</div>
+            <div class="pick-name">{{ a.info.name }}</div>
+          </div>
+        </div>
+        <button class="btn full" style="margin-top:8px" :disabled="busy" @click="acceptPublic(t)">
+          {{ busy ? '...' : 'Annehmen' }}
+        </button>
+      </template>
+      <div v-else class="row" style="gap:6px;margin-top:8px">
+        <span class="badge">Dein Angebot</span>
+        <button class="btn danger small" :disabled="busy" @click="act(t.id, 'cancel_trade')">Zurückziehen</button>
       </div>
     </div>
   </template>

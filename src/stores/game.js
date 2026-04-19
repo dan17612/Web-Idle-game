@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { supabase } from '../supabase'
-import { SPECIES, speciesInfo } from '../animals'
+import { SPECIES, loadCatalog, animalRate, isUpgrading, tierInfo } from '../animals'
 import { useAuthStore } from './auth'
 
 const TAP_MAX = 10
@@ -11,6 +11,8 @@ export const useGameStore = defineStore('game', {
     animals: [],
     equipSlots: 1,
     favoriteAnimalId: null,
+    tapLevel: 1,
+    tapCapLevel: 1,
     lastCollected: null,
     loading: false,
     tickCoins: 0,
@@ -19,16 +21,26 @@ export const useGameStore = defineStore('game', {
     tapsNextReset: 0,
     petBoostMultiplier: 1,
     petBoostUntil: 0,
-    serverOffset: 0
+    serverOffset: 0,
+    catalogLoaded: false
   }),
   getters: {
     favoriteAnimal(state) {
       return state.animals.find(a => a.id === state.favoriteAnimalId) || null
     },
+    tapMultiplier(state) {
+      return 1 + (state.tapLevel - 1) * 0.25
+    },
+    nextTapCost(state) {
+      return Math.floor(100 * Math.pow(3, state.tapLevel - 1))
+    },
+    nextCapCost(state) {
+      return Math.floor(150 * Math.pow(3, state.tapCapLevel - 1))
+    },
     baseRate(state) {
       return state.animals
-        .filter(a => a.equipped)
-        .reduce((sum, a) => sum + speciesInfo(a.species).rate * (a.level || 1), 0)
+        .filter(a => a.equipped && !isUpgrading(a))
+        .reduce((sum, a) => sum + animalRate(a), 0)
     },
     boostActive(state) {
       return (Date.now() + state.serverOffset) < state.petBoostUntil
@@ -38,14 +50,14 @@ export const useGameStore = defineStore('game', {
     },
     favoriteBoostActive(state) {
       const fav = this.favoriteAnimal
-      return this.boostActive && !!fav && !!fav.equipped
+      return this.boostActive && !!fav && !!fav.equipped && !isUpgrading(fav)
     },
     ratePerSec(state) {
       const fav = this.favoriteAnimal
       let total = 0
       for (const a of state.animals) {
-        if (!a.equipped) continue
-        const r = speciesInfo(a.species).rate * (a.level || 1)
+        if (!a.equipped || isUpgrading(a)) continue
+        const r = animalRate(a)
         const isFav = fav && a.id === fav.id
         total += r * (isFav && this.boostActive ? state.petBoostMultiplier : 1)
       }
@@ -53,7 +65,8 @@ export const useGameStore = defineStore('game', {
     },
     rateForAnimal(state) {
       return (a) => {
-        const r = speciesInfo(a.species).rate * (a.level || 1)
+        if (isUpgrading(a)) return 0
+        const r = animalRate(a)
         const isFav = state.favoriteAnimalId === a.id
         return r * (isFav && this.boostActive ? state.petBoostMultiplier : 1)
       }
@@ -72,18 +85,26 @@ export const useGameStore = defineStore('game', {
     }
   },
   actions: {
+    async ensureCatalog() {
+      if (this.catalogLoaded) return
+      await loadCatalog()
+      this.catalogLoaded = true
+    },
     async load() {
       const auth = useAuthStore()
       if (!auth.user) return
       this.loading = true
+      await this.ensureCatalog()
       const [{ data: p }, { data: animals }, tapStatus] = await Promise.all([
-        supabase.from('profiles').select('coins, last_collected_at, equip_slots, favorite_animal_id').eq('id', auth.user.id).maybeSingle(),
+        supabase.from('profiles').select('coins, last_collected_at, equip_slots, favorite_animal_id, tap_level, tap_cap_level').eq('id', auth.user.id).maybeSingle(),
         supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at'),
         supabase.rpc('get_tap_status', { p_max: TAP_MAX })
       ])
       this.coins = Number(p?.coins ?? 0)
       this.equipSlots = Number(p?.equip_slots ?? 1)
       this.favoriteAnimalId = p?.favorite_animal_id || null
+      this.tapLevel = Number(p?.tap_level ?? 1)
+      this.tapCapLevel = Number(p?.tap_cap_level ?? 1)
       this.lastCollected = p?.last_collected_at ? new Date(p.last_collected_at) : new Date()
       this.animals = animals || []
       if (!this.favoriteAnimalId && this.animals.length > 0) {
@@ -110,7 +131,6 @@ export const useGameStore = defineStore('game', {
     },
     tick(dt) {
       this.tickCoins += this.ratePerSec * dt
-      // Tap-Limit Auto-Reset clientseitig, wenn das Server-Slot erreicht ist
       if (this.tapsNextReset && Date.now() + this.serverOffset >= this.tapsNextReset) {
         this.tapsUsed = 0
         this.tapsNextReset = this.tapsNextReset + 5 * 60 * 1000
@@ -129,14 +149,15 @@ export const useGameStore = defineStore('game', {
     },
     async tapEarn() {
       if (this.tapsUsed >= this.tapsMax) throw new Error('Tap-Limit erreicht')
+      this.tapsUsed += 1
       const { data, error } = await supabase.rpc('tap_earn', { p_max: TAP_MAX })
       if (error) {
-        // Out-of-sync? Status neu laden
+        this.tapsUsed = Math.max(0, this.tapsUsed - 1)
         if (/limit/i.test(error.message)) await this.refreshTapStatus()
         throw error
       }
       this.coins = Number(data.coins)
-      this.tapsUsed = Number(data.taps_used)
+      this.tapsUsed = Math.max(this.tapsUsed, Number(data.taps_used))
       this.tapsNextReset = new Date(data.next_reset).getTime()
       if (data.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
       return data
@@ -144,6 +165,22 @@ export const useGameStore = defineStore('game', {
     async refreshTapStatus() {
       const { data } = await supabase.rpc('get_tap_status', { p_max: TAP_MAX })
       if (data) this.applyTapStatus(data)
+    },
+    async upgradeTap(kind = 'mul') {
+      const { data, error } = await supabase.rpc('upgrade_tap', { p_kind: kind })
+      if (error) throw error
+      this.coins = Number(data.coins)
+      if (data.tap_level != null) this.tapLevel = Number(data.tap_level)
+      if (data.tap_cap_level != null) this.tapCapLevel = Number(data.tap_cap_level)
+      if (data.taps_max != null) this.tapsMax = Number(data.taps_max)
+      return data
+    },
+    async startTierUpgrade(animalIds, targetTier) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('start_tier_upgrade', { p_animal_ids: animalIds, p_target_tier: targetTier })
+      if (error) throw error
+      await this.load()
+      return data
     },
     async feedPet(foodKey) {
       await this.persist()
@@ -160,10 +197,7 @@ export const useGameStore = defineStore('game', {
       if (!info) throw new Error('Unbekannte Spezies')
       await this.persist()
       if (this.displayCoins < info.cost) throw new Error('Nicht genug Münzen')
-      const { data, error } = await supabase.rpc('buy_animal', {
-        p_species: speciesKey,
-        p_cost: info.cost
-      })
+      const { data, error } = await supabase.rpc('buy_animal', { p_species: speciesKey, p_cost: info.cost })
       if (error) throw error
       this.coins = Number(data?.coins ?? this.coins - info.cost)
       if (data?.animal) {

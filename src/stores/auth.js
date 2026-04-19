@@ -42,6 +42,25 @@ export const useAuthStore = defineStore('auth', {
       const { error } = await supabase.auth.signInWithOtp({ email, options })
       if (error) throw error
     },
+    async signInWithPassword(email, password) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+    },
+    async signUpWithPassword(email, password, username) {
+      const options = { emailRedirectTo: AUTH_REDIRECT_URL, data: username ? { username } : undefined }
+      const { error } = await supabase.auth.signUp({ email, password, options })
+      if (error) throw error
+    },
+    async setPassword(password) {
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) throw error
+    },
+    async setAvatar(emoji) {
+      const { data, error } = await supabase.rpc('set_avatar', { p_emoji: emoji })
+      if (error) throw error
+      if (this.profile) this.profile.avatar_emoji = data?.avatar_emoji ?? null
+      return data
+    },
     async updateEmail(newEmail) {
       const { error } = await supabase.auth.updateUser(
         { email: newEmail },

@@ -3,14 +3,14 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
 import { useAuthStore } from '../stores/auth'
-import { speciesInfo, formatCoins } from '../animals'
+import { speciesInfo, formatCoins, TIERS, tierInfo, isUpgrading } from '../animals'
 
 const game = useGameStore()
 const auth = useAuthStore()
 const router = useRouter()
 
 const equipped = computed(() =>
-  game.animals.filter(a => a.equipped).map(a => ({ ...a, info: speciesInfo(a.species) }))
+  game.animals.filter(a => a.equipped).map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier) }))
 )
 
 const slotCells = computed(() => {
@@ -77,6 +77,92 @@ async function tap(e) {
   } catch (err) {
     error.value = err.message
     setTimeout(() => error.value = '', 2500)
+  }
+}
+
+const upgradingTap = ref('')
+const canUpgradeMul = computed(() => game.displayCoins >= game.nextTapCost)
+const canUpgradeCap = computed(() => game.displayCoins >= game.nextCapCost)
+
+async function upgradeTap(kind) {
+  if (upgradingTap.value) return
+  if (kind === 'mul' && !canUpgradeMul.value) return
+  if (kind === 'cap' && !canUpgradeCap.value) return
+  upgradingTap.value = kind
+  try {
+    await game.persist()
+    await game.upgradeTap(kind)
+  } catch (e) {
+    error.value = e.message
+    setTimeout(() => error.value = '', 2500)
+  } finally {
+    upgradingTap.value = ''
+  }
+}
+
+// === Fusion ===
+const fusionOpen = ref(false)
+const fusionBusy = ref(false)
+const fusionTarget = ref(null) // { species, tier }
+
+const tierList = computed(() =>
+  Object.entries(TIERS)
+    .filter(([t, d]) => t !== 'normal' && d.required_qty > 0)
+    .sort((a, b) => a[1].order - b[1].order)
+    .map(([t, d]) => ({ tier: t, ...d }))
+)
+
+const fusionGroups = computed(() => {
+  const groups = {}
+  for (const a of game.animals) {
+    if (a.equipped) continue
+    if ((a.tier || 'normal') !== 'normal') continue
+    if (isUpgrading(a)) continue
+    groups[a.species] ??= []
+    groups[a.species].push(a)
+  }
+  return Object.entries(groups)
+    .map(([sp, list]) => {
+      const info = speciesInfo(sp)
+      // next reachable tier given count
+      let next = null
+      for (const t of tierList.value) {
+        if (list.length >= t.required_qty) next = t
+      }
+      return { species: sp, info, list, count: list.length, next }
+    })
+    .filter(g => g.count > 0)
+    .sort((a, b) => b.count - a.count)
+})
+
+const upgradingList = computed(() =>
+  game.animals
+    .filter(a => isUpgrading(a))
+    .map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier) }))
+)
+
+function fmtReady(a) {
+  void now.value
+  const ms = new Date(a.upgrade_ready_at).getTime() - (Date.now() + game.serverOffset)
+  return fmtTime(Math.max(0, ms))
+}
+
+async function doFusion(species, tier) {
+  const group = fusionGroups.value.find(g => g.species === species)
+  if (!group) return
+  const td = TIERS[tier]
+  if (!td || group.count < td.required_qty) return
+  fusionBusy.value = true
+  fusionTarget.value = { species, tier }
+  try {
+    const ids = group.list.slice(0, td.required_qty).map(a => a.id)
+    await game.startTierUpgrade(ids, tier)
+  } catch (e) {
+    error.value = e.message
+    setTimeout(() => error.value = '', 2500)
+  } finally {
+    fusionBusy.value = false
+    fusionTarget.value = null
   }
 }
 
@@ -148,6 +234,40 @@ async function pickFavorite(animalId) {
       <p v-if="error" class="error" style="text-align:center;margin:4px 0 0">{{ error }}</p>
     </div>
 
+    <div class="card">
+      <div class="row between" style="margin-bottom:8px">
+        <h2 class="title" style="margin:0;font-size:16px">👆 Tipp-Upgrades</h2>
+      </div>
+      <div class="tap-upgrade-grid">
+        <div class="tu-card">
+          <div class="tu-head">
+            <span class="tu-icon">⚡</span>
+            <div>
+              <div class="tu-title">Multiplikator</div>
+              <div class="tu-sub">Lvl {{ game.tapLevel }} · ×{{ game.tapMultiplier.toFixed(2) }}</div>
+            </div>
+          </div>
+          <div class="tu-next">Nächster Lvl: ×{{ (game.tapMultiplier + 0.25).toFixed(2) }}</div>
+          <button class="btn" :disabled="!canUpgradeMul || !!upgradingTap" @click="upgradeTap('mul')">
+            {{ upgradingTap === 'mul' ? '...' : '⬆ ' + formatCoins(game.nextTapCost) }}
+          </button>
+        </div>
+        <div class="tu-card">
+          <div class="tu-head">
+            <span class="tu-icon">🔋</span>
+            <div>
+              <div class="tu-title">Mehr Taps</div>
+              <div class="tu-sub">Lvl {{ game.tapCapLevel }} · {{ game.tapsMax }} / Runde</div>
+            </div>
+          </div>
+          <div class="tu-next">Nächster Lvl: {{ 10 + game.tapCapLevel * 5 }} / Runde</div>
+          <button class="btn" :disabled="!canUpgradeCap || !!upgradingTap" @click="upgradeTap('cap')">
+            {{ upgradingTap === 'cap' ? '...' : '⬆ ' + formatCoins(game.nextCapCost) }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="card pet-card" :class="{ boosted: game.favoriteBoostActive }">
       <div class="pet-emoji">{{ favEmoji }}{{ game.favoriteBoostActive ? '✨' : '' }}</div>
       <div class="pet-body">
@@ -195,10 +315,12 @@ async function pickFavorite(animalId) {
           v-for="(cell, i) in slotCells"
           :key="i"
           class="farm-cell"
-          :class="{ empty: !cell, alive: !!cell, boosted: cell && cell.id === game.favoriteAnimalId && game.boostActive, favorite: cell && cell.id === game.favoriteAnimalId }"
+          :class="{ empty: !cell, alive: !!cell, boosted: cell && cell.id === game.favoriteAnimalId && game.boostActive, favorite: cell && cell.id === game.favoriteAnimalId, tiered: cell && (cell.tier || 'normal') !== 'normal' }"
+          :style="cell && (cell.tier || 'normal') !== 'normal' ? { '--tier-color': cell.td.color } : null"
         >
           <template v-if="cell">
             <div v-if="cell.id === game.favoriteAnimalId" class="farm-star">⭐</div>
+            <div v-if="cell.td && cell.td.badge" class="farm-tier">{{ cell.td.badge }}</div>
             <div class="farm-emoji">{{ cell.info.emoji }}</div>
             <div class="farm-name">{{ cell.info.name }}</div>
             <div class="farm-rate">+{{ formatCoins(game.rateForAnimal(cell)) }}/s</div>
@@ -208,6 +330,70 @@ async function pickFavorite(animalId) {
             <div class="farm-plus">＋</div>
             <div class="farm-meta">Freier Slot</div>
           </template>
+        </div>
+      </div>
+    </div>
+
+    <div class="card fusion-card">
+      <div class="row between" style="margin-bottom:8px">
+        <h2 class="title" style="margin:0;font-size:18px">🧬 Fusions-Maschine</h2>
+        <button class="btn secondary small" @click="fusionOpen = !fusionOpen">
+          {{ fusionOpen ? 'Schließen' : 'Öffnen' }}
+        </button>
+      </div>
+      <p class="hint">
+        Kombiniere gleiche Tiere (normal, nicht ausgerüstet) zu höherwertigen Tieren.
+        3× → 🥇 Gold, 6× → 💎 Diamant, 9× → 🟣 Episch, 12× → 🌈 Rainbow.
+      </p>
+
+      <div v-if="upgradingList.length > 0" class="upgrading-grid">
+        <div
+          v-for="a in upgradingList"
+          :key="a.id"
+          class="tier-chip upgrading"
+          :style="{ '--tier-color': a.td.color }"
+        >
+          <div class="tier-emoji">{{ a.info.emoji }}<span class="tier-badge">{{ a.td.badge }}</span></div>
+          <div class="tier-name">{{ a.info.name }}</div>
+          <div class="tier-time">⏳ {{ fmtReady(a) }}</div>
+        </div>
+      </div>
+
+      <div v-if="fusionOpen" class="fusion-body">
+        <div v-if="fusionGroups.length === 0" class="hint" style="text-align:center;padding:12px">
+          Keine normalen, nicht ausgerüsteten Tiere vorhanden.
+        </div>
+        <div
+          v-for="g in fusionGroups"
+          :key="g.species"
+          class="fusion-row"
+        >
+          <div class="fusion-head">
+            <div class="fusion-sp">
+              <span style="font-size:32px">{{ g.info.emoji }}</span>
+              <div>
+                <div style="font-weight:700">{{ g.info.name }}</div>
+                <div class="hint">{{ g.count }}× verfügbar</div>
+              </div>
+            </div>
+          </div>
+          <div class="fusion-tiers">
+            <button
+              v-for="t in tierList"
+              :key="t.tier"
+              class="tier-chip"
+              :class="{ locked: g.count < t.required_qty, busy: fusionBusy && fusionTarget && fusionTarget.species === g.species && fusionTarget.tier === t.tier }"
+              :style="{ '--tier-color': t.color }"
+              :disabled="g.count < t.required_qty || fusionBusy"
+              @click="doFusion(g.species, t.tier)"
+            >
+              <div class="tier-emoji">{{ g.info.emoji }}<span class="tier-badge">{{ t.badge }}</span></div>
+              <div class="tier-name">{{ t.tier }}</div>
+              <div class="tier-meta">
+                {{ t.required_qty }}× · ×{{ t.multiplier }} · {{ t.upgrade_minutes }}min
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -261,7 +447,7 @@ async function pickFavorite(animalId) {
   50% { transform: scale(1.03); }
 }
 
-.pet-card { display: flex; align-items: center; gap: 12px; }
+.pet-card, .tap-upgrade { display: flex; align-items: center; gap: 12px; }
 .pet-card.boosted {
   background: linear-gradient(135deg, rgba(6,214,160,0.12), rgba(255,209,102,0.12));
   border-color: rgba(6,214,160,0.5);
@@ -311,6 +497,17 @@ async function pickFavorite(animalId) {
   pointer-events: none;
 }
 .farm-cell.favorite { border-color: var(--accent); }
+.farm-cell.tiered {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--tier-color) 40%, #2a3866) 0%,
+                            color-mix(in srgb, var(--tier-color) 12%, #162048) 100%);
+  border-color: color-mix(in srgb, var(--tier-color) 70%, transparent);
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--tier-color) 30%, transparent);
+}
+.farm-tier {
+  position: absolute; top: 6px; right: 8px; font-size: 16px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
 .farm-cell.boosted {
   border-color: var(--accent-2);
   box-shadow: 0 0 0 1px var(--accent-2) inset, 0 6px 20px rgba(6,214,160,0.3);
@@ -330,6 +527,61 @@ async function pickFavorite(animalId) {
   0%, 100% { opacity: 0.4; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.3); }
 }
+.tap-upgrade-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.tu-card {
+  background: #162048; border: 1px solid var(--border); border-radius: 14px;
+  padding: 10px; display: flex; flex-direction: column; gap: 6px;
+}
+.tu-head { display: flex; align-items: center; gap: 10px; }
+.tu-icon { font-size: 28px; }
+.tu-title { font-weight: 700; font-size: 14px; }
+.tu-sub { font-size: 11px; color: var(--muted); }
+.tu-next { font-size: 11px; color: var(--accent-2); }
+.btn.secondary.small { padding: 6px 10px; font-size: 12px; }
+.hint { font-size: 12px; opacity: 0.75; margin: 0 0 8px; }
+
+.fusion-card { position: relative; }
+.fusion-body { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.fusion-row {
+  background: #0f1736; border: 1px solid var(--border); border-radius: 14px; padding: 10px;
+}
+.fusion-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.fusion-sp { display: flex; align-items: center; gap: 10px; }
+.fusion-tiers {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px;
+}
+.upgrading-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px;
+  margin-bottom: 10px;
+}
+.tier-chip {
+  position: relative;
+  --tier-color: #aaa;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--tier-color) 35%, #162048) 0%,
+                            color-mix(in srgb, var(--tier-color) 10%, #0f1736) 100%);
+  border: 1px solid color-mix(in srgb, var(--tier-color) 60%, transparent);
+  border-radius: 12px; padding: 10px 6px;
+  text-align: center; color: inherit; font: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--tier-color) 25%, transparent);
+  transition: transform 0.08s ease;
+}
+.tier-chip:not([disabled]):hover { transform: translateY(-2px); }
+.tier-chip.locked { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.3); box-shadow: none; }
+.tier-chip.busy { opacity: 0.6; }
+.tier-chip.upgrading { cursor: default; animation: pulse 2s ease-in-out infinite; }
+.tier-emoji { font-size: 36px; line-height: 1; position: relative; }
+.tier-badge {
+  position: absolute; bottom: -2px; right: -6px; font-size: 18px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+.tier-name { font-weight: 700; font-size: 12px; text-transform: capitalize; margin-top: 4px; }
+.tier-meta { font-size: 10px; opacity: 0.8; margin-top: 2px; }
+.tier-time { font-size: 11px; color: var(--accent); font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
 .float {
   position: absolute; pointer-events: none; font-weight: 800; color: var(--accent);
   animation: floatUp 0.9s ease-out forwards;
