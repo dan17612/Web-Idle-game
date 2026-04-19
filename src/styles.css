@@ -71,6 +71,7 @@ input:focus { border-color: var(--accent); }
   width: 36px; height: 36px; border-radius: 999px;
   background: rgba(255,255,255,0.06); border: 1px solid var(--border);
   text-decoration: none; font-size: 18px;
+  color: inherit; font-family: inherit; cursor: pointer; padding: 0;
 }
 .settings-link:hover { background: rgba(255,255,255,0.12); }
 

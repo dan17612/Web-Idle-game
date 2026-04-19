@@ -9,6 +9,8 @@ const routes = [
   { path: '/send', redirect: '/trade' },
   { path: '/friends', name: 'friends', component: () => import('./views/FriendsView.vue'), meta: { auth: true } },
   { path: '/leaderboard', name: 'leaderboard', component: () => import('./views/LeaderboardView.vue'), meta: { auth: true } },
+  { path: '/profile', name: 'profile', component: () => import('./views/ProfileView.vue'), meta: { auth: true } },
+  { path: '/index', name: 'index', component: () => import('./views/IndexView.vue'), meta: { auth: true } },
   { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue'), meta: { auth: true } },
   { path: '/login', name: 'login', component: () => import('./views/AuthView.vue') }
 ]

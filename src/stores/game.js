@@ -13,6 +13,7 @@ export const useGameStore = defineStore('game', {
     favoriteAnimalId: null,
     tapLevel: 1,
     tapCapLevel: 1,
+    offlineLevel: 1,
     lastCollected: null,
     loading: false,
     tickCoins: 0,
@@ -36,6 +37,16 @@ export const useGameStore = defineStore('game', {
     },
     nextCapCost(state) {
       return Math.floor(150 * Math.pow(3, state.tapCapLevel - 1))
+    },
+    // Offline: Basis 2h, pro Level +30min, hart gecappt bei 8h (Server-Limit).
+    maxOfflineHours(state) {
+      return Math.min(8, 2 + (state.offlineLevel - 1) * 0.5)
+    },
+    nextOfflineCost(state) {
+      return Math.floor(500 * Math.pow(2.5, state.offlineLevel - 1))
+    },
+    offlineMaxed() {
+      return this.maxOfflineHours >= 8
     },
     baseRate(state) {
       return state.animals
@@ -96,7 +107,7 @@ export const useGameStore = defineStore('game', {
       this.loading = true
       await this.ensureCatalog()
       const [{ data: p }, { data: animals }, tapStatus] = await Promise.all([
-        supabase.from('profiles').select('coins, last_collected_at, equip_slots, favorite_animal_id, tap_level, tap_cap_level').eq('id', auth.user.id).maybeSingle(),
+        supabase.from('profiles').select('coins, last_collected_at, equip_slots, favorite_animal_id, tap_level, tap_cap_level, offline_level').eq('id', auth.user.id).maybeSingle(),
         supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at'),
         supabase.rpc('get_tap_status', { p_max: TAP_MAX })
       ])
@@ -105,6 +116,7 @@ export const useGameStore = defineStore('game', {
       this.favoriteAnimalId = p?.favorite_animal_id || null
       this.tapLevel = Number(p?.tap_level ?? 1)
       this.tapCapLevel = Number(p?.tap_cap_level ?? 1)
+      this.offlineLevel = Number(p?.offline_level ?? 1)
       this.lastCollected = p?.last_collected_at ? new Date(p.last_collected_at) : new Date()
       this.animals = animals || []
       if (!this.favoriteAnimalId && this.animals.length > 0) {
@@ -125,7 +137,8 @@ export const useGameStore = defineStore('game', {
     },
     applyOffline() {
       if (!this.lastCollected) return
-      const elapsed = Math.min((Date.now() - this.lastCollected.getTime()) / 1000, 60 * 60 * 8)
+      const capSec = this.maxOfflineHours * 3600
+      const elapsed = Math.min((Date.now() - this.lastCollected.getTime()) / 1000, capSec)
       const earned = Math.floor(this.baseRate * Math.max(elapsed, 0))
       if (earned > 0) this.tickCoins += earned
     },
@@ -173,6 +186,17 @@ export const useGameStore = defineStore('game', {
       if (data.tap_level != null) this.tapLevel = Number(data.tap_level)
       if (data.tap_cap_level != null) this.tapCapLevel = Number(data.tap_cap_level)
       if (data.taps_max != null) this.tapsMax = Number(data.taps_max)
+      return data
+    },
+    async upgradeOffline() {
+      await this.persist()
+      const cost = this.nextOfflineCost
+      if (this.displayCoins < cost) throw new Error('Nicht genug Münzen')
+      if (this.maxOfflineHours >= 8) throw new Error('Maximales Offline-Limit erreicht')
+      const { data, error } = await supabase.rpc('upgrade_offline')
+      if (error) throw error
+      if (data?.coins != null) this.coins = Number(data.coins)
+      if (data?.offline_level != null) this.offlineLevel = Number(data.offline_level)
       return data
     },
     async startTierUpgrade(animalIds, targetTier) {
