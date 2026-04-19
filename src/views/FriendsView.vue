@@ -1,17 +1,24 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '../supabase'
 import { useRouter } from 'vue-router'
+import { useGameStore } from '../stores/game'
 import { formatCoins } from '../animals'
+import CoinInput from '../components/CoinInput.vue'
 
 const router = useRouter()
+const game = useGameStore()
 const friends = ref([])
+const avatars = ref({}) // username -> emoji
 const loading = ref(false)
 const requestName = ref('')
 const busy = ref(false)
 const error = ref('')
 const success = ref('')
 const tab = ref('friends')
+
+// Inline send-coins modal
+const sendModal = reactive({ open: false, to: '', amount: 0, busy: false, err: '' })
 
 async function load() {
   loading.value = true
@@ -22,9 +29,20 @@ async function load() {
     .order('created_at', { ascending: false })
   if (e) error.value = e.message
   friends.value = data || []
+  // Avatare nachladen
+  const names = [...new Set((data || []).map(f => f.friend_username).filter(Boolean))]
+  if (names.length) {
+    const { data: ps } = await supabase.from('profiles')
+      .select('username, avatar_emoji').in('username', names)
+    const m = {}
+    for (const p of ps || []) m[p.username] = p.avatar_emoji || '👤'
+    avatars.value = m
+  }
   loading.value = false
 }
 onMounted(load)
+
+function av(name) { return avatars.value[name] || '👤' }
 
 const accepted = computed(() => friends.value.filter(f => f.status === 'accepted'))
 const incoming = computed(() => friends.value.filter(f => f.status === 'pending' && f.direction === 'incoming'))
@@ -61,8 +79,33 @@ async function remove(friendId) {
   } catch (e) { error.value = e.message } finally { busy.value = false }
 }
 
-function sendCoinsTo(username) {
-  router.push({ name: 'send', query: { to: username } })
+function openSend(username) {
+  sendModal.open = true
+  sendModal.to = username
+  sendModal.amount = 0
+  sendModal.err = ''
+}
+function closeSend() { sendModal.open = false }
+
+async function confirmSend() {
+  sendModal.err = ''
+  const amt = Math.floor(Number(sendModal.amount) || 0)
+  if (amt < 1) { sendModal.err = 'Betrag muss ≥ 1 sein'; return }
+  if (amt > game.displayCoins) { sendModal.err = 'Nicht genug Münzen'; return }
+  sendModal.busy = true
+  try {
+    await game.sendCoins(sendModal.to, amt)
+    success.value = `${formatCoins(amt)} 🪙 an ${sendModal.to} gesendet`
+    sendModal.open = false
+    setTimeout(() => success.value = '', 3000)
+  } catch (e) { sendModal.err = e.message } finally { sendModal.busy = false }
+}
+
+function openTrade(username) {
+  router.push({ name: 'trade', query: { partner: username } })
+}
+function openProfile(username) {
+  router.push({ name: 'profile', query: { u: username } })
 }
 </script>
 
@@ -96,28 +139,31 @@ function sendCoinsTo(username) {
 
     <template v-else-if="tab==='friends'">
       <div v-if="!accepted.length" class="subtitle">Noch keine Freunde. Schick eine Anfrage!</div>
-      <div v-for="f in accepted" :key="f.friendship_id" class="list-item">
-        <div class="left">👤</div>
+      <div v-for="f in accepted" :key="f.friendship_id" class="list-item friend-row">
+        <button class="avatar" @click="openProfile(f.friend_username)" :title="`Profil von ${f.friend_username}`">
+          {{ av(f.friend_username) }}
+        </button>
         <div class="body">
           <div class="title-sm">{{ f.friend_username }}</div>
           <div class="sub">🪙 {{ formatCoins(f.friend_coins) }}</div>
         </div>
-        <div class="row">
-          <button class="btn secondary small" @click="sendCoinsTo(f.friend_username)">💸</button>
-          <button class="btn danger small" @click="remove(f.friend_id)">×</button>
+        <div class="actions">
+          <button class="btn small" @click="openSend(f.friend_username)" title="Münzen senden">💸</button>
+          <button class="btn secondary small" @click="openTrade(f.friend_username)" title="Trade anbieten">🔄</button>
+          <button class="btn danger small" @click="remove(f.friend_id)" title="Entfernen">×</button>
         </div>
       </div>
     </template>
 
     <template v-else-if="tab==='incoming'">
       <div v-if="!incoming.length" class="subtitle">Keine offenen Anfragen.</div>
-      <div v-for="f in incoming" :key="f.friendship_id" class="list-item">
-        <div class="left">📨</div>
+      <div v-for="f in incoming" :key="f.friendship_id" class="list-item friend-row">
+        <div class="avatar">{{ av(f.friend_username) }}</div>
         <div class="body">
           <div class="title-sm">{{ f.friend_username }}</div>
           <div class="sub">möchte dein Freund werden</div>
         </div>
-        <div class="row">
+        <div class="actions">
           <button class="btn small" :disabled="busy" @click="respond(f.friendship_id, true)">✓</button>
           <button class="btn danger small" :disabled="busy" @click="respond(f.friendship_id, false)">×</button>
         </div>
@@ -126,8 +172,8 @@ function sendCoinsTo(username) {
 
     <template v-else>
       <div v-if="!outgoing.length" class="subtitle">Keine ausstehenden Anfragen.</div>
-      <div v-for="f in outgoing" :key="f.friendship_id" class="list-item">
-        <div class="left">⏳</div>
+      <div v-for="f in outgoing" :key="f.friendship_id" class="list-item friend-row">
+        <div class="avatar">{{ av(f.friend_username) }}</div>
         <div class="body">
           <div class="title-sm">{{ f.friend_username }}</div>
           <div class="sub">wartet auf Antwort</div>
@@ -135,6 +181,24 @@ function sendCoinsTo(username) {
         <button class="btn danger small" :disabled="busy" @click="remove(f.friend_id)">×</button>
       </div>
     </template>
+  </div>
+
+  <!-- Send modal -->
+  <div v-if="sendModal.open" class="modal-backdrop" @click.self="closeSend">
+    <div class="modal">
+      <div class="row between" style="margin-bottom:8px">
+        <h3 style="margin:0">💸 Senden an {{ sendModal.to }}</h3>
+        <button class="btn secondary small" @click="closeSend">×</button>
+      </div>
+      <div class="subtitle" style="margin:0 0 8px">Dein Guthaben: 🪙 {{ formatCoins(game.displayCoins) }}</div>
+      <CoinInput v-model="sendModal.amount" placeholder="Betrag (z.B. 10K)" />
+      <p v-if="sendModal.err" class="error" style="margin-top:6px">{{ sendModal.err }}</p>
+      <div class="row" style="gap:6px;margin-top:10px">
+        <button class="btn full" :disabled="sendModal.busy || !sendModal.amount" @click="confirmSend">
+          {{ sendModal.busy ? '...' : 'Senden' }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -150,4 +214,26 @@ function sendCoinsTo(username) {
   margin-left: 4px;
 }
 .btn.small { padding: 6px 10px; font-size: 13px; }
+.friend-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #162048; border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; cursor: pointer;
+  color: inherit;
+}
+button.avatar:hover { border-color: var(--accent); }
+.body { flex: 1; min-width: 0; }
+.actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 20px;
+}
+.modal {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px;
+  width: 100%; max-width: 360px;
+}
 </style>

@@ -1,10 +1,13 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { useGameStore } from '../stores/game'
 import { speciesInfo, formatCoins } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
+
+const route = useRoute()
 
 const auth = useAuthStore()
 const game = useGameStore()
@@ -61,7 +64,7 @@ async function lookupPartner() {
   partnerSearching.value = true
   try {
     const { data: p } = await supabase.from('profiles')
-      .select('id, username, coins').eq('username', name).maybeSingle()
+      .select('id, username, coins, avatar_emoji').eq('username', name).maybeSingle()
     if (!p) { partnerError.value = 'Nicht gefunden'; return }
     if (p.id === auth.user.id) { partnerError.value = 'Das bist du selbst'; return }
     partnerProfile.value = p
@@ -98,8 +101,9 @@ async function propose() {
   const addAnimals = [...offer.theirAnimals]
   const reqCoins = Math.max(0, Math.floor(Number(offer.myCoins) || 0))
   const addCoins = Math.max(0, Math.floor(Number(offer.theirCoins) || 0))
-  if (reqAnimals.length + addAnimals.length + reqCoins + addCoins === 0) {
-    error.value = 'Trade ist leer'; return
+  // Mindestens eine Seite muss etwas geben — Münzen dürfen 0 sein.
+  if (reqAnimals.length + reqCoins === 0 && addAnimals.length + addCoins === 0) {
+    error.value = 'Trade ist komplett leer'; return
   }
   if (reqCoins > game.displayCoins) { error.value = 'Nicht genug Münzen'; return }
 
@@ -133,9 +137,8 @@ async function propose() {
 
 async function sendGift() {
   error.value = ''; success.value = ''
-  if (!sendForm.username.trim() || !sendForm.amount || sendForm.amount < 1) {
-    error.value = 'Empfänger + Betrag angeben'; return
-  }
+  if (!sendForm.username.trim()) { error.value = 'Empfänger angeben'; return }
+  if (!sendForm.amount || sendForm.amount < 1) { error.value = 'Betrag muss ≥ 1 sein'; return }
   busy.value = true
   try {
     await game.sendCoins(sendForm.username.trim(), sendForm.amount)
@@ -214,6 +217,19 @@ let channel
 onMounted(async () => {
   await game.load()
   await loadTrades()
+  // Prefill from ?partner= or ?send= query (from Freunde-Ansicht)
+  const p = route.query.partner
+  const s = route.query.send
+  if (p) {
+    tab.value = 'new'
+    mode.value = 'trade'
+    partnerUsername.value = String(p)
+    lookupPartner()
+  } else if (s) {
+    tab.value = 'new'
+    mode.value = 'send'
+    sendForm.username = String(s)
+  }
   channel = supabase.channel('trades-' + auth.user.id)
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'trades',
@@ -297,11 +313,15 @@ function summarize(t) {
         <div v-if="!isPublicOffer && partnerSearching" class="subtitle">Suche…</div>
         <div v-else-if="!isPublicOffer && partnerError" class="error">{{ partnerError }}</div>
         <div v-else-if="!isPublicOffer && partnerProfile" class="partner-card">
-          <span style="font-size:20px">👤</span>
+          <div class="partner-avatar">{{ partnerProfile.avatar_emoji || '👤' }}</div>
           <div style="flex:1">
             <div style="font-weight:700">{{ partnerProfile.username }}</div>
             <div class="subtitle" style="margin:0">🪙 {{ formatCoins(partnerProfile.coins) }} · {{ partnerAnimals.length }} tauschbare Tiere</div>
           </div>
+          <router-link
+            class="btn secondary small"
+            :to="{ name: 'profile', query: { u: partnerProfile.username } }"
+          >Profil</router-link>
         </div>
       </div>
 
@@ -521,6 +541,12 @@ function summarize(t) {
 .tabs.small button { padding: 6px 10px; font-size: 13px; }
 .pill { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px; background:var(--danger); color:#fff; font-size:10px; font-weight:800; }
 .partner-card { display:flex; gap:10px; align-items:center; padding:8px; background:var(--card-2); border-radius:10px; }
+.partner-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #162048; border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+}
 
 /* Trade-Box */
 .trade-box {

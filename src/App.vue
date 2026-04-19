@@ -98,6 +98,14 @@ const showNav = computed(() => auth.isAuth && route.name !== "login");
           <span class="coin">🪙</span>
           <span class="amount">{{ formatCoins(game.displayCoins) }}</span>
         </div>
+        <button
+          type="button"
+          class="settings-link"
+          title="Seite neu laden"
+          @click="() => window.location.reload()"
+        >
+          🔄
+        </button>
         <router-link to="/settings" class="settings-link" title="Einstellungen"
           >⚙️</router-link
         >

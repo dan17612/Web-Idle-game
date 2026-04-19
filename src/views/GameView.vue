@@ -36,7 +36,11 @@ const favAnimal = computed(() => {
 const favEmoji = computed(() => favAnimal.value?.info.emoji || "🐾");
 
 const ownedAnimals = computed(() =>
-  game.animals.map((a) => ({ ...a, info: speciesInfo(a.species) })),
+  game.animals.map((a) => ({
+    ...a,
+    info: speciesInfo(a.species),
+    td: tierInfo(a.tier || "normal"),
+  })),
 );
 
 const pickerOpen = ref(false);
@@ -100,15 +104,20 @@ async function tap(e) {
 const upgradingTap = ref("");
 const canUpgradeMul = computed(() => game.displayCoins >= game.nextTapCost);
 const canUpgradeCap = computed(() => game.displayCoins >= game.nextCapCost);
+const canUpgradeOffline = computed(
+  () => game.displayCoins >= game.nextOfflineCost && game.maxOfflineHours < 8,
+);
 
 async function upgradeTap(kind) {
   if (upgradingTap.value) return;
   if (kind === "mul" && !canUpgradeMul.value) return;
   if (kind === "cap" && !canUpgradeCap.value) return;
+  if (kind === "offline" && !canUpgradeOffline.value) return;
   upgradingTap.value = kind;
   try {
     await game.persist();
-    await game.upgradeTap(kind);
+    if (kind === "offline") await game.upgradeOffline();
+    else await game.upgradeTap(kind);
   } catch (e) {
     error.value = e.message;
     setTimeout(() => (error.value = ""), 2500);
@@ -198,10 +207,16 @@ async function pickFavorite(animalId) {
 <template>
   <div>
     <div class="welcome">
-      <div>
-        <div class="subtitle" style="margin: 0">Willkommen zurück</div>
-        <div class="username">{{ auth.profile?.username || "Spieler" }}</div>
-      </div>
+      <router-link to="/profile" class="welcome-link">
+        <div class="welcome-avatar">{{ auth.profile?.avatar_emoji || "👤" }}</div>
+        <div>
+          <div class="subtitle" style="margin: 0">Willkommen zurück</div>
+          <div class="username">
+            {{ auth.profile?.username || "Spieler" }}
+            <span class="profile-hint">→ Profil & Sammlung</span>
+          </div>
+        </div>
+      </router-link>
       <div v-if="game.favoriteBoostActive" class="boost-chip">
         ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
       </div>
@@ -326,55 +341,123 @@ async function pickFavorite(animalId) {
             }}
           </button>
         </div>
+        <div class="tu-card">
+          <div class="tu-head">
+            <span class="tu-icon">💤</span>
+            <div>
+              <div class="tu-title">Offline-Zeit</div>
+              <div class="tu-sub">
+                Lvl {{ game.offlineLevel }} · {{ game.maxOfflineHours }}h max
+              </div>
+            </div>
+          </div>
+          <div class="tu-next">
+            <template v-if="game.maxOfflineHours < 8">
+              Nächster Lvl: {{ (game.maxOfflineHours + 0.5).toFixed(1) }}h
+            </template>
+            <template v-else> Maximum erreicht </template>
+          </div>
+          <button
+            class="btn"
+            :disabled="!canUpgradeOffline || !!upgradingTap"
+            @click="upgradeTap('offline')"
+          >
+            {{
+              upgradingTap === "offline"
+                ? "..."
+                : game.maxOfflineHours >= 8
+                  ? "MAX"
+                  : "⬆ " + formatCoins(game.nextOfflineCost)
+            }}
+          </button>
+        </div>
       </div>
     </div>
 
     <div class="card pet-card" :class="{ boosted: game.favoriteBoostActive }">
-      <div class="pet-emoji">
-        {{ favEmoji }}{{ game.favoriteBoostActive ? "✨" : "" }}
-      </div>
-      <div class="pet-body">
-        <div class="pet-title">
-          {{ favAnimal ? favAnimal.info.name : "Kein Liebling gewählt" }}
+      <div class="pet-top">
+        <div class="pet-emoji">
+          {{ favEmoji }}{{ game.favoriteBoostActive ? "✨" : "" }}
         </div>
-        <div v-if="game.favoriteBoostActive" class="pet-status boost">
-          ×{{ game.petBoostMultiplier }} Boost · {{ fmtTime(boostRemaining) }}
+        <div class="pet-body">
+          <div class="pet-title">
+            {{ favAnimal ? favAnimal.info.name : "Kein Liebling gewählt" }}
+          </div>
+          <div v-if="game.favoriteBoostActive" class="pet-status boost">
+            ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
+          </div>
+          <div v-else class="pet-status">
+            Wähle & füttere deinen Liebling für ×-Boost.
+          </div>
         </div>
-        <div v-else class="pet-status">
-          Füttere deinen Liebling für ×-Boost.
+        <div class="pet-actions">
+          <button
+            class="btn secondary small"
+            :disabled="!ownedAnimals.length"
+            @click="pickerOpen = !pickerOpen"
+          >
+            ⭐ Wählen
+          </button>
+          <button
+            class="btn small"
+            :disabled="!favAnimal"
+            @click="router.push('/shop?tab=food')"
+          >
+            🍖 Füttern
+          </button>
         </div>
       </div>
-      <button
-        class="btn"
-        :disabled="!favAnimal"
-        @click="router.push('/shop?tab=food')"
-      >
-        🍖 Füttern
-      </button>
-    </div>
-
-    <div v-if="ownedAnimals.length > 0" class="card">
-      <div class="row between" style="margin-bottom: 8px">
-        <h2 class="title" style="margin: 0; font-size: 16px">
-          ⭐ Liebling auswählen
-        </h2>
-        <button class="btn secondary small" @click="pickerOpen = !pickerOpen">
-          {{ pickerOpen ? "Schließen" : "Ändern" }}
-        </button>
-      </div>
-      <div v-if="pickerOpen" class="fav-grid">
+      <div v-if="pickerOpen && ownedAnimals.length" class="fav-strip">
         <button
           v-for="a in ownedAnimals"
           :key="a.id"
-          class="fav-cell"
-          :class="{ active: a.id === game.favoriteAnimalId }"
+          class="fav-pill"
+          :class="{
+            active: a.id === game.favoriteAnimalId,
+            tiered: (a.tier || 'normal') !== 'normal',
+          }"
+          :style="
+            (a.tier || 'normal') !== 'normal'
+              ? { '--tier-color': tierInfo(a.tier).color }
+              : null
+          "
           @click="pickFavorite(a.id)"
         >
-          <div class="fav-emoji">{{ a.info.emoji }}</div>
-          <div class="fav-name">{{ a.info.name }}</div>
-          <div v-if="a.id === game.favoriteAnimalId" class="fav-star">⭐</div>
+          <span class="fav-pill-emoji">{{ a.info.emoji }}</span>
+          <span v-if="tierInfo(a.tier).badge" class="fav-pill-badge">{{
+            tierInfo(a.tier).badge
+          }}</span>
+          <span class="fav-pill-name">{{ a.info.name }}</span>
         </button>
       </div>
+    </div>
+
+    <div class="card quick-actions">
+      <router-link to="/inventory" class="qa-btn">
+        <span class="qa-icon">📦</span>
+        <span class="qa-label">Inventar</span>
+        <span class="qa-sub">{{ ownedAnimals.length }} Tiere</span>
+      </router-link>
+      <router-link to="/shop" class="qa-btn">
+        <span class="qa-icon">🛒</span>
+        <span class="qa-label">Shop</span>
+        <span class="qa-sub">Tiere & Futter</span>
+      </router-link>
+      <router-link to="/trade" class="qa-btn">
+        <span class="qa-icon">🔄</span>
+        <span class="qa-label">Trade</span>
+        <span class="qa-sub">Tauschen</span>
+      </router-link>
+      <router-link to="/friends" class="qa-btn">
+        <span class="qa-icon">🤝</span>
+        <span class="qa-label">Freunde</span>
+        <span class="qa-sub">Senden</span>
+      </router-link>
+      <router-link to="/index" class="qa-btn">
+        <span class="qa-icon">🏆</span>
+        <span class="qa-label">Index</span>
+        <span class="qa-sub">Sammlung</span>
+      </router-link>
     </div>
 
     <div class="card equip-card">
@@ -385,28 +468,26 @@ async function pickFavorite(animalId) {
             >{{ game.equippedCount }} / {{ game.equipSlots }}</span
           >
         </h2>
-        <router-link to="/inventory" class="badge">Inventar →</router-link>
+        <router-link to="/inventory" class="btn inventory-btn">
+          📦 Inventar verwalten
+        </router-link>
       </div>
       <div class="farm-grid">
-        <div
-          v-for="(cell, i) in slotCells"
-          :key="i"
-          class="farm-cell"
-          :class="{
-            empty: !cell,
-            alive: !!cell,
-            boosted:
-              cell && cell.id === game.favoriteAnimalId && game.boostActive,
-            favorite: cell && cell.id === game.favoriteAnimalId,
-            tiered: cell && (cell.tier || 'normal') !== 'normal',
-          }"
-          :style="
-            cell && (cell.tier || 'normal') !== 'normal'
-              ? { '--tier-color': cell.td.color }
-              : null
-          "
-        >
-          <template v-if="cell">
+        <template v-for="(cell, i) in slotCells" :key="i">
+          <div
+            v-if="cell"
+            class="farm-cell alive"
+            :class="{
+              boosted: cell.id === game.favoriteAnimalId && game.boostActive,
+              favorite: cell.id === game.favoriteAnimalId,
+              tiered: (cell.tier || 'normal') !== 'normal',
+            }"
+            :style="
+              (cell.tier || 'normal') !== 'normal'
+                ? { '--tier-color': cell.td.color }
+                : null
+            "
+          >
             <div v-if="cell.id === game.favoriteAnimalId" class="farm-star">
               ⭐
             </div>
@@ -424,12 +505,18 @@ async function pickFavorite(animalId) {
             >
               ✨
             </div>
-          </template>
-          <template v-else>
+          </div>
+          <router-link
+            v-else
+            to="/inventory"
+            class="farm-cell empty"
+            :aria-label="`Freier Slot ${i + 1} — zum Inventar`"
+          >
             <div class="farm-plus">＋</div>
             <div class="farm-meta">Freier Slot</div>
-          </template>
-        </div>
+            <div class="farm-meta-sub">Tippen zum Ausrüsten</div>
+          </router-link>
+        </template>
       </div>
     </div>
 
@@ -438,8 +525,8 @@ async function pickFavorite(animalId) {
         <h2 class="title" style="margin: 0; font-size: 18px">
           🧬 Fusions-Maschine
         </h2>
-        <button class="btn secondary small" @click="fusionOpen = !fusionOpen">
-          {{ fusionOpen ? "Schließen" : "Öffnen" }}
+        <button class="btn fusion-toggle" @click="fusionOpen = !fusionOpen">
+          {{ fusionOpen ? "✕ Schließen" : "🧬 Öffnen" }}
         </button>
       </div>
       <p class="hint">
@@ -519,10 +606,41 @@ async function pickFavorite(animalId) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  gap: 10px;
+}
+.welcome-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  flex: 1;
+  min-width: 0;
+}
+.welcome-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a3866, #162048);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.welcome-link:hover .welcome-avatar {
+  border-color: var(--accent);
 }
 .username {
   font-weight: 800;
   font-size: 18px;
+}
+.profile-hint {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 6px;
 }
 .boost-chip {
   background: linear-gradient(135deg, #06d6a0, #ffd166);
@@ -638,11 +756,124 @@ async function pickFavorite(animalId) {
   }
 }
 
-.pet-card,
+.pet-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pet-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fav-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  scrollbar-width: thin;
+}
+.fav-pill {
+  --tier-color: transparent;
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background: #162048;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  min-width: 64px;
+}
+.fav-pill.tiered {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tier-color) 35%, #162048),
+    color-mix(in srgb, var(--tier-color) 10%, #0f1736)
+  );
+  border-color: color-mix(in srgb, var(--tier-color) 60%, transparent);
+}
+.fav-pill.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent) inset;
+}
+.fav-pill-emoji {
+  font-size: 26px;
+  line-height: 1;
+}
+.fav-pill-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 12px;
+}
+.fav-pill-name {
+  font-size: 10px;
+  opacity: 0.8;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .tap-upgrade {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  padding: 10px;
+}
+.qa-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  background: #162048;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.08s ease;
+}
+.qa-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+.qa-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+.qa-label {
+  font-weight: 700;
+  font-size: 12px;
+}
+.qa-sub {
+  font-size: 10px;
+  color: var(--muted);
+}
+@media (max-width: 520px) {
+  .quick-actions {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 360px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .pet-card.boosted {
   background: linear-gradient(
@@ -796,14 +1027,52 @@ async function pickFavorite(animalId) {
   font-weight: 700;
   margin-top: 2px;
 }
+.farm-cell.empty {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition:
+    transform 0.1s ease,
+    border-color 0.1s ease;
+}
+.farm-cell.empty:hover,
+.farm-cell.empty:active {
+  border-color: var(--accent);
+  border-style: solid;
+  transform: translateY(-2px);
+}
 .farm-plus {
   font-size: 36px;
-  opacity: 0.4;
+  opacity: 0.5;
+  color: var(--accent);
 }
 .farm-meta {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 600;
   margin-top: 2px;
+}
+.farm-meta-sub {
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.7;
+  margin-top: 2px;
+}
+.inventory-btn {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+}
+.fusion-toggle {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 40px;
 }
 .farm-spark {
   position: absolute;
