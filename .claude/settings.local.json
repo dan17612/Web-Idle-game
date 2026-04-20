@@ -5,7 +5,11 @@
       "mcp__39f9b29a-4fe7-4328-a4b5-61d3acecc78c__apply_migration",
       "Bash(node -e ' *)",
       "mcp__39f9b29a-4fe7-4328-a4b5-61d3acecc78c__execute_sql",
-      "mcp__39f9b29a-4fe7-4328-a4b5-61d3acecc78c__list_projects"
+      "mcp__39f9b29a-4fe7-4328-a4b5-61d3acecc78c__list_projects",
+      "Bash(xargs grep *)",
+      "Bash(find /c/Users/danii/Nextcloud/Documents/Dev/Web-Idle-game -type f \\\\\\( -name \"*.sql\" -o -name \"*.js\" \\\\\\) -exec grep -l \"avatar_emoji\\\\|set_avatar\" {} \\\\;)",
+      "Bash(git push *)",
+      "Bash(gh pr create --base main --head dev --title 'feat: profile page, persistent species index, offline upgrades, UX polish' --body ' *)"
     ]
   }
 }
