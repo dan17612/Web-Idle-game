@@ -9,7 +9,8 @@
       "Bash(xargs grep *)",
       "Bash(find /c/Users/danii/Nextcloud/Documents/Dev/Web-Idle-game -type f \\\\\\( -name \"*.sql\" -o -name \"*.js\" \\\\\\) -exec grep -l \"avatar_emoji\\\\|set_avatar\" {} \\\\;)",
       "Bash(git push *)",
-      "Bash(gh pr create --base main --head dev --title 'feat: profile page, persistent species index, offline upgrades, UX polish' --body ' *)"
+      "Bash(gh pr create --base main --head dev --title 'feat: profile page, persistent species index, offline upgrades, UX polish' --body ' *)",
+      "Bash(npx vite *)"
     ]
   }
 }

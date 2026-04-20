@@ -4,6 +4,8 @@ import { SPECIES, loadCatalog, animalRate, isUpgrading, tierInfo } from '../anim
 import { useAuthStore } from './auth'
 
 const TAP_MAX = 10
+const TAP_MUL_MAX_LEVEL = 25
+const TAP_CAP_MAX_LEVEL = 20
 
 export const useGameStore = defineStore('game', {
   state: () => ({
@@ -23,7 +25,9 @@ export const useGameStore = defineStore('game', {
     petBoostMultiplier: 1,
     petBoostUntil: 0,
     serverOffset: 0,
-    catalogLoaded: false
+    catalogLoaded: false,
+    bonusTaps: 0,
+    newbieGiftClaimed: false
   }),
   getters: {
     favoriteAnimal(state) {
@@ -47,6 +51,12 @@ export const useGameStore = defineStore('game', {
     },
     offlineMaxed() {
       return this.maxOfflineHours >= 8
+    },
+    tapMulMaxed(state) {
+      return state.tapLevel >= TAP_MUL_MAX_LEVEL
+    },
+    tapCapMaxed(state) {
+      return state.tapCapLevel >= TAP_CAP_MAX_LEVEL
     },
     baseRate(state) {
       return state.animals
@@ -93,6 +103,12 @@ export const useGameStore = defineStore('game', {
     },
     tapsRemaining(state) {
       return Math.max(0, state.tapsMax - state.tapsUsed)
+    },
+    effectiveTapsRemaining(state) {
+      return Math.max(0, state.tapsMax - state.tapsUsed) + Math.max(0, state.bonusTaps)
+    },
+    newbieGiftAvailable(state) {
+      return !state.newbieGiftClaimed && state.animals.length === 0 && state.tapsUsed >= state.tapsMax
     }
   },
   actions: {
@@ -117,6 +133,17 @@ export const useGameStore = defineStore('game', {
       this.tapLevel = Number(p?.tap_level ?? 1)
       this.tapCapLevel = Number(p?.tap_cap_level ?? 1)
       this.offlineLevel = Number(p?.offline_level ?? 1)
+      let localClaimed = false
+      try { localClaimed = localStorage.getItem('newbieGiftClaimed:' + auth.user.id) === '1' } catch {}
+      try {
+        const { data: gp } = await supabase.from('profiles')
+          .select('newbie_gift_claimed').eq('id', auth.user.id).maybeSingle()
+        this.newbieGiftClaimed = !!gp?.newbie_gift_claimed || localClaimed
+      } catch { this.newbieGiftClaimed = localClaimed }
+      try {
+        const stored = Number(localStorage.getItem('bonusTaps:' + auth.user.id) || 0)
+        this.bonusTaps = isFinite(stored) && stored > 0 ? stored : 0
+      } catch { this.bonusTaps = 0 }
       this.lastCollected = p?.last_collected_at ? new Date(p.last_collected_at) : new Date()
       this.animals = animals || []
       if (!this.favoriteAnimalId && this.animals.length > 0) {
@@ -161,18 +188,52 @@ export const useGameStore = defineStore('game', {
       this.lastCollected = new Date()
     },
     async tapEarn() {
-      if (this.tapsUsed >= this.tapsMax) throw new Error('Tap-Limit erreicht')
+      const normalMax = 10 + (this.tapCapLevel - 1) * 5
+      const usingBonus = this.tapsUsed >= normalMax && this.bonusTaps > 0
+      if (this.tapsUsed >= normalMax && !usingBonus) throw new Error('Tap-Limit erreicht')
       this.tapsUsed += 1
-      const { data, error } = await supabase.rpc('tap_earn', { p_max: TAP_MAX })
+      const effectiveMax = usingBonus
+        ? Math.max(this.tapsUsed + 1, normalMax + this.bonusTaps)
+        : normalMax
+      const { data, error } = await supabase.rpc('tap_earn', { p_max: effectiveMax })
       if (error) {
         this.tapsUsed = Math.max(0, this.tapsUsed - 1)
         if (/limit/i.test(error.message)) await this.refreshTapStatus()
         throw error
       }
+      const serverUsed = Number(data.taps_used)
+      if (serverUsed > normalMax) {
+        this.bonusTaps = Math.max(0, this.bonusTaps - 1)
+        try {
+          const auth = useAuthStore()
+          if (auth.user) localStorage.setItem('bonusTaps:' + auth.user.id, String(this.bonusTaps))
+        } catch {}
+      }
       this.coins = Number(data.coins)
-      this.tapsUsed = Math.max(this.tapsUsed, Number(data.taps_used))
+      this.tapsUsed = Math.max(this.tapsUsed, serverUsed)
       this.tapsNextReset = new Date(data.next_reset).getTime()
       if (data.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      return data
+    },
+    async claimNewbieGift() {
+      const auth = useAuthStore()
+      if (!auth.user) throw new Error('not authenticated')
+      const { data, error } = await supabase.rpc('claim_newbie_gift')
+      if (error) {
+        const msg = error.message || String(error)
+        if (/not[_\s]?found|does not exist|schema cache|function.*claim_newbie_gift/i.test(msg)) {
+          throw new Error('Geschenk-Funktion ist auf dem Server nicht verfügbar. Bitte später erneut versuchen.')
+        }
+        throw error
+      }
+      const bonus = Number(data?.bonus_taps ?? 50)
+      this.bonusTaps = (this.bonusTaps || 0) + bonus
+      this.newbieGiftClaimed = true
+      try {
+        localStorage.setItem('bonusTaps:' + auth.user.id, String(this.bonusTaps))
+        localStorage.setItem('newbieGiftClaimed:' + auth.user.id, '1')
+      } catch {}
+      await this.load()
       return data
     },
     async refreshTapStatus() {
