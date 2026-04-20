@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { useGameStore } from '../stores/game'
-import { speciesInfo, formatCoins } from '../animals'
+import { speciesInfo, formatCoins, tierInfo } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
 
 const route = useRoute()
@@ -44,7 +44,7 @@ const sendForm = reactive({ username: '', amount: 0 })
 const pickerOpen = ref('') // 'mine' | 'theirs' | ''
 
 const myTradableAnimals = computed(() =>
-  game.animals.filter(a => !a.equipped).map(a => ({ ...a, info: speciesInfo(a.species) }))
+  game.animals.filter(a => !a.equipped).map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier || 'normal') }))
 )
 
 function toggleMine(id) {
@@ -63,15 +63,16 @@ async function lookupPartner() {
   if (!name) return
   partnerSearching.value = true
   try {
+    const escaped = name.replace(/[\\_%]/g, '\\$&')
     const { data: p } = await supabase.from('profiles')
-      .select('id, username, coins, avatar_emoji').eq('username', name).maybeSingle()
+      .select('id, username, coins, avatar_emoji').ilike('username', escaped).maybeSingle()
     if (!p) { partnerError.value = 'Nicht gefunden'; return }
     if (p.id === auth.user.id) { partnerError.value = 'Das bist du selbst'; return }
     partnerProfile.value = p
     const { data: animals } = await supabase.from('animals')
-      .select('id, species, equipped').eq('owner_id', p.id).eq('equipped', false)
+      .select('id, species, equipped, tier').eq('owner_id', p.id).eq('equipped', false)
       .order('acquired_at')
-    partnerAnimals.value = (animals || []).map(a => ({ ...a, info: speciesInfo(a.species) }))
+    partnerAnimals.value = (animals || []).map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier || 'normal') }))
   } finally {
     partnerSearching.value = false
   }
@@ -141,7 +142,12 @@ async function sendGift() {
   if (!sendForm.amount || sendForm.amount < 1) { error.value = 'Betrag muss ≥ 1 sein'; return }
   busy.value = true
   try {
-    await game.sendCoins(sendForm.username.trim(), sendForm.amount)
+    const name = sendForm.username.trim()
+    const escaped = name.replace(/[\\_%]/g, '\\$&')
+    const { data: rcpt } = await supabase.from('profiles')
+      .select('username').ilike('username', escaped).maybeSingle()
+    if (!rcpt) throw new Error('Empfänger nicht gefunden')
+    await game.sendCoins(rcpt.username, sendForm.amount)
     success.value = `${formatCoins(sendForm.amount)} 🪙 gesendet`
     sendForm.username = ''
     sendForm.amount = 0
@@ -259,6 +265,12 @@ function summarize(t) {
   const addChips = (t.addressee_animal_details || []).map(a => speciesInfo(a.species).emoji).join('')
   return { reqChips, addChips }
 }
+function tierBadge(a) {
+  return tierInfo(a?.tier || 'normal').badge || ''
+}
+function tierColor(a) {
+  return tierInfo(a?.tier || 'normal').color || ''
+}
 </script>
 
 <template>
@@ -335,7 +347,7 @@ function summarize(t) {
           <div class="slots">
             <div v-for="id in offer.myAnimals" :key="id" class="chip-anim"
                  @click="toggleMine(id)">
-              <span>{{ speciesInfo(myTradableAnimals.find(a=>a.id===id)?.species).emoji }}</span>
+              <span>{{ speciesInfo(myTradableAnimals.find(a=>a.id===id)?.species).emoji }}<sup v-if="tierBadge(myTradableAnimals.find(a=>a.id===id))" class="tb">{{ tierBadge(myTradableAnimals.find(a=>a.id===id)) }}</sup></span>
               <span class="x">×</span>
             </div>
             <button class="chip-add" @click="pickerOpen = pickerOpen==='mine'?'':'mine'">＋ Tier</button>
@@ -345,8 +357,8 @@ function summarize(t) {
           <div v-if="pickerOpen==='mine'" class="picker">
             <div v-if="!myTradableAnimals.length" class="subtitle">Keine tauschbaren Tiere. Rüste sie zuerst ab.</div>
             <div v-else class="picker-grid">
-              <div v-for="a in myTradableAnimals" :key="a.id" class="pick" :class="{ active: offer.myAnimals.has(a.id) }" @click="toggleMine(a.id)">
-                <div class="pick-emoji">{{ a.info.emoji }}</div>
+              <div v-for="a in myTradableAnimals" :key="a.id" class="pick" :class="{ active: offer.myAnimals.has(a.id), tiered: a.tier && a.tier !== 'normal' }" :style="{ '--tb': a.td.color }" @click="toggleMine(a.id)">
+                <div class="pick-emoji">{{ a.info.emoji }}<sup v-if="a.td.badge" class="tb">{{ a.td.badge }}</sup></div>
                 <div class="pick-name">{{ a.info.name }}</div>
               </div>
             </div>
@@ -364,7 +376,7 @@ function summarize(t) {
           <div v-if="!isPublicOffer" class="slots">
             <div v-for="id in offer.theirAnimals" :key="id" class="chip-anim"
                  @click="toggleTheirs(id)">
-              <span>{{ speciesInfo(partnerAnimals.find(a=>a.id===id)?.species).emoji }}</span>
+              <span>{{ speciesInfo(partnerAnimals.find(a=>a.id===id)?.species).emoji }}<sup v-if="tierBadge(partnerAnimals.find(a=>a.id===id))" class="tb">{{ tierBadge(partnerAnimals.find(a=>a.id===id)) }}</sup></span>
               <span class="x">×</span>
             </div>
             <button class="chip-add" @click="pickerOpen = pickerOpen==='theirs'?'':'theirs'">＋ Tier</button>
@@ -374,8 +386,8 @@ function summarize(t) {
           <div v-if="pickerOpen==='theirs'" class="picker">
             <div v-if="!partnerAnimals.length" class="subtitle">Dieser Spieler hat keine tauschbaren Tiere.</div>
             <div v-else class="picker-grid">
-              <div v-for="a in partnerAnimals" :key="a.id" class="pick" :class="{ active: offer.theirAnimals.has(a.id) }" @click="toggleTheirs(a.id)">
-                <div class="pick-emoji">{{ a.info.emoji }}</div>
+              <div v-for="a in partnerAnimals" :key="a.id" class="pick" :class="{ active: offer.theirAnimals.has(a.id), tiered: a.tier && a.tier !== 'normal' }" :style="{ '--tb': a.td.color }" @click="toggleTheirs(a.id)">
+                <div class="pick-emoji">{{ a.info.emoji }}<sup v-if="a.td.badge" class="tb">{{ a.td.badge }}</sup></div>
                 <div class="pick-name">{{ a.info.name }}</div>
               </div>
             </div>
@@ -405,7 +417,7 @@ function summarize(t) {
         <div class="side-mini">
           <div class="mini-label">Bietet</div>
           <div class="mini-row">
-            <span v-for="a in t.requester_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
             <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">nichts</span>
           </div>
@@ -425,9 +437,10 @@ function summarize(t) {
         <div class="picker-grid">
           <div v-for="a in myTradableAnimals" :key="a.id"
                class="pick"
-               :class="{ active: (publicAccept[t.id] || new Set()).has(a.id) }"
+               :class="{ active: (publicAccept[t.id] || new Set()).has(a.id), tiered: a.tier && a.tier !== 'normal' }"
+               :style="{ '--tb': a.td.color }"
                @click="togglePubAnimal(t.id, a.id)">
-            <div class="pick-emoji">{{ a.info.emoji }}</div>
+            <div class="pick-emoji">{{ a.info.emoji }}<sup v-if="a.td.badge" class="tb">{{ a.td.badge }}</sup></div>
             <div class="pick-name">{{ a.info.name }}</div>
           </div>
         </div>
@@ -454,7 +467,7 @@ function summarize(t) {
         <div class="side-mini">
           <div class="mini-label">Du bekommst</div>
           <div class="mini-row">
-            <span v-for="a in t.requester_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
             <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">nichts</span>
           </div>
@@ -463,7 +476,7 @@ function summarize(t) {
         <div class="side-mini">
           <div class="mini-label">Du gibst</div>
           <div class="mini-row">
-            <span v-for="a in t.addressee_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-for="a in t.addressee_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
             <span v-if="!t.addressee_animal_details.length && Number(t.addressee_coins) === 0" class="subtitle">nichts</span>
           </div>
@@ -489,7 +502,7 @@ function summarize(t) {
         <div class="side-mini">
           <div class="mini-label">Du gibst</div>
           <div class="mini-row">
-            <span v-for="a in t.requester_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
           </div>
         </div>
@@ -497,7 +510,7 @@ function summarize(t) {
         <div class="side-mini">
           <div class="mini-label">Du bekommst</div>
           <div class="mini-row">
-            <span v-for="a in t.addressee_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-for="a in t.addressee_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
           </div>
         </div>
@@ -521,14 +534,14 @@ function summarize(t) {
       <div class="row sides-mini">
         <div class="side-mini">
           <div class="mini-row">
-            <span v-for="a in t.requester_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
           </div>
         </div>
         <div class="arrow-mini">⇄</div>
         <div class="side-mini">
           <div class="mini-row">
-            <span v-for="a in t.addressee_animal_details" :key="a.id" class="e">{{ speciesInfo(a.species).emoji }}</span>
+            <span v-for="a in t.addressee_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
           </div>
         </div>
@@ -604,6 +617,12 @@ function summarize(t) {
 .mini-row { display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size: 20px; }
 .mini-row .coins { font-size: 13px; color: var(--accent); font-weight: 700; }
 .arrow-mini { font-size: 16px; color: var(--accent); font-weight: 800; }
+.tb {
+  font-size: 0.55em; vertical-align: super; line-height: 1;
+  margin-left: -2px;
+}
+.pick.tiered { border-color: var(--tb, var(--accent)); box-shadow: 0 0 0 1px var(--tb, transparent) inset; }
+.e.tiered { filter: drop-shadow(0 0 2px var(--tb, transparent)); }
 .status-accepted .badge { background: rgba(6,214,160,0.15); color: var(--accent-2); }
 .status-declined .badge, .status-cancelled .badge { background: rgba(239,71,111,0.15); color: var(--danger); }
 </style>

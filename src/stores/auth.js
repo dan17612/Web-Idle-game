@@ -69,9 +69,17 @@ export const useAuthStore = defineStore('auth', {
       if (error) throw error
     },
     async changeUsername(newName) {
-      const { data, error } = await supabase.rpc('change_username', { p_new: newName })
+      const name = String(newName || '').trim()
+      if (name.length < 3) throw new Error('Username mind. 3 Zeichen')
+      const escaped = name.replace(/[\\_%]/g, '\\$&')
+      const { data: existing } = await supabase.from('profiles')
+        .select('id, username').ilike('username', escaped).maybeSingle()
+      if (existing && existing.id !== this.user?.id) {
+        throw new Error('Username ist bereits vergeben (Groß-/Kleinschreibung wird ignoriert).')
+      }
+      const { data, error } = await supabase.rpc('change_username', { p_new: name })
       if (error) throw error
-      if (this.profile) this.profile.username = data?.username || newName
+      if (this.profile) this.profile.username = data?.username || name
       return data
     },
     async sendBroadcast(message) {

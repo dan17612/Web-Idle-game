@@ -1,6 +1,7 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { supabase } from '../supabase'
 
 const auth = useAuthStore()
 const mode = ref('login')         // 'login' | 'signup'
@@ -19,6 +20,10 @@ async function submit() {
     if (mode.value === 'signup') {
       const uname = form.username.trim()
       if (uname.length < 3) throw new Error('Username mind. 3 Zeichen')
+      const escaped = uname.replace(/[\\_%]/g, '\\$&')
+      const { data: existing } = await supabase.from('profiles')
+        .select('username').ilike('username', escaped).maybeSingle()
+      if (existing) throw new Error('Username ist bereits vergeben (Groß-/Kleinschreibung wird ignoriert).')
       if (method.value === 'password') {
         if (!form.password || form.password.length < 6) throw new Error('Passwort mind. 6 Zeichen')
         await auth.signUpWithPassword(email, form.password, uname)

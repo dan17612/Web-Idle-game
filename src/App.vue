@@ -87,6 +87,33 @@ onMounted(async () => {
 });
 
 const showNav = computed(() => auth.isAuth && route.name !== "login");
+
+const reloading = ref(false);
+async function hardReload() {
+  if (reloading.value) return;
+  reloading.value = true;
+  try {
+    if (auth.isAuth) {
+      try { await game.persist(); } catch {}
+    }
+    if ("caches" in window) {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      } catch {}
+    }
+    if (navigator.serviceWorker) {
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.update()));
+      } catch {}
+    }
+  } finally {
+    const url = new URL(window.location.href);
+    url.searchParams.set("_r", Date.now().toString());
+    window.location.replace(url.toString());
+  }
+}
 </script>
 
 <template>
@@ -102,9 +129,10 @@ const showNav = computed(() => auth.isAuth && route.name !== "login");
           type="button"
           class="settings-link"
           title="Seite neu laden"
-          @click="() => window.location.reload()"
+          :disabled="reloading"
+          @click="hardReload"
         >
-          🔄
+          {{ reloading ? "…" : "🔄" }}
         </button>
         <router-link to="/settings" class="settings-link" title="Einstellungen"
           >⚙️</router-link
