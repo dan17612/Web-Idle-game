@@ -1,145 +1,215 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { useGameStore } from '../stores/game'
-import { useAuthStore } from '../stores/auth'
-import { supabase } from '../supabase'
-import { SPECIES, formatCoins } from '../animals'
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useRoute } from "vue-router";
+import { useGameStore } from "../stores/game";
+import { useAuthStore } from "../stores/auth";
+import { supabase } from "../supabase";
+import { SPECIES, formatCoins } from "../animals";
 
-const game = useGameStore()
-const auth = useAuthStore()
-const route = useRoute()
+const game = useGameStore();
+const auth = useAuthStore();
+const route = useRoute();
 
-const tab = ref(route.query.tab === 'food' ? 'food' : 'animals')
-watch(() => route.query.tab, t => { if (t === 'food' || t === 'animals') tab.value = t })
+const tab = ref(route.query.tab === "food" ? "food" : "animals");
+watch(
+  () => route.query.tab,
+  (t) => {
+    if (t === "food" || t === "animals") tab.value = t;
+  },
+);
 
-const error = ref('')
-const success = ref('')
-const busyKey = ref('')
-const busyAdmin = ref('')
-const adminOpen = ref(false)
+const error = ref("");
+const success = ref("");
+const busyKey = ref("");
+const busyAdmin = ref("");
+const adminOpen = ref(false);
 
-const stock = ref({})
-const forcedStock = ref({})
-const myPurchases = ref({})
-const rotatesAt = ref(0)
-const serverOffset = ref(0)
-const now = ref(Date.now())
-const enabledMap = ref({})
-const weightMap = ref({})
-const weightDraft = ref({})
-const restockQty = ref({})
-const foods = ref([])
-let timer
+const stock = ref({});
+const forcedStock = ref({});
+const myPurchases = ref({});
+const rotatesAt = ref(0);
+const serverOffset = ref(0);
+const now = ref(Date.now());
+const enabledMap = ref({});
+const weightMap = ref({});
+const weightDraft = ref({});
+const restockQty = ref({});
+const foods = ref([]);
+let timer;
+const ROTATION_RELOAD_KEY = "shopReloadedForRotation";
 
-function totalStock(key) { return (stock.value[key] || 0) + (forcedStock.value[key] || 0) }
+function totalStock(key) {
+  return (stock.value[key] || 0) + (forcedStock.value[key] || 0);
+}
+
+function reloadPageForRotation() {
+  const stamp = String(rotatesAt.value || "");
+  if (!stamp) return;
+  try {
+    if (sessionStorage.getItem(ROTATION_RELOAD_KEY) === stamp) return;
+    sessionStorage.setItem(ROTATION_RELOAD_KEY, stamp);
+  } catch {}
+  window.location.reload();
+}
 
 async function loadShop() {
-  const { data, error: e } = await supabase.rpc('get_shop')
-  if (e) { error.value = e.message; return }
-  stock.value = data?.stock || {}
-  forcedStock.value = data?.forced_stock || {}
-  myPurchases.value = data?.my_purchases || {}
-  rotatesAt.value = data?.rotates_at ? new Date(data.rotates_at).getTime() : 0
-  if (data?.server_now) serverOffset.value = new Date(data.server_now).getTime() - Date.now()
+  const { data, error: e } = await supabase.rpc("get_shop");
+  if (e) {
+    error.value = e.message;
+    return;
+  }
+  stock.value = data?.stock || {};
+  forcedStock.value = data?.forced_stock || {};
+  myPurchases.value = data?.my_purchases || {};
+  rotatesAt.value = data?.rotates_at ? new Date(data.rotates_at).getTime() : 0;
+  if (data?.server_now)
+    serverOffset.value = new Date(data.server_now).getTime() - Date.now();
+  try {
+    const stamp = String(rotatesAt.value || "");
+    if (stamp && sessionStorage.getItem(ROTATION_RELOAD_KEY) !== stamp) {
+      sessionStorage.removeItem(ROTATION_RELOAD_KEY);
+    }
+  } catch {}
 }
 
 async function loadFoods() {
-  const { data } = await supabase.from('food_costs').select('*').order('cost')
-  foods.value = data || []
+  const { data } = await supabase.from("food_costs").select("*").order("cost");
+  foods.value = data || [];
 }
 
 async function loadAdminData() {
-  if (!auth.profile?.is_admin) return
-  const { data } = await supabase.from('species_costs').select('species, enabled, weight')
-  const em = {}, wm = {}, wd = {}
-  for (const r of data || []) { em[r.species] = r.enabled; wm[r.species] = r.weight; wd[r.species] = r.weight }
-  enabledMap.value = em
-  weightMap.value = wm
-  weightDraft.value = wd
+  if (!auth.profile?.is_admin) return;
+  const { data } = await supabase
+    .from("species_costs")
+    .select("species, enabled, weight");
+  const em = {},
+    wm = {},
+    wd = {};
+  for (const r of data || []) {
+    em[r.species] = r.enabled;
+    wm[r.species] = r.weight;
+    wd[r.species] = r.weight;
+  }
+  enabledMap.value = em;
+  weightMap.value = wm;
+  weightDraft.value = wd;
 }
 
 async function saveWeight(species) {
-  const val = parseInt(weightDraft.value[species], 10)
-  if (!(val > 0)) { error.value = 'Gewicht muss > 0 sein'; return }
-  if (val === weightMap.value[species]) return
-  await callAdmin('admin_set_species_weight', { p_species: species, p_weight: val }, 'w-' + species)
+  const val = parseInt(weightDraft.value[species], 10);
+  if (!(val > 0)) {
+    error.value = "Gewicht muss > 0 sein";
+    return;
+  }
+  if (val === weightMap.value[species]) return;
+  await callAdmin(
+    "admin_set_species_weight",
+    { p_species: species, p_weight: val },
+    "w-" + species,
+  );
 }
 
 onMounted(async () => {
-  await Promise.all([loadShop(), loadAdminData(), loadFoods()])
+  await Promise.all([loadShop(), loadAdminData(), loadFoods()]);
   timer = setInterval(() => {
-    now.value = Date.now()
-    if (rotatesAt.value && serverNow() >= rotatesAt.value + 500) loadShop()
-  }, 500)
-})
-onUnmounted(() => clearInterval(timer))
+    now.value = Date.now();
+    if (rotatesAt.value && serverNow() >= rotatesAt.value + 500)
+      reloadPageForRotation();
+  }, 500);
+});
+onUnmounted(() => clearInterval(timer));
 
-function serverNow() { return now.value + serverOffset.value }
+function serverNow() {
+  return now.value + serverOffset.value;
+}
 
 const countdown = computed(() => {
-  if (!rotatesAt.value) return '—'
-  const s = Math.max(0, Math.floor((rotatesAt.value - serverNow()) / 1000))
-  const m = Math.floor(s / 60); const sec = s % 60
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-})
+  if (!rotatesAt.value) return "—";
+  const s = Math.max(0, Math.floor((rotatesAt.value - serverNow()) / 1000));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+});
 
 const speciesList = computed(() =>
   Object.entries(SPECIES).map(([key, info]) => {
-    const catalogQty = stock.value[key] || 0
-    const forcedQty = forcedStock.value[key] || 0
-    const randomQty = Math.max(0, catalogQty - forcedQty)
-    const boughtQty = myPurchases.value[key] || 0
-    const remaining = Math.max(0, catalogQty - boughtQty)
-    return { key, info, qty: catalogQty, randomQty, forcedQty, remaining, boughtQty, inStock: remaining > 0, isForced: forcedQty > 0, enabled: enabledMap.value[key] !== false }
-  })
-)
-const stockTotal = computed(() => speciesList.value.reduce((s, x) => s + x.remaining, 0))
+    const catalogQty = stock.value[key] || 0;
+    const forcedQty = forcedStock.value[key] || 0;
+    const randomQty = Math.max(0, catalogQty - forcedQty);
+    const boughtQty = myPurchases.value[key] || 0;
+    const remaining = Math.max(0, catalogQty - boughtQty);
+    return {
+      key,
+      info,
+      qty: catalogQty,
+      randomQty,
+      forcedQty,
+      remaining,
+      boughtQty,
+      inStock: remaining > 0,
+      isForced: forcedQty > 0,
+      enabled: enabledMap.value[key] !== false,
+    };
+  }),
+);
+const stockTotal = computed(() =>
+  speciesList.value.reduce((s, x) => s + x.remaining, 0),
+);
 
 async function buy(key) {
-  error.value = ''; success.value = ''
-  busyKey.value = key
+  error.value = "";
+  success.value = "";
+  busyKey.value = key;
   try {
-    await game.buyAnimal(key)
-    success.value = SPECIES[key].name + ' gekauft!'
-    await loadShop()
+    await game.buyAnimal(key);
+    success.value = SPECIES[key].name + " gekauft!";
+    await loadShop();
   } catch (e) {
-    error.value = e.message
-    if (/rotation|ausverkauft|stock/i.test(e.message)) await loadShop()
+    error.value = e.message;
+    if (/rotation|ausverkauft|stock/i.test(e.message)) await loadShop();
   } finally {
-    busyKey.value = ''
-    setTimeout(() => success.value = '', 2000)
+    busyKey.value = "";
+    setTimeout(() => (success.value = ""), 2000);
   }
 }
 
 async function feed(food) {
-  error.value = ''; success.value = ''
-  busyKey.value = 'food-' + food.food
+  error.value = "";
+  success.value = "";
+  busyKey.value = "food-" + food.food;
   try {
-    const res = await game.feedPet(food.food)
-    success.value = `${food.name} gefüttert! ×${res.boost_multiplier} Boost aktiv.`
+    const res = await game.feedPet(food.food);
+    success.value = `${food.name} gefüttert! ×${res.boost_multiplier} Boost aktiv.`;
   } catch (e) {
-    error.value = e.message
+    error.value = e.message;
   } finally {
-    busyKey.value = ''
-    setTimeout(() => success.value = '', 2500)
+    busyKey.value = "";
+    setTimeout(() => (success.value = ""), 2500);
   }
 }
 
 async function callAdmin(rpc, args, key) {
-  error.value = ''; success.value = ''
-  busyAdmin.value = key
+  error.value = "";
+  success.value = "";
+  busyAdmin.value = key;
   try {
-    const { error: e } = await supabase.rpc(rpc, args)
-    if (e) throw e
-    await Promise.all([loadShop(), loadAdminData()])
-  } catch (e) { error.value = e.message }
-  finally { busyAdmin.value = '' }
+    const { error: e } = await supabase.rpc(rpc, args);
+    if (e) throw e;
+    await Promise.all([loadShop(), loadAdminData()]);
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busyAdmin.value = "";
+  }
 }
 
 function adminRestock(species) {
-  const qty = Math.max(1, parseInt(restockQty.value[species] || 1, 10))
-  return callAdmin('admin_force_add', { p_species: species, p_qty: qty }, 'f-' + species)
+  const qty = Math.max(1, parseInt(restockQty.value[species] || 1, 10));
+  return callAdmin(
+    "admin_force_add",
+    { p_species: species, p_qty: qty },
+    "f-" + species,
+  );
 }
 </script>
 
@@ -147,92 +217,188 @@ function adminRestock(species) {
   <h1 class="title">🛒 Shop</h1>
 
   <div class="tabs">
-    <button :class="{ active: tab==='animals' }" @click="tab='animals'">🐾 Tiere</button>
-    <button :class="{ active: tab==='food' }" @click="tab='food'">🍖 Futter</button>
+    <button :class="{ active: tab === 'animals' }" @click="tab = 'animals'">
+      🐾 Tiere
+    </button>
+    <button :class="{ active: tab === 'food' }" @click="tab = 'food'">
+      🍖 Futter
+    </button>
   </div>
 
   <p v-if="error" class="error">{{ error }}</p>
   <p v-if="success" class="success">{{ success }}</p>
 
-  <template v-if="tab==='animals'">
-    <div class="card row between" style="margin-bottom:10px">
+  <template v-if="tab === 'animals'">
+    <div class="card row between" style="margin-bottom: 10px">
       <div>
-        <div class="subtitle" style="margin:0">Nächste Rotation in</div>
-        <div style="font-weight:800;font-size:22px;color:var(--accent);font-variant-numeric:tabular-nums">
+        <div class="subtitle" style="margin: 0">Nächste Rotation in</div>
+        <div
+          style="
+            font-weight: 800;
+            font-size: 22px;
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+          "
+        >
           {{ countdown }}
         </div>
       </div>
-      <div style="text-align:right">
-        <div class="subtitle" style="margin:0">Im Bestand</div>
-        <div style="font-weight:800">{{ stockTotal }} Tier{{ stockTotal === 1 ? '' : 'e' }}</div>
+      <div style="text-align: right">
+        <div class="subtitle" style="margin: 0">Im Bestand</div>
+        <div style="font-weight: 800">
+          {{ stockTotal }} Tier{{ stockTotal === 1 ? "" : "e" }}
+        </div>
       </div>
     </div>
 
-    <div v-if="false" class="card" style="background:linear-gradient(135deg,#3a1d5c,#1d2a5c)">
-      <div class="row between" @click="adminOpen = !adminOpen" style="cursor:pointer">
+    <div
+      v-if="false"
+      class="card"
+      style="background: linear-gradient(135deg, #3a1d5c, #1d2a5c)"
+    >
+      <div
+        class="row between"
+        @click="adminOpen = !adminOpen"
+        style="cursor: pointer"
+      >
         <div>
-          <div style="font-weight:800">🛠️ Admin-Panel</div>
-          <div class="subtitle" style="margin:2px 0 0">Tiere aktivieren, restocken, Rotation auslösen</div>
+          <div style="font-weight: 800">🛠️ Admin-Panel</div>
+          <div class="subtitle" style="margin: 2px 0 0">
+            Tiere aktivieren, restocken, Rotation auslösen
+          </div>
         </div>
-        <div>{{ adminOpen ? '▲' : '▼' }}</div>
+        <div>{{ adminOpen ? "▲" : "▼" }}</div>
       </div>
 
-      <div v-if="adminOpen" style="margin-top:12px">
-        <button class="btn full" style="margin-bottom:12px" :disabled="busyAdmin==='rotate'" @click="callAdmin('admin_force_rotation', {}, 'rotate')">
+      <div v-if="adminOpen" style="margin-top: 12px">
+        <button
+          class="btn full"
+          style="margin-bottom: 12px"
+          :disabled="busyAdmin === 'rotate'"
+          @click="callAdmin('admin_force_rotation', {}, 'rotate')"
+        >
           🎲 Sofort neu würfeln
         </button>
 
-        <div v-for="s in speciesList" :key="'adm-'+s.key" class="admin-row">
+        <div v-for="s in speciesList" :key="'adm-' + s.key" class="admin-row">
           <div class="admin-left">
-            <span style="font-size:22px">{{ s.info.emoji }}</span>
+            <span style="font-size: 22px">{{ s.info.emoji }}</span>
             <div>
-              <div style="font-weight:700">{{ s.info.name }}</div>
-              <div class="subtitle" style="margin:0;display:flex;gap:4px;flex-wrap:wrap">
-                <span v-if="s.forcedQty > 0" class="badge" style="background:rgba(255,209,102,0.15);color:var(--accent)">
+              <div style="font-weight: 700">{{ s.info.name }}</div>
+              <div
+                class="subtitle"
+                style="margin: 0; display: flex; gap: 4px; flex-wrap: wrap"
+              >
+                <span
+                  v-if="s.forcedQty > 0"
+                  class="badge"
+                  style="
+                    background: rgba(255, 209, 102, 0.15);
+                    color: var(--accent);
+                  "
+                >
                   Restock ×{{ s.forcedQty }}
                 </span>
-                <span v-if="s.randomQty > 0" class="badge">Rotation ×{{ s.randomQty }}</span>
-                <span v-if="s.qty === 0" style="color:var(--muted)">leer</span>
+                <span v-if="s.randomQty > 0" class="badge"
+                  >Rotation ×{{ s.randomQty }}</span
+                >
+                <span v-if="s.qty === 0" style="color: var(--muted)">leer</span>
               </div>
             </div>
           </div>
           <div class="admin-actions">
-            <label class="weight"><span>⚖️</span>
-              <input type="number" min="1" max="9999" v-model.number="weightDraft[s.key]"
-                :disabled="busyAdmin===('w-'+s.key)"
+            <label class="weight"
+              ><span>⚖️</span>
+              <input
+                type="number"
+                min="1"
+                max="9999"
+                v-model.number="weightDraft[s.key]"
+                :disabled="busyAdmin === 'w-' + s.key"
                 @blur="saveWeight(s.key)"
-                @keydown.enter.prevent="saveWeight(s.key); $event.target.blur()" />
+                @keydown.enter.prevent="
+                  saveWeight(s.key);
+                  $event.target.blur();
+                "
+              />
             </label>
             <label class="toggle">
-              <input type="checkbox" :checked="s.enabled" :disabled="busyAdmin===('en-'+s.key)"
-                @change="callAdmin('admin_set_species_enabled', { p_species: s.key, p_enabled: !s.enabled }, 'en-'+s.key)" />
-              <span>{{ s.enabled ? 'aktiv' : 'aus' }}</span>
+              <input
+                type="checkbox"
+                :checked="s.enabled"
+                :disabled="busyAdmin === 'en-' + s.key"
+                @change="
+                  callAdmin(
+                    'admin_set_species_enabled',
+                    { p_species: s.key, p_enabled: !s.enabled },
+                    'en-' + s.key,
+                  )
+                "
+              />
+              <span>{{ s.enabled ? "aktiv" : "aus" }}</span>
             </label>
             <label class="weight" title="Menge zum Restocken">
               <span>＋</span>
-              <input type="number" min="1" max="99" v-model.number="restockQty[s.key]" placeholder="1" />
+              <input
+                type="number"
+                min="1"
+                max="99"
+                v-model.number="restockQty[s.key]"
+                placeholder="1"
+              />
             </label>
-            <button class="btn secondary small" :disabled="busyAdmin===('f-'+s.key)" @click="adminRestock(s.key)">Restock</button>
-            <button v-if="s.forcedQty > 0" class="btn danger small" :disabled="busyAdmin===('u-'+s.key)"
-              @click="callAdmin('admin_force_remove', { p_species: s.key }, 'u-'+s.key)">Stop</button>
+            <button
+              class="btn secondary small"
+              :disabled="busyAdmin === 'f-' + s.key"
+              @click="adminRestock(s.key)"
+            >
+              Restock
+            </button>
+            <button
+              v-if="s.forcedQty > 0"
+              class="btn danger small"
+              :disabled="busyAdmin === 'u-' + s.key"
+              @click="
+                callAdmin(
+                  'admin_force_remove',
+                  { p_species: s.key },
+                  'u-' + s.key,
+                )
+              "
+            >
+              Stop
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <p class="subtitle">Angebot rotiert alle 5 Minuten im festen Takt. Jedes Tier pro Bestand einmal kaufbar.</p>
+    <p class="subtitle">
+      Angebot rotiert alle 5 Minuten im festen Takt. Jedes Tier pro Bestand
+      einmal kaufbar.
+    </p>
 
     <div class="grid">
-      <div v-for="s in speciesList" :key="s.key" class="animal-card" :class="{ 'out-of-stock': !s.inStock, 'is-forced': s.isForced }">
+      <div
+        v-for="s in speciesList"
+        :key="s.key"
+        class="animal-card"
+        :class="{ 'out-of-stock': !s.inStock, 'is-forced': s.isForced }"
+      >
         <div v-if="s.isForced" class="ribbon">⭐ Restock</div>
         <div v-if="s.remaining > 1" class="qty-badge">×{{ s.remaining }}</div>
         <div class="animal-emoji">{{ s.info.emoji }}</div>
         <div class="animal-name">{{ s.info.name }}</div>
         <div class="animal-meta">+{{ formatCoins(s.info.rate) }} / Sek</div>
         <div class="animal-cost">🪙 {{ formatCoins(s.info.cost) }}</div>
-        <button v-if="s.inStock" class="btn full" style="margin-top:8px"
-          :disabled="busyKey===s.key || game.displayCoins < s.info.cost" @click="buy(s.key)">
-          {{ busyKey===s.key ? '...' : 'Kaufen' }}
+        <button
+          v-if="s.inStock"
+          class="btn full"
+          style="margin-top: 8px"
+          :disabled="busyKey === s.key || game.displayCoins < s.info.cost"
+          @click="buy(s.key)"
+        >
+          {{ busyKey === s.key ? "..." : "Kaufen" }}
         </button>
         <div v-else-if="s.qty > 0" class="stock-badge">Schon gekauft</div>
         <div v-else class="stock-badge">Ausverkauft</div>
@@ -240,17 +406,27 @@ function adminRestock(species) {
     </div>
   </template>
 
-  <template v-if="tab==='food'">
-    <p class="subtitle">Füttere dein Haustier. Verschiedene Futter bieten unterschiedliche Boosts und Dauern. Höherer Boost überschreibt niedrigeren; gleicher Boost verlängert die Dauer.</p>
+  <template v-if="tab === 'food'">
+    <p class="subtitle">
+      Füttere dein Haustier. Verschiedene Futter bieten unterschiedliche Boosts
+      und Dauern. Höherer Boost überschreibt niedrigeren; gleicher Boost
+      verlängert die Dauer.
+    </p>
     <div class="grid">
       <div v-for="f in foods" :key="f.food" class="animal-card">
         <div class="animal-emoji">{{ f.emoji }}</div>
         <div class="animal-name">{{ f.name }}</div>
-        <div class="animal-meta">×{{ f.multiplier }} · {{ f.duration_min }} Min</div>
+        <div class="animal-meta">
+          ×{{ f.multiplier }} · {{ f.duration_min }} Min
+        </div>
         <div class="animal-cost">🪙 {{ formatCoins(f.cost) }}</div>
-        <button class="btn full" style="margin-top:8px"
-          :disabled="busyKey===('food-'+f.food) || game.displayCoins < f.cost" @click="feed(f)">
-          {{ busyKey===('food-'+f.food) ? '...' : 'Füttern' }}
+        <button
+          class="btn full"
+          style="margin-top: 8px"
+          :disabled="busyKey === 'food-' + f.food || game.displayCoins < f.cost"
+          @click="feed(f)"
+        >
+          {{ busyKey === "food-" + f.food ? "..." : "Füttern" }}
         </button>
       </div>
     </div>
@@ -258,18 +434,99 @@ function adminRestock(species) {
 </template>
 
 <style scoped>
-.out-of-stock { opacity: 0.45; filter: grayscale(0.6); }
-.is-forced { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-.ribbon { position: absolute; top: 6px; right: 6px; background: var(--accent); color: #1b1300; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 999px; }
-.qty-badge { position: absolute; top: 6px; left: 6px; background: var(--accent-2); color: #001a15; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; }
-.stock-badge { margin-top: 8px; padding: 10px; border-radius: 10px; background: rgba(239, 71, 111, 0.15); color: var(--danger); font-weight: 700; font-size: 12px; text-align: center; }
-.admin-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 8px; flex-wrap: wrap; }
-.admin-row:last-child { border-bottom: none; }
-.admin-left { display: flex; gap: 10px; align-items: center; min-width: 0; }
-.admin-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-.btn.small { padding: 6px 10px; font-size: 12px; }
-.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-.toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
-.weight { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
-.weight input { width: 54px; padding: 4px 6px; font-size: 16px; border-radius: 8px; text-align: right; }
+.out-of-stock {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+.is-forced {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.ribbon {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--accent);
+  color: #1b1300;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+.qty-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: var(--accent-2);
+  color: #001a15;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.stock-badge {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(239, 71, 111, 0.15);
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 12px;
+  text-align: center;
+}
+.admin-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.admin-row:last-child {
+  border-bottom: none;
+}
+.admin-left {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+.admin-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.btn.small {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.weight {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.weight input {
+  width: 54px;
+  padding: 4px 6px;
+  font-size: 16px;
+  border-radius: 8px;
+  text-align: right;
+}
 </style>
