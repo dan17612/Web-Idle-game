@@ -27,7 +27,8 @@ export const useGameStore = defineStore('game', {
     serverOffset: 0,
     catalogLoaded: false,
     bonusTaps: 0,
-    newbieGiftClaimed: false
+    newbieGiftClaimed: false,
+    pendingGiftToast: null
   }),
   getters: {
     favoriteAnimal(state) {
@@ -153,6 +154,20 @@ export const useGameStore = defineStore('game', {
       if (tapStatus?.data) this.applyTapStatus(tapStatus.data)
       this.applyOffline()
       this.loading = false
+      this.claimPendingGifts().catch(() => {})
+    },
+    async claimPendingGifts() {
+      const auth = useAuthStore()
+      if (!auth.user) return null
+      const { data, error } = await supabase.rpc('claim_pending_gifts')
+      if (error) return null
+      const gifts = Array.isArray(data?.gifts) ? data.gifts : []
+      if (gifts.length === 0) return data
+      if (Number(data?.coins) > 0) this.coins += Number(data.coins)
+      const { data: animals } = await supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at')
+      this.animals = animals || this.animals
+      this.pendingGiftToast = gifts
+      return data
     },
     applyTapStatus(data) {
       this.tapsUsed = Number(data.taps_used ?? 0)

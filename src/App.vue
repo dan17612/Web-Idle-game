@@ -5,7 +5,7 @@ import { useGameStore } from "./stores/game";
 import { useRoute } from "vue-router";
 import { SpeedInsights } from "@vercel/speed-insights/vue";
 import { supabase } from "./supabase";
-import { formatCoins } from "./animals";
+import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
 
 const adminOpen = ref(false);
@@ -152,6 +152,33 @@ async function hardReload() {
       </div>
     </transition>
 
+    <div
+      v-if="game.pendingGiftToast && game.pendingGiftToast.length"
+      class="gift-modal"
+      @click.self="game.pendingGiftToast = null"
+    >
+      <div class="gift-dialog">
+        <div class="gift-burst">🎁</div>
+        <div class="gift-title">Geschenk erhalten!</div>
+        <div class="gift-sub">Ein Admin hat dir etwas geschickt.</div>
+        <div class="gift-list">
+          <div v-for="g in game.pendingGiftToast" :key="g.id" class="gift-item">
+            <div class="gift-line">
+              <span v-if="g.coins > 0" class="gift-coins">🪙 {{ formatCoins(g.coins) }}</span>
+              <span v-if="g.species" class="gift-pet">
+                {{ speciesInfo(g.species).emoji }} ×{{ g.qty }}
+                <span v-if="g.tier && g.tier !== 'normal'" class="gift-tier">
+                  {{ tierInfo(g.tier).badge }} {{ g.tier }}
+                </span>
+              </span>
+            </div>
+            <div v-if="g.note" class="gift-note">„{{ g.note }}"</div>
+          </div>
+        </div>
+        <button class="btn full" @click="game.pendingGiftToast = null">Danke!</button>
+      </div>
+    </div>
+
     <nav v-if="showNav" class="bottom-nav">
       <router-link to="/shop" class="nav-item">
         <span class="ico">🛒</span><span>Shop</span>
@@ -225,5 +252,63 @@ async function hardReload() {
 .broadcast-fade-leave-to {
   opacity: 0;
   transform: translate(-50%, -40%) scale(0.95);
+}
+.gift-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+  padding: 20px;
+}
+.gift-dialog {
+  background: linear-gradient(135deg, #3a1d5c, #1d3a5c);
+  border: 2px solid var(--accent);
+  border-radius: 18px;
+  padding: 24px;
+  max-width: min(90vw, 420px);
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  animation: gift-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.gift-burst {
+  font-size: 72px;
+  animation: gift-bounce 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 20px rgba(255, 209, 102, 0.6));
+  margin-bottom: 6px;
+}
+.gift-title { font-weight: 800; font-size: 22px; color: var(--accent); }
+.gift-sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+.gift-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.gift-item {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.gift-line { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; font-size: 18px; font-weight: 700; }
+.gift-coins { color: var(--accent); }
+.gift-pet { display: inline-flex; align-items: center; gap: 6px; }
+.gift-tier { font-size: 12px; color: var(--muted); }
+.gift-note {
+  font-style: italic;
+  color: #fff;
+  margin-top: 6px;
+  font-size: 14px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+@keyframes gift-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes gift-bounce {
+  0%, 100% { transform: translateY(0) rotate(-5deg); }
+  50% { transform: translateY(-10px) rotate(5deg); }
 }
 </style>
