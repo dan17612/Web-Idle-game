@@ -18,6 +18,46 @@ watch(
   },
 );
 
+const chestStatus = ref({ price: 0, daily_limit: 5, bought_today: 0 });
+const chestQty = ref(1);
+const chestAnim = ref(null); // { phase: 'shake'|'open'|'reveal'|'done', species: [...] }
+
+async function loadChestStatus() {
+  const { data } = await supabase.rpc("get_chest_status");
+  if (data) chestStatus.value = data;
+}
+
+async function buyChest() {
+  error.value = "";
+  success.value = "";
+  busyKey.value = "chest";
+  chestAnim.value = { phase: "shake", species: [] };
+  try {
+    await game.persist();
+    const { data, error: e } = await supabase.rpc("buy_chest", { p_qty: chestQty.value });
+    if (e) throw e;
+    game.coins = Number(data.coins);
+    await Promise.all([game.load(), loadChestStatus()]);
+    await new Promise(r => setTimeout(r, 800));
+    chestAnim.value = { phase: "open", species: data.species };
+    await new Promise(r => setTimeout(r, 500));
+    chestAnim.value = { phase: "reveal", species: data.species };
+  } catch (e) {
+    error.value = e.message;
+    chestAnim.value = null;
+  } finally {
+    busyKey.value = "";
+  }
+}
+
+function closeChestAnim() {
+  chestAnim.value = null;
+}
+
+const chestRemaining = computed(() =>
+  Math.max(0, (chestStatus.value.daily_limit || 0) - (chestStatus.value.bought_today || 0))
+);
+
 const error = ref("");
 const success = ref("");
 const busyKey = ref("");
@@ -110,7 +150,7 @@ async function saveWeight(species) {
 }
 
 onMounted(async () => {
-  await Promise.all([loadShop(), loadAdminData(), loadFoods()]);
+  await Promise.all([loadShop(), loadAdminData(), loadFoods(), loadChestStatus()]);
   timer = setInterval(() => {
     now.value = Date.now();
     if (rotatesAt.value && serverNow() >= rotatesAt.value + 500)
@@ -373,10 +413,76 @@ function adminRestock(species) {
       </div>
     </div>
 
+    <div class="card chest-card">
+      <div class="row between" style="align-items:flex-start">
+        <div>
+          <div style="font-weight:800;font-size:18px">🎁 Truhe</div>
+          <div class="subtitle" style="margin:2px 0 0">
+            Zufälliges Tier (gewichtet nach Seltenheit) · 🪙 {{ formatCoins(chestStatus.price) }} / Stk.
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="subtitle" style="margin:0">Heute</div>
+          <div style="font-weight:800">
+            {{ chestStatus.bought_today }} / {{ chestStatus.daily_limit }}
+          </div>
+        </div>
+      </div>
+      <div class="row" style="gap:6px;margin-top:10px">
+        <button
+          v-for="n in [1, 2, 3]"
+          :key="n"
+          class="btn secondary small qty-pick"
+          :class="{ active: chestQty === n }"
+          :disabled="n > chestRemaining"
+          @click="chestQty = n"
+        >×{{ n }}</button>
+        <button
+          class="btn"
+          style="flex:1"
+          :disabled="busyKey === 'chest' || !!chestAnim || chestRemaining < chestQty || game.displayCoins < chestStatus.price * chestQty"
+          @click="buyChest"
+        >
+          {{
+            busyKey === 'chest' ? '...' :
+            chestRemaining < 1 ? 'Limit erreicht' :
+            chestRemaining < chestQty ? `Nur ${chestRemaining} frei` :
+            `Öffnen · 🪙 ${formatCoins(chestStatus.price * chestQty)}`
+          }}
+        </button>
+      </div>
+    </div>
+
     <p class="subtitle">
       Angebot rotiert alle 5 Minuten im festen Takt. Jedes Tier pro Bestand
       einmal kaufbar.
     </p>
+
+    <div v-if="chestAnim" class="chest-modal" @click.self="chestAnim.phase === 'reveal' && closeChestAnim()">
+      <div class="chest-stage">
+        <div
+          class="chest-box"
+          :class="{
+            'shake': chestAnim.phase === 'shake',
+            'opening': chestAnim.phase === 'open',
+            'gone': chestAnim.phase === 'reveal'
+          }"
+        >🎁</div>
+        <div v-if="chestAnim.phase === 'shake' || chestAnim.phase === 'open'" class="chest-glow"></div>
+        <div v-if="chestAnim.phase === 'reveal'" class="chest-reveal">
+          <div
+            v-for="(s, i) in chestAnim.species"
+            :key="i"
+            class="reveal-animal"
+            :style="{ animationDelay: (i * 0.25) + 's' }"
+          >
+            {{ SPECIES[s]?.emoji || '❓' }}
+            <div class="reveal-name">{{ SPECIES[s]?.name || s }}</div>
+          </div>
+        </div>
+      </div>
+      <button v-if="chestAnim.phase === 'reveal'" class="btn" @click="closeChestAnim">Weiter</button>
+    </div>
 
     <div class="grid">
       <div
@@ -528,5 +634,104 @@ function adminRestock(species) {
   font-size: 16px;
   border-radius: 8px;
   text-align: right;
+}
+
+.chest-card {
+  background: linear-gradient(135deg, #3a1d5c, #1d3a5c);
+  border-color: var(--accent);
+  margin-bottom: 10px;
+}
+.qty-pick.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(255, 209, 102, 0.08);
+}
+
+.chest-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+.chest-stage {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chest-box {
+  font-size: 110px;
+  filter: drop-shadow(0 0 30px rgba(255, 209, 102, 0.5));
+  transition: transform 0.4s, opacity 0.4s;
+}
+.chest-box.shake {
+  animation: chest-shake 0.8s ease-in-out infinite;
+}
+.chest-box.opening {
+  animation: chest-pop 0.5s ease-out forwards;
+}
+.chest-box.gone {
+  opacity: 0;
+  transform: scale(0.2) rotate(20deg);
+}
+.chest-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255, 209, 102, 0.6), transparent 70%);
+  animation: glow-pulse 1s ease-in-out infinite;
+  pointer-events: none;
+}
+.chest-reveal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+.reveal-animal {
+  font-size: 56px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(40px) scale(0.4);
+  animation: reveal-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  filter: drop-shadow(0 0 14px rgba(255, 209, 102, 0.7));
+}
+.reveal-name {
+  font-size: 12px;
+  color: #fff;
+  font-weight: 700;
+  margin-top: 2px;
+}
+@keyframes chest-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  15% { transform: translate(-4px, -2px) rotate(-4deg); }
+  30% { transform: translate(5px, 2px) rotate(5deg); }
+  45% { transform: translate(-3px, 3px) rotate(-3deg); }
+  60% { transform: translate(4px, -2px) rotate(4deg); }
+  75% { transform: translate(-2px, 2px) rotate(-2deg); }
+}
+@keyframes chest-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(255, 209, 102, 1)); }
+  100% { transform: scale(0.1); opacity: 0; }
+}
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+@keyframes reveal-pop {
+  0% { opacity: 0; transform: translateY(40px) scale(0.4); }
+  60% { opacity: 1; transform: translateY(-8px) scale(1.15); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 </style>

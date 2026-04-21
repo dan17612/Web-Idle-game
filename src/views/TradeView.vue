@@ -21,8 +21,29 @@ const incoming = ref([])
 const outgoing = ref([])
 const history = ref([])
 const publicTrades = ref([])
+const hiddenTradeIds = ref(new Set())
 const publicAccept = ref({})
 const isPublicOffer = ref(false)
+
+function fmtExpiry(t) {
+  if (!t.expires_at) return ''
+  const ms = new Date(t.expires_at).getTime() - Date.now()
+  if (ms <= 0) return 'abgelaufen'
+  const d = Math.floor(ms / 86400000)
+  const h = Math.floor((ms % 86400000) / 3600000)
+  if (d >= 1) return `${d}d ${h}h`
+  const m = Math.floor((ms % 3600000) / 60000)
+  return `${h}h ${m}m`
+}
+
+async function hidePublicTrade(id) {
+  hiddenTradeIds.value = new Set([...hiddenTradeIds.value, id])
+  await supabase.rpc('hide_trade', { p_trade_id: id })
+}
+
+const visiblePublicTrades = computed(() =>
+  publicTrades.value.filter(t => !hiddenTradeIds.value.has(t.id))
+)
 
 // --- Partner + dessen Inventar
 const partnerUsername = ref('')
@@ -47,12 +68,49 @@ const myTradableAnimals = computed(() =>
   game.animals.filter(a => !a.equipped).map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier || 'normal') }))
 )
 
-function toggleMine(id) {
-  if (offer.myAnimals.has(id)) offer.myAnimals.delete(id); else offer.myAnimals.add(id)
+function groupByKey(list) {
+  const m = new Map()
+  for (const a of list) {
+    const key = a.species + '|' + (a.tier || 'normal')
+    if (!m.has(key)) m.set(key, { key, species: a.species, tier: a.tier || 'normal', info: a.info || speciesInfo(a.species), td: a.td || tierInfo(a.tier || 'normal'), list: [] })
+    m.get(key).list.push(a)
+  }
+  return [...m.values()].sort((a, b) => (a.td.order || 0) - (b.td.order || 0) || a.info.name.localeCompare(b.info.name))
 }
-function toggleTheirs(id) {
-  if (offer.theirAnimals.has(id)) offer.theirAnimals.delete(id); else offer.theirAnimals.add(id)
+
+const myGroups = computed(() => groupByKey(myTradableAnimals.value))
+const partnerGroups = computed(() => groupByKey(partnerAnimals.value))
+
+function selectedCount(selectedSet, groupList) {
+  let n = 0
+  for (const a of groupList) if (selectedSet.has(a.id)) n++
+  return n
 }
+function myGroupSelected(group) { return selectedCount(offer.myAnimals, group.list) }
+function theirGroupSelected(group) { return selectedCount(offer.theirAnimals, group.list) }
+
+function addFromGroup(selectedSet, groupList) {
+  for (const a of groupList) if (!selectedSet.has(a.id)) { selectedSet.add(a.id); return true }
+  return false
+}
+function removeFromGroup(selectedSet, groupList) {
+  for (let i = groupList.length - 1; i >= 0; i--) {
+    if (selectedSet.has(groupList[i].id)) { selectedSet.delete(groupList[i].id); return true }
+  }
+  return false
+}
+
+function toggleMineGroup(group, remove = false) {
+  if (remove) removeFromGroup(offer.myAnimals, group.list)
+  else addFromGroup(offer.myAnimals, group.list)
+}
+function toggleTheirsGroup(group, remove = false) {
+  if (remove) removeFromGroup(offer.theirAnimals, group.list)
+  else addFromGroup(offer.theirAnimals, group.list)
+}
+
+const mySelectedGroups = computed(() => myGroups.value.map(g => ({ ...g, selected: myGroupSelected(g) })).filter(g => g.selected > 0))
+const theirSelectedGroups = computed(() => partnerGroups.value.map(g => ({ ...g, selected: theirGroupSelected(g) })).filter(g => g.selected > 0))
 
 async function lookupPartner() {
   partnerError.value = ''
@@ -174,6 +232,9 @@ async function act(id, action) {
 }
 
 async function loadTrades() {
+  try { await supabase.rpc('expire_old_trades') } catch {}
+  const { data: hides } = await supabase.from('trade_hides').select('trade_id').eq('user_id', auth.user.id)
+  hiddenTradeIds.value = new Set((hides || []).map(h => h.trade_id))
   const [{ data: inc }, { data: out }, { data: hist }, { data: pub }] = await Promise.all([
     supabase.from('trades_view').select('*')
       .eq('addressee_id', auth.user.id).eq('status','pending')
@@ -199,6 +260,20 @@ async function loadTrades() {
 function togglePubAnimal(tradeId, animalId) {
   const cur = publicAccept.value[tradeId] || new Set()
   if (cur.has(animalId)) cur.delete(animalId); else cur.add(animalId)
+  publicAccept.value = { ...publicAccept.value, [tradeId]: cur }
+}
+
+function pubGroupSelected(tradeId, group) {
+  const set = publicAccept.value[tradeId]
+  if (!set) return 0
+  let n = 0
+  for (const a of group.list) if (set.has(a.id)) n++
+  return n
+}
+function togglePubGroup(tradeId, group, remove = false) {
+  const cur = publicAccept.value[tradeId] || new Set()
+  if (remove) removeFromGroup(cur, group.list)
+  else addFromGroup(cur, group.list)
   publicAccept.value = { ...publicAccept.value, [tradeId]: cur }
 }
 
@@ -285,7 +360,7 @@ function tierColor(a) {
       📤 Ausgang<span v-if="outgoing.length" class="pill">{{ outgoing.length }}</span>
     </button>
     <button :class="{ active: tab==='public' }" @click="tab='public'">
-      🌐 Public<span v-if="publicTrades.length" class="pill" style="background:var(--accent-2);color:#001a15">{{ publicTrades.length }}</span>
+      🌐 Public<span v-if="visiblePublicTrades.length" class="pill" style="background:var(--accent-2);color:#001a15">{{ visiblePublicTrades.length }}</span>
     </button>
     <button :class="{ active: tab==='hist' }" @click="tab='hist'">🗂️</button>
   </div>
@@ -345,22 +420,32 @@ function tierColor(a) {
             <span class="arrow">→</span>
           </div>
           <div class="slots">
-            <div v-for="id in offer.myAnimals" :key="id" class="chip-anim"
-                 @click="toggleMine(id)">
-              <span>{{ speciesInfo(myTradableAnimals.find(a=>a.id===id)?.species).emoji }}<sup v-if="tierBadge(myTradableAnimals.find(a=>a.id===id))" class="tb">{{ tierBadge(myTradableAnimals.find(a=>a.id===id)) }}</sup></span>
-              <span class="x">×</span>
+            <div v-for="g in mySelectedGroups" :key="g.key" class="chip-anim" @click="toggleMineGroup(g, true)">
+              <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
+              <span class="chip-count">×{{ g.selected }}</span>
             </div>
             <button class="chip-add" @click="pickerOpen = pickerOpen==='mine'?'':'mine'">＋ Tier</button>
           </div>
           <CoinInput v-model="offer.myCoins" placeholder="Münzen (optional)" />
 
           <div v-if="pickerOpen==='mine'" class="picker">
-            <div v-if="!myTradableAnimals.length" class="subtitle">Keine tauschbaren Tiere. Rüste sie zuerst ab.</div>
+            <div v-if="!myGroups.length" class="subtitle">Keine tauschbaren Tiere. Rüste sie zuerst ab.</div>
             <div v-else class="picker-grid">
-              <div v-for="a in myTradableAnimals" :key="a.id" class="pick" :class="{ active: offer.myAnimals.has(a.id), tiered: a.tier && a.tier !== 'normal' }" :style="{ '--tb': a.td.color }" @click="toggleMine(a.id)">
-                <div class="pick-emoji">{{ a.info.emoji }}<sup v-if="a.td.badge" class="tb">{{ a.td.badge }}</sup></div>
-                <div class="pick-name">{{ a.info.name }}</div>
+              <div v-for="g in myGroups" :key="g.key"
+                   class="pick"
+                   :class="{ active: myGroupSelected(g) > 0, tiered: g.tier !== 'normal' }"
+                   :style="{ '--tb': g.td.color }"
+                   @click="toggleMineGroup(g)"
+                   @contextmenu.prevent="toggleMineGroup(g, true)">
+                <div class="pick-emoji">{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></div>
+                <div class="pick-name">{{ g.info.name }}</div>
+                <div class="pick-count">
+                  <span v-if="myGroupSelected(g) > 0" class="pick-selected">{{ myGroupSelected(g) }}/</span>{{ g.list.length }}
+                </div>
               </div>
+            </div>
+            <div v-if="myGroups.length" class="subtitle" style="margin-top:6px;font-size:11px">
+              Klick = +1 · Rechtsklick/Chip-Klick = −1
             </div>
           </div>
         </div>
@@ -374,21 +459,28 @@ function tierColor(a) {
             <span class="who">{{ isPublicOffer ? 'Beliebiger Annehmer' : partnerProfile.username }}</span>
           </div>
           <div v-if="!isPublicOffer" class="slots">
-            <div v-for="id in offer.theirAnimals" :key="id" class="chip-anim"
-                 @click="toggleTheirs(id)">
-              <span>{{ speciesInfo(partnerAnimals.find(a=>a.id===id)?.species).emoji }}<sup v-if="tierBadge(partnerAnimals.find(a=>a.id===id))" class="tb">{{ tierBadge(partnerAnimals.find(a=>a.id===id)) }}</sup></span>
-              <span class="x">×</span>
+            <div v-for="g in theirSelectedGroups" :key="g.key" class="chip-anim" @click="toggleTheirsGroup(g, true)">
+              <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
+              <span class="chip-count">×{{ g.selected }}</span>
             </div>
             <button class="chip-add" @click="pickerOpen = pickerOpen==='theirs'?'':'theirs'">＋ Tier</button>
           </div>
           <CoinInput v-model="offer.theirCoins" placeholder="Münzen (optional)" />
 
           <div v-if="pickerOpen==='theirs'" class="picker">
-            <div v-if="!partnerAnimals.length" class="subtitle">Dieser Spieler hat keine tauschbaren Tiere.</div>
+            <div v-if="!partnerGroups.length" class="subtitle">Dieser Spieler hat keine tauschbaren Tiere.</div>
             <div v-else class="picker-grid">
-              <div v-for="a in partnerAnimals" :key="a.id" class="pick" :class="{ active: offer.theirAnimals.has(a.id), tiered: a.tier && a.tier !== 'normal' }" :style="{ '--tb': a.td.color }" @click="toggleTheirs(a.id)">
-                <div class="pick-emoji">{{ a.info.emoji }}<sup v-if="a.td.badge" class="tb">{{ a.td.badge }}</sup></div>
-                <div class="pick-name">{{ a.info.name }}</div>
+              <div v-for="g in partnerGroups" :key="g.key"
+                   class="pick"
+                   :class="{ active: theirGroupSelected(g) > 0, tiered: g.tier !== 'normal' }"
+                   :style="{ '--tb': g.td.color }"
+                   @click="toggleTheirsGroup(g)"
+                   @contextmenu.prevent="toggleTheirsGroup(g, true)">
+                <div class="pick-emoji">{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></div>
+                <div class="pick-name">{{ g.info.name }}</div>
+                <div class="pick-count">
+                  <span v-if="theirGroupSelected(g) > 0" class="pick-selected">{{ theirGroupSelected(g) }}/</span>{{ g.list.length }}
+                </div>
               </div>
             </div>
           </div>
@@ -407,11 +499,20 @@ function tierColor(a) {
   <!-- PUBLIC -->
   <template v-if="tab === 'public'">
     <p class="subtitle">Öffentliche Angebote — jeder kann annehmen, der die verlangten Münzen/Tiere hat.</p>
-    <div v-if="!publicTrades.length" class="card subtitle">Keine öffentlichen Trades.</div>
-    <div v-for="t in publicTrades" :key="t.id" class="trade-row card">
+    <div v-if="!visiblePublicTrades.length" class="card subtitle">Keine öffentlichen Trades.</div>
+    <div v-for="t in visiblePublicTrades" :key="t.id" class="trade-row card">
       <div class="row between">
         <div style="font-weight:700">Von {{ t.requester_username }}</div>
-        <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString('de-DE') }}</span>
+        <div class="row" style="gap:6px;align-items:center">
+          <span v-if="t.expires_at" class="badge" title="Läuft in">⏳ {{ fmtExpiry(t) }}</span>
+          <button
+            v-if="t.requester_id !== auth.user.id"
+            class="btn secondary small"
+            title="Ausblenden"
+            @click="hidePublicTrade(t.id)"
+          >🙈</button>
+          <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString('de-DE') }}</span>
+        </div>
       </div>
       <div class="row sides-mini">
         <div class="side-mini">
@@ -435,13 +536,17 @@ function tierColor(a) {
       <template v-if="t.requester_id !== auth.user.id">
         <div class="subtitle" style="margin:6px 0 4px">Optional: Tiere mitgeben</div>
         <div class="picker-grid">
-          <div v-for="a in myTradableAnimals" :key="a.id"
+          <div v-for="g in myGroups" :key="g.key"
                class="pick"
-               :class="{ active: (publicAccept[t.id] || new Set()).has(a.id), tiered: a.tier && a.tier !== 'normal' }"
-               :style="{ '--tb': a.td.color }"
-               @click="togglePubAnimal(t.id, a.id)">
-            <div class="pick-emoji">{{ a.info.emoji }}<sup v-if="a.td.badge" class="tb">{{ a.td.badge }}</sup></div>
-            <div class="pick-name">{{ a.info.name }}</div>
+               :class="{ active: pubGroupSelected(t.id, g) > 0, tiered: g.tier !== 'normal' }"
+               :style="{ '--tb': g.td.color }"
+               @click="togglePubGroup(t.id, g)"
+               @contextmenu.prevent="togglePubGroup(t.id, g, true)">
+            <div class="pick-emoji">{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></div>
+            <div class="pick-name">{{ g.info.name }}</div>
+            <div class="pick-count">
+              <span v-if="pubGroupSelected(t.id, g) > 0" class="pick-selected">{{ pubGroupSelected(t.id, g) }}/</span>{{ g.list.length }}
+            </div>
           </div>
         </div>
         <button class="btn full" style="margin-top:8px" :disabled="busy" @click="acceptPublic(t)">
@@ -590,6 +695,10 @@ function tierColor(a) {
   font-size: 20px; cursor: pointer;
 }
 .chip-anim .x { font-size: 12px; opacity: 0.6; }
+.chip-count { font-size: 13px; font-weight: 700; opacity: 0.9; }
+.pick { position: relative; }
+.pick-count { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.pick-selected { color: var(--accent); font-weight: 800; }
 .chip-add {
   background: transparent; border: 1px dashed var(--border);
   color: var(--muted); padding: 6px 10px; border-radius: 10px;

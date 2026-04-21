@@ -15,6 +15,29 @@ const restockQty = ref({})
 const weightDraft = ref({})
 const speciesRows = ref([])
 
+const giftForm = ref({ username: '', coins: 0, species: '', tier: 'normal', qty: 1, note: '' })
+const TIERS = ['normal', 'gold', 'diamond', 'epic', 'rainbow']
+
+async function sendGift() {
+  const f = giftForm.value
+  if (!f.username.trim()) return flash('Username angeben', true)
+  if ((!f.coins || f.coins < 1) && !f.species) return flash('Münzen oder Spezies angeben', true)
+  busy.value = 'gift'
+  try {
+    const { error: e } = await supabase.rpc('admin_queue_gift', {
+      p_username: f.username.trim(),
+      p_coins: Math.max(0, Math.floor(Number(f.coins) || 0)),
+      p_species: f.species || null,
+      p_tier: f.tier || 'normal',
+      p_qty: Math.max(1, Math.min(50, Math.floor(Number(f.qty) || 1))),
+      p_note: f.note?.trim() || null
+    })
+    if (e) throw e
+    flash(`Geschenk für ${f.username} eingereiht`)
+    giftForm.value = { username: '', coins: 0, species: '', tier: 'normal', qty: 1, note: '' }
+  } catch (e) { flash(e.message, true) } finally { busy.value = '' }
+}
+
 function flash(msg, isError = false) {
   if (isError) { error.value = msg; info.value = '' }
   else { info.value = msg; error.value = '' }
@@ -76,6 +99,7 @@ function rotate() { return callAdmin('admin_force_rotation', {}, 'rotate') }
       <div class="tabs">
         <button :class="{ active: tab==='broadcast' }" @click="tab='broadcast'">📢 Broadcast</button>
         <button :class="{ active: tab==='shop' }" @click="tab='shop'">🛒 Shop</button>
+        <button :class="{ active: tab==='gift' }" @click="tab='gift'">🎁 Gift</button>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
@@ -86,6 +110,36 @@ function rotate() { return callAdmin('admin_force_rotation', {}, 'rotate') }
         <textarea v-model="broadcastMsg" rows="3" maxlength="280" placeholder="Nachricht..." style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card-2);color:inherit" />
         <button class="btn full" style="margin-top:10px" :disabled="busy==='bc'" @click="sendBroadcast">
           {{ busy==='bc' ? '...' : 'An alle senden' }}
+        </button>
+      </template>
+
+      <template v-if="tab === 'gift'">
+        <p class="subtitle">Geschenk wird beim nächsten Login des Empfängers automatisch eingelöst.</p>
+        <label class="subtitle">Empfänger (Username)</label>
+        <input v-model="giftForm.username" placeholder="username" style="width:100%;margin-bottom:8px" />
+        <label class="subtitle">Münzen (optional)</label>
+        <input type="number" min="0" v-model.number="giftForm.coins" placeholder="0" style="width:100%;margin-bottom:8px" />
+        <label class="subtitle">Spezies (optional)</label>
+        <select v-model="giftForm.species" style="width:100%;padding:8px;border-radius:8px;background:var(--card-2);color:inherit;border:1px solid var(--border);margin-bottom:8px">
+          <option value="">— keine —</option>
+          <option v-for="r in speciesRows" :key="r.species" :value="r.species">{{ SPECIES[r.species]?.emoji }} {{ SPECIES[r.species]?.name || r.species }}</option>
+        </select>
+        <div class="row" style="gap:8px;margin-bottom:8px">
+          <div style="flex:1">
+            <label class="subtitle">Tier</label>
+            <select v-model="giftForm.tier" style="width:100%;padding:8px;border-radius:8px;background:var(--card-2);color:inherit;border:1px solid var(--border)">
+              <option v-for="t in TIERS" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+          <div style="width:90px">
+            <label class="subtitle">Anzahl</label>
+            <input type="number" min="1" max="50" v-model.number="giftForm.qty" style="width:100%" />
+          </div>
+        </div>
+        <label class="subtitle">Notiz (optional)</label>
+        <input v-model="giftForm.note" maxlength="140" placeholder="z.B. Willkommen!" style="width:100%;margin-bottom:10px" />
+        <button class="btn full" :disabled="busy==='gift'" @click="sendGift">
+          {{ busy==='gift' ? '...' : '🎁 Geschenk einreihen' }}
         </button>
       </template>
 
