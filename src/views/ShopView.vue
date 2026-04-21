@@ -18,7 +18,7 @@ watch(
   },
 );
 
-const chestStatus = ref({ price: 0, daily_limit: 5, bought_today: 0 });
+const chestStatus = ref({ price: 0, slot_limit: 5, bought_slot: 0 });
 const chestQty = ref(1);
 const chestAnim = ref(null); // { phase: 'shake'|'open'|'reveal'|'done', species: [...] }
 
@@ -55,7 +55,7 @@ function closeChestAnim() {
 }
 
 const chestRemaining = computed(() =>
-  Math.max(0, (chestStatus.value.daily_limit || 0) - (chestStatus.value.bought_today || 0))
+  Math.max(0, (chestStatus.value.slot_limit || 0) - (chestStatus.value.bought_slot || 0))
 );
 
 const error = ref("");
@@ -422,9 +422,9 @@ function adminRestock(species) {
           </div>
         </div>
         <div style="text-align:right">
-          <div class="subtitle" style="margin:0">Heute</div>
+          <div class="subtitle" style="margin:0">Diese Rotation</div>
           <div style="font-weight:800">
-            {{ chestStatus.bought_today }} / {{ chestStatus.daily_limit }}
+            {{ chestStatus.bought_slot }} / {{ chestStatus.slot_limit }}
           </div>
         </div>
       </div>

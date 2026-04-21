@@ -20,12 +20,12 @@ const TIERS = ['normal', 'gold', 'diamond', 'epic', 'rainbow']
 
 async function sendGift() {
   const f = giftForm.value
-  if (!f.username.trim()) return flash('Username angeben', true)
+  if (!f.username.trim()) return flash('Username(n) oder @all angeben', true)
   if ((!f.coins || f.coins < 1) && !f.species) return flash('Münzen oder Spezies angeben', true)
   busy.value = 'gift'
   try {
-    const { error: e } = await supabase.rpc('admin_queue_gift', {
-      p_username: f.username.trim(),
+    const { data, error: e } = await supabase.rpc('admin_queue_gift_bulk', {
+      p_usernames: f.username.trim(),
       p_coins: Math.max(0, Math.floor(Number(f.coins) || 0)),
       p_species: f.species || null,
       p_tier: f.tier || 'normal',
@@ -33,8 +33,12 @@ async function sendGift() {
       p_note: f.note?.trim() || null
     })
     if (e) throw e
-    flash(`Geschenk für ${f.username} eingereiht`)
-    giftForm.value = { username: '', coins: 0, species: '', tier: 'normal', qty: 1, note: '' }
+    const sent = Number(data?.sent ?? 0)
+    const missed = Array.isArray(data?.missed) ? data.missed : []
+    let msg = data?.all ? `An alle ${sent} Spieler gesendet` : `${sent} Geschenk(e) eingereiht`
+    if (missed.length) msg += ` · nicht gefunden: ${missed.join(', ')}`
+    flash(msg, missed.length > 0 && sent === 0)
+    if (sent > 0) giftForm.value = { username: '', coins: 0, species: '', tier: 'normal', qty: 1, note: '' }
   } catch (e) { flash(e.message, true) } finally { busy.value = '' }
 }
 
@@ -115,8 +119,8 @@ function rotate() { return callAdmin('admin_force_rotation', {}, 'rotate') }
 
       <template v-if="tab === 'gift'">
         <p class="subtitle">Geschenk wird beim nächsten Login des Empfängers automatisch eingelöst.</p>
-        <label class="subtitle">Empfänger (Username)</label>
-        <input v-model="giftForm.username" placeholder="username" style="width:100%;margin-bottom:8px" />
+        <label class="subtitle">Empfänger — mehrere mit Komma, oder <code>@all</code> für alle</label>
+        <input v-model="giftForm.username" placeholder="alice, bob, charlie  ·  @all" style="width:100%;margin-bottom:8px" />
         <label class="subtitle">Münzen (optional)</label>
         <input type="number" min="0" v-model.number="giftForm.coins" placeholder="0" style="width:100%;margin-bottom:8px" />
         <label class="subtitle">Spezies (optional)</label>
