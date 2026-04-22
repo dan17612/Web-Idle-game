@@ -1,135 +1,240 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useGameStore } from '../stores/game'
-import { supabase } from '../supabase'
-import { speciesInfo, formatCoins, tierInfo, TIERS, isUpgrading, animalRate } from '../animals'
+import { ref, computed, onMounted } from "vue";
+import { useGameStore } from "../stores/game";
+import { supabase } from "../supabase";
+import { speciesInfo, formatCoins, tierInfo, isUpgrading, animalRate } from "../animals";
 
-const game = useGameStore()
-const error = ref('')
-const success = ref('')
-const busy = ref('')
-const slotInfo = ref({ current_slots: 1, next_slot: 2, next_cost: null })
-const filter = ref('all') // all | equipped | normal | gold | diamond | epic | rainbow
+const game = useGameStore();
+const error = ref("");
+const success = ref("");
+const busy = ref("");
+const slotInfo = ref({ current_slots: 1, next_slot: 2, next_cost: null });
+const filter = ref("all");
 
 async function loadSlot() {
-  const { data } = await supabase.rpc('get_next_slot_cost')
-  slotInfo.value = data || slotInfo.value
+  const { data } = await supabase.rpc("get_next_slot_cost");
+  slotInfo.value = data || slotInfo.value;
 }
 
 onMounted(async () => {
-  if (!game.animals.length) await game.load()
-  await loadSlot()
-})
+  if (!game.animals.length) await game.load();
+  await loadSlot();
+});
+
+const tierOrder = ["rainbow", "epic", "diamond", "gold", "normal"];
+const tierRank = { rainbow: 0, epic: 1, diamond: 2, gold: 3, normal: 4 };
 
 const enriched = computed(() =>
-  game.animals.map(a => ({
+  game.animals.map((a) => ({
     ...a,
     info: speciesInfo(a.species),
-    td: tierInfo(a.tier || 'normal'),
-    t: a.tier || 'normal',
+    td: tierInfo(a.tier || "normal"),
+    t: a.tier || "normal",
     rate: animalRate(a),
-    upgrading: isUpgrading(a)
-  }))
-)
+    upgrading: isUpgrading(a),
+  })),
+);
 
-const tierOrder = ['rainbow', 'epic', 'diamond', 'gold', 'normal']
+const filteredAnimals = computed(() =>
+  enriched.value.filter((a) => {
+    if (filter.value === "all") return true;
+    if (filter.value === "equipped") return a.equipped;
+    return a.t === filter.value;
+  }),
+);
 
-const groups = computed(() => {
-  const src = enriched.value.filter(a => {
-    if (filter.value === 'all') return true
-    if (filter.value === 'equipped') return a.equipped
-    return a.t === filter.value
-  })
-  const byTier = {}
-  for (const a of src) {
-    (byTier[a.t] ||= []).push(a)
+const groupedAnimals = computed(() => {
+  const map = new Map();
+
+  for (const a of filteredAnimals.value) {
+    const key = `${a.species}|${a.t}|${a.upgrading ? "upg" : "ready"}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        species: a.species,
+        t: a.t,
+        info: a.info,
+        td: a.td,
+        rate: a.rate,
+        upgrading: a.upgrading,
+        members: [],
+      });
+    }
+    map.get(key).members.push(a);
   }
-  for (const t of Object.keys(byTier)) {
-    byTier[t].sort((a, b) => {
-      if (a.equipped !== b.equipped) return a.equipped ? -1 : 1
-      return b.info.cost - a.info.cost
-    })
-  }
-  return tierOrder
-    .filter(t => byTier[t]?.length)
-    .map(t => ({ tier: t, td: TIERS[t] || tierInfo(t), list: byTier[t] }))
-})
+
+  const groups = [...map.values()].map((g) => {
+    const equipped = g.members.filter((m) => m.equipped);
+    const unequippedReady = g.members.filter((m) => !m.equipped && !m.upgrading);
+    const favorite = g.members.find((m) => m.id === game.favoriteAnimalId) || null;
+    return {
+      ...g,
+      total: g.members.length,
+      equippedCount: equipped.length,
+      equippedIds: equipped.map((m) => m.id),
+      unequippedReadyIds: unequippedReady.map((m) => m.id),
+      favoriteId: favorite?.id || null,
+      favoriteInGroup: !!favorite,
+    };
+  });
+
+  groups.sort((a, b) => {
+    if (a.favoriteInGroup !== b.favoriteInGroup) return a.favoriteInGroup ? -1 : 1;
+    if ((a.equippedCount > 0) !== (b.equippedCount > 0)) return a.equippedCount > 0 ? -1 : 1;
+    const ra = tierRank[a.t] ?? 99;
+    const rb = tierRank[b.t] ?? 99;
+    if (ra !== rb) return ra - rb;
+    if ((b.total || 0) !== (a.total || 0)) return b.total - a.total;
+    return (b.info?.cost || 0) - (a.info?.cost || 0);
+  });
+
+  return groups;
+});
 
 const counts = computed(() => {
-  const c = { all: enriched.value.length, equipped: 0 }
-  for (const t of tierOrder) c[t] = 0
+  const c = { all: enriched.value.length, equipped: 0 };
+  for (const t of tierOrder) c[t] = 0;
   for (const a of enriched.value) {
-    if (a.equipped) c.equipped++
-    c[a.t] = (c[a.t] || 0) + 1
+    if (a.equipped) c.equipped++;
+    c[a.t] = (c[a.t] || 0) + 1;
   }
-  return c
-})
+  return c;
+});
 
-async function toggle(animal) {
-  error.value = ''; success.value = ''
-  busy.value = animal.id
+async function equipOne(group) {
+  error.value = "";
+  const id = group.unequippedReadyIds[0];
+  if (!id || game.freeSlots <= 0) {
+    if (game.freeSlots <= 0) error.value = "Keine freien Slots — erst einen kaufen oder Tier abziehen.";
+    return;
+  }
+  busy.value = `eq-${group.key}`;
   try {
-    if (animal.equipped) {
-      await game.unequipAnimal(animal.id)
-    } else {
-      if (game.freeSlots <= 0) throw new Error('Keine freien Slots — erst einen kaufen oder anderes Tier abziehen.')
-      await game.equipAnimal(animal.id)
+    await game.equipAnimal(id);
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = "";
+  }
+}
+
+async function equipAll(group) {
+  error.value = "";
+  const toEquip = group.unequippedReadyIds.slice(0, game.freeSlots);
+  if (!toEquip.length) return;
+  busy.value = `eq-${group.key}`;
+  try {
+    for (const id of toEquip) {
+      await game.equipAnimal(id);
     }
-  } catch (e) { error.value = e.message }
-  finally { busy.value = '' }
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = "";
+  }
+}
+
+async function unequipOne(group) {
+  error.value = "";
+  const id = group.equippedIds[0];
+  if (!id) return;
+  busy.value = `uneq-${group.key}`;
+  try {
+    await game.unequipAnimal(id);
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = "";
+  }
+}
+
+async function unequipAll(group) {
+  error.value = "";
+  if (!group.equippedIds.length) return;
+  busy.value = `uneq-${group.key}`;
+  try {
+    for (const id of group.equippedIds) {
+      await game.unequipAnimal(id);
+    }
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = "";
+  }
+}
+
+async function setFavorite(group) {
+  error.value = "";
+  if (group.favoriteInGroup) return;
+  const id =
+    group.favoriteId ||
+    group.equippedIds[0] ||
+    group.unequippedReadyIds[0] ||
+    group.members[0]?.id;
+  if (!id) return;
+  busy.value = `fav-${group.key}`;
+  try {
+    await game.setFavoriteAnimal(id);
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = "";
+  }
 }
 
 async function buySlot() {
-  error.value = ''; success.value = ''
-  busy.value = 'slot'
+  error.value = "";
+  busy.value = "slot";
   try {
-    const data = await game.buyEquipSlot()
-    success.value = `Slot ${data.equip_slots} freigeschaltet!`
-    await loadSlot()
-  } catch (e) { error.value = e.message }
-  finally { busy.value = '' }
+    const data = await game.buyEquipSlot();
+    await loadSlot();
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = "";
+  }
 }
 
 const filters = [
-  { k: 'all', label: 'Alle', badge: '📦' },
-  { k: 'equipped', label: 'Aktiv', badge: '🎯' },
-  { k: 'rainbow', label: 'Rainbow', badge: '🌈' },
-  { k: 'epic', label: 'Episch', badge: '🟣' },
-  { k: 'diamond', label: 'Diamant', badge: '💎' },
-  { k: 'gold', label: 'Gold', badge: '🥇' },
-  { k: 'normal', label: 'Normal', badge: '⚪' }
-]
+  { k: "all", label: "Alle", badge: "📦" },
+  { k: "equipped", label: "Aktiv", badge: "🎯" },
+  { k: "rainbow", label: "Rainbow", badge: "🌈" },
+  { k: "epic", label: "Episch", badge: "🟣" },
+  { k: "diamond", label: "Diamant", badge: "💎" },
+  { k: "gold", label: "Gold", badge: "🥇" },
+  { k: "normal", label: "Normal", badge: "⚪" },
+];
 </script>
 
 <template>
   <h1 class="title">📦 Inventar</h1>
 
-  <div class="card row between">
-    <div>
-      <div class="subtitle" style="margin:0">Ausrüst-Slots</div>
-      <div style="font-weight:800;font-size:18px">
-        {{ game.equippedCount }} / {{ game.equipSlots }}
-      </div>
+  <!-- Slot-Bar -->
+  <div class="card slot-bar">
+    <div class="slot-info">
+      <span class="slot-label">Ausrüst-Slots</span>
+      <span class="slot-value">{{ game.equippedCount }}<span class="slot-sep">/</span>{{ game.equipSlots }}</span>
     </div>
-    <div style="text-align:right">
-      <div class="subtitle" style="margin:0">
-        <template v-if="slotInfo.next_cost != null">Slot {{ slotInfo.next_slot }}</template>
-        <template v-else>Max erreicht</template>
-      </div>
-      <button
-        v-if="slotInfo.next_cost != null"
-        class="btn"
-        :disabled="busy==='slot' || game.displayCoins < slotInfo.next_cost"
-        @click="buySlot"
-      >
-        🪙 {{ formatCoins(slotInfo.next_cost) }}
-      </button>
+    <div class="slot-track">
+      <div
+        class="slot-fill"
+        :style="{ width: game.equipSlots ? (game.equippedCount / game.equipSlots * 100) + '%' : '0%' }"
+      />
     </div>
+    <button
+      v-if="slotInfo.next_cost != null"
+      class="btn slot-buy"
+      :disabled="busy === 'slot' || game.displayCoins < slotInfo.next_cost"
+      @click="buySlot"
+    >
+      🪙 {{ formatCoins(slotInfo.next_cost) }}
+    </button>
+    <span v-else class="subtitle" style="margin:0;font-size:12px">Max</span>
   </div>
 
   <p v-if="error" class="error">{{ error }}</p>
-  <p v-if="success" class="success">{{ success }}</p>
 
+  <!-- Filter -->
   <div class="card filter-card">
     <div class="filter-bar">
       <button
@@ -151,116 +256,387 @@ const filters = [
     Noch keine Tiere. Geh in den Shop und kauf dein erstes Tier!
   </div>
 
-  <div v-for="g in groups" :key="g.tier" class="card tier-group" :style="{ '--tier-color': g.td.color || '#aaa' }">
-    <div class="tier-head">
-      <span class="tier-head-badge">{{ g.td.badge || '⚪' }}</span>
-      <span class="tier-head-name">{{ g.tier }}</span>
-      <span class="tier-head-meta">×{{ (g.td.multiplier || 1).toFixed(2) }} · {{ g.list.length }} Tier{{ g.list.length === 1 ? '' : 'e' }}</span>
+  <div v-else>
+    <div class="inv-summary-row subtitle">
+      {{ groupedAnimals.length }} Stapel · {{ filteredAnimals.length }} Tiere
     </div>
-    <div v-for="a in g.list" :key="a.id" class="inv-row" :class="{ active: a.equipped, tiered: a.t !== 'normal' }" :style="{ '--row-tier': a.td.color }">
-      <div class="inv-emoji">
-        {{ a.info.emoji }}
-        <span v-if="a.td.badge" class="inv-badge">{{ a.td.badge }}</span>
-      </div>
-      <div class="inv-body">
-        <div class="inv-name">
-          {{ a.info.name }}
-          <span v-if="a.id === game.favoriteAnimalId" class="star">⭐</span>
-        </div>
-        <div class="inv-meta">
-          <span v-if="a.upgrading" class="chip upg">⏳ wird aufgewertet</span>
-          <span v-else-if="a.equipped" class="chip on">aktiv · +{{ formatCoins(a.rate) }}/s</span>
-          <span v-else class="chip off">inaktiv · +{{ formatCoins(a.rate) }}/s</span>
-        </div>
-      </div>
-      <button
-        class="btn"
-        :class="{ secondary: !a.equipped, danger: a.equipped }"
-        :disabled="busy===a.id || a.upgrading || (!a.equipped && game.freeSlots <= 0)"
-        @click="toggle(a)"
+
+    <div class="inv-grid">
+      <div
+        v-for="g in groupedAnimals"
+        :key="g.key"
+        class="inv-card"
+        :class="{
+          'is-equipped': g.equippedCount > 0,
+          'is-tiered': g.t !== 'normal',
+          'is-upgrading': g.upgrading,
+          'is-fav': g.favoriteInGroup,
+        }"
+        :style="{ '--tier-color': g.td.color }"
       >
-        {{ a.equipped ? 'Abziehen' : 'Ausrüsten' }}
-      </button>
+        <!-- Top badges row -->
+        <div class="inv-top">
+          <span class="stack-badge">×{{ g.total }}</span>
+          <button
+            class="fav-btn"
+            :class="{ active: g.favoriteInGroup }"
+            :disabled="busy === `fav-${g.key}`"
+            @click="setFavorite(g)"
+            title="Als Liebling markieren"
+          >{{ g.favoriteInGroup ? "★" : "☆" }}</button>
+        </div>
+
+        <!-- Emoji -->
+        <div class="inv-emoji-wrap">
+          <span class="inv-emoji">{{ g.info.emoji }}</span>
+          <span v-if="g.td.badge" class="tier-badge">{{ g.td.badge }}</span>
+        </div>
+
+        <!-- Name + tier label -->
+        <div class="inv-name">{{ g.info.name }}</div>
+        <div class="inv-tier-label" :style="{ color: g.td.color }">
+          {{ g.t !== 'normal' ? g.t.charAt(0).toUpperCase() + g.t.slice(1) : '' }}
+        </div>
+
+        <!-- Rate -->
+        <div class="inv-rate">
+          <span v-if="g.upgrading">⏳ Wird aufgewertet</span>
+          <span v-else>+{{ formatCoins(g.rate) }}/s</span>
+        </div>
+
+        <!-- Equip stepper -->
+        <div v-if="!g.upgrading" class="equip-row">
+          <button
+            class="step-btn"
+            :disabled="busy === `uneq-${g.key}` || busy === `eq-${g.key}` || !g.equippedIds.length"
+            @click="unequipOne(g)"
+            title="Einen abziehen"
+          >−</button>
+
+          <div class="equip-counter">
+            <span class="eq-num">{{ g.equippedCount }}</span>
+            <span class="eq-sep">/</span>
+            <span class="eq-total">{{ g.total }}</span>
+          </div>
+
+          <button
+            class="step-btn plus"
+            :disabled="busy === `eq-${g.key}` || busy === `uneq-${g.key}` || !g.unequippedReadyIds.length || game.freeSlots <= 0"
+            @click="equipOne(g)"
+            title="Einen ausrüsten"
+          >+</button>
+        </div>
+
+        <!-- Extra actions: equip all / unequip all -->
+        <div v-if="!g.upgrading && g.total > 1" class="bulk-row">
+          <button
+            class="btn-ghost"
+            :disabled="busy === `eq-${g.key}` || !g.unequippedReadyIds.length || game.freeSlots <= 0"
+            @click="equipAll(g)"
+          >Alle anlegen</button>
+          <button
+            class="btn-ghost danger"
+            :disabled="busy === `uneq-${g.key}` || !g.equippedIds.length"
+            @click="unequipAll(g)"
+          >Alle abziehen</button>
+        </div>
+        <div v-else-if="!g.upgrading" class="bulk-row single">
+          <button
+            v-if="!g.equippedCount"
+            class="btn secondary small"
+            :disabled="busy === `eq-${g.key}` || !g.unequippedReadyIds.length || game.freeSlots <= 0"
+            @click="equipOne(g)"
+          >Ausrüsten</button>
+          <button
+            v-else
+            class="btn small"
+            :disabled="busy === `uneq-${g.key}` || !g.equippedIds.length"
+            @click="unequipOne(g)"
+          >Abziehen</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* Slot bar */
+.slot-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.slot-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 70px;
+}
+.slot-label {
+  font-size: 10px;
+  color: var(--subtitle);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.slot-value {
+  font-weight: 800;
+  font-size: 17px;
+  line-height: 1.2;
+}
+.slot-sep {
+  color: var(--subtitle);
+  margin: 0 2px;
+}
+.slot-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.slot-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width .4s;
+}
+.slot-buy {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+/* Filter */
 .filter-card { padding: 8px; }
 .filter-bar {
-  display: flex; gap: 6px; overflow-x: auto; padding: 2px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px;
   scrollbar-width: thin;
 }
 .filter-chip {
   flex: 0 0 auto;
-  display: inline-flex; align-items: center; gap: 4px;
-  background: #162048; border: 1px solid var(--border);
-  color: inherit; font: inherit;
-  padding: 6px 10px; border-radius: 999px; cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #162048;
+  border: 1px solid var(--border);
+  color: inherit;
+  font: inherit;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
   font-size: 12px;
 }
 .filter-chip.active {
-  background: var(--accent); color: #1b1300; border-color: var(--accent);
+  background: var(--accent);
+  color: #1b1300;
+  border-color: var(--accent);
   font-weight: 700;
 }
-.filter-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+.filter-chip:disabled { opacity: .4; cursor: not-allowed; }
 .filter-count {
-  background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 999px;
-  font-size: 10px; font-weight: 700;
+  background: rgba(255,255,255,.1);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
 }
-.filter-chip.active .filter-count { background: rgba(0,0,0,0.15); }
+.filter-chip.active .filter-count { background: rgba(0,0,0,.15); }
 
-.tier-group {
-  --tier-color: #aaa;
-  border-left: 3px solid color-mix(in srgb, var(--tier-color) 80%, transparent);
-}
-.tier-head {
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 0 8px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
-}
-.tier-head-badge { font-size: 20px; }
-.tier-head-name {
-  font-weight: 800; text-transform: capitalize;
-  color: color-mix(in srgb, var(--tier-color) 80%, #fff);
-}
-.tier-head-meta {
-  font-size: 11px; color: var(--muted);
-  margin-left: auto;
+/* Summary row */
+.inv-summary-row {
+  margin: 6px 0 8px;
+  font-size: 12px;
 }
 
-.inv-row {
-  --row-tier: transparent;
-  display: flex; gap: 10px; align-items: center;
-  padding: 8px 4px;
-  border-bottom: 1px solid var(--border);
+/* Grid */
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
 }
-.inv-row:last-child { border-bottom: none; }
-.inv-row.active { background: rgba(6, 214, 160, 0.06); border-radius: 8px; padding: 8px; }
-.inv-row.tiered .inv-emoji {
-  background: radial-gradient(circle, color-mix(in srgb, var(--row-tier) 30%, transparent), transparent 70%);
-  border-radius: 50%;
+
+/* Card */
+.inv-card {
+  --tier-color: transparent;
+  position: relative;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: border-color .2s, box-shadow .2s;
 }
-.inv-emoji {
-  position: relative; font-size: 30px; line-height: 1;
-  width: 48px; height: 48px;
-  display: flex; align-items: center; justify-content: center;
+.inv-card.is-tiered {
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--tier-color) 16%, var(--card-2)),
+    color-mix(in srgb, var(--tier-color) 5%, #101a34)
+  );
 }
-.inv-badge {
-  position: absolute; bottom: -2px; right: -2px;
+.inv-card.is-equipped {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(255,209,102,.18) inset, 0 2px 12px rgba(255,209,102,.08);
+}
+.inv-card.is-fav {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.inv-card.is-upgrading { opacity: .65; }
+
+/* Top row */
+.inv-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.stack-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  background: rgba(255,209,102,.14);
+  border: 1px solid rgba(255,209,102,.3);
+  border-radius: 999px;
+  padding: 2px 7px;
+  line-height: 1.4;
+}
+.fav-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.05);
+  color: #cdd6ff;
+  cursor: pointer;
   font-size: 14px;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, border-color .15s, color .15s;
 }
-.inv-body { flex: 1; min-width: 0; }
-.inv-name { font-weight: 700; font-size: 14px; }
-.inv-name .star { font-size: 11px; margin-left: 4px; }
-.inv-meta { font-size: 11px; margin-top: 2px; }
-.chip {
-  display: inline-block;
-  padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700;
+.fav-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(255,209,102,.14);
 }
-.chip.on { background: rgba(6,214,160,0.18); color: var(--accent-2); }
-.chip.off { color: var(--muted); background: rgba(255,255,255,0.04); }
-.chip.upg { background: rgba(255,209,102,0.15); color: var(--accent); }
+.fav-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Emoji */
+.inv-emoji-wrap {
+  position: relative;
+  font-size: 42px;
+  line-height: 1;
+  margin: 2px 0;
+}
+.tier-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  font-size: 16px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.6));
+}
+
+/* Text */
+.inv-name {
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 4px;
+}
+.inv-tier-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  min-height: 14px;
+}
+.inv-rate {
+  font-size: 11px;
+  color: var(--subtitle);
+  margin: 2px 0 6px;
+}
+
+/* Equip stepper */
+.equip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+.step-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.07);
+  color: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, border-color .15s;
+}
+.step-btn:not(:disabled):hover { background: rgba(255,255,255,.14); }
+.step-btn.plus:not(:disabled) {
+  border-color: rgba(255,209,102,.5);
+  color: var(--accent);
+}
+.step-btn.plus:not(:disabled):hover { background: rgba(255,209,102,.1); }
+.step-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+.equip-counter {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+}
+.eq-num { color: var(--accent); }
+.eq-sep { color: var(--subtitle); margin: 0 2px; }
+.eq-total { color: var(--subtitle); }
+
+/* Bulk actions */
+.bulk-row {
+  display: flex;
+  gap: 5px;
+  width: 100%;
+  margin-top: 2px;
+}
+.bulk-row.single { justify-content: center; }
+.btn-ghost {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--subtitle);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 5px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.btn-ghost:not(:disabled):hover {
+  background: rgba(255,255,255,.08);
+  color: inherit;
+  border-color: rgba(255,255,255,.3);
+}
+.btn-ghost.danger:not(:disabled):hover {
+  color: #ff6b6b;
+  border-color: rgba(255,107,107,.4);
+  background: rgba(255,107,107,.06);
+}
+.btn-ghost:disabled { opacity: .3; cursor: not-allowed; }
+
+.btn.small { padding: 8px 14px; font-size: 12px; }
 </style>

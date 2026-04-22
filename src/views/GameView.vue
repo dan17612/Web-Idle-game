@@ -43,7 +43,6 @@ const ownedAnimals = computed(() =>
   })),
 );
 
-const pickerOpen = ref(false);
 const giftClaimed = ref(null); // { species, emoji, name, bonusTaps } after reveal
 const giftBusy = ref(false);
 const giftError = ref("");
@@ -259,15 +258,6 @@ async function doFusion(species, tier) {
   }
 }
 
-async function pickFavorite(animalId) {
-  try {
-    await game.setFavoriteAnimal(animalId);
-    pickerOpen.value = false;
-  } catch (e) {
-    error.value = e.message;
-    setTimeout(() => (error.value = ""), 2500);
-  }
-}
 </script>
 
 <template>
@@ -501,7 +491,7 @@ async function pickFavorite(animalId) {
         >
           <div class="pet-top">
             <div class="pet-emoji">
-              {{ favEmoji }}{{ game.favoriteBoostActive ? "✨" : "" }}
+              {{ favEmoji }}
             </div>
             <div class="pet-body">
               <div class="pet-title">
@@ -516,43 +506,20 @@ async function pickFavorite(animalId) {
             </div>
             <div class="pet-actions">
               <button
-                class="btn secondary small"
+                class="btn secondary"
                 :disabled="!ownedAnimals.length"
-                @click="pickerOpen = !pickerOpen"
+                @click="router.push('/inventory')"
               >
                 ⭐ Wählen
               </button>
               <button
-                class="btn small"
+                class="btn"
                 :disabled="!favAnimal"
                 @click="router.push('/shop?tab=food')"
               >
                 🍖 Füttern
               </button>
             </div>
-          </div>
-          <div v-if="pickerOpen && ownedAnimals.length" class="fav-strip">
-            <button
-              v-for="a in ownedAnimals"
-              :key="a.id"
-              class="fav-pill"
-              :class="{
-                active: a.id === game.favoriteAnimalId,
-                tiered: (a.tier || 'normal') !== 'normal',
-              }"
-              :style="
-                (a.tier || 'normal') !== 'normal'
-                  ? { '--tier-color': tierInfo(a.tier).color }
-                  : null
-              "
-              @click="pickFavorite(a.id)"
-            >
-              <span class="fav-pill-emoji">{{ a.info.emoji }}</span>
-              <span v-if="tierInfo(a.tier).badge" class="fav-pill-badge">{{
-                tierInfo(a.tier).badge
-              }}</span>
-              <span class="fav-pill-name">{{ a.info.name }}</span>
-            </button>
           </div>
         </div>
       </div>
@@ -963,17 +930,34 @@ async function pickFavorite(animalId) {
 .pet-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  background: #162048;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
 }
 .pet-top {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 .pet-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 6px;
+  flex-shrink: 0;
+  width: 100%;
+  margin-top: 4px;
+}
+.pet-actions .btn {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .fav-strip {
   display: flex;
@@ -1094,6 +1078,7 @@ async function pickFavorite(animalId) {
 .pet-body {
   flex: 1;
   min-width: 0;
+  flex-basis: 140px;
 }
 .pet-title {
   font-weight: 700;
@@ -1315,6 +1300,7 @@ async function pickFavorite(animalId) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  align-items: stretch;
 }
 .tu-card {
   background: #162048;
@@ -1599,6 +1585,15 @@ async function pickFavorite(animalId) {
   .fm-chip.big {
     font-size: 34px;
     padding: 4px 10px;
+  }
+}
+@media (max-width: 760px) {
+  .tap-upgrade-grid {
+    grid-template-columns: 1fr;
+  }
+  .pet-top {
+    gap: 10px;
+    flex-wrap: wrap;
   }
 }
 .upgrading-grid {
