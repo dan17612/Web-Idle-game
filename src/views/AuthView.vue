@@ -209,7 +209,7 @@ async function signInGoogle() {
             :disabled="busy"
             @click="signInWithMagicLink"
           >
-            Einmal mit Link anmelden
+            Mit Einmal-Link anmelden
           </button>
 
           <button
