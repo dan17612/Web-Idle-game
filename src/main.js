@@ -5,6 +5,29 @@ import router from './router'
 import { useAuthStore } from './stores/auth'
 import { supabase } from './supabase'
 import './styles.css'
+// Zoom global deaktivieren (Pinch, Double-Tap, Gesture-Zoom).
+function disableZoomGestures() {
+  let lastTouchEnd = 0
+
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) e.preventDefault()
+  }, { passive: false })
+
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now()
+    if (now - lastTouchEnd <= 300) e.preventDefault()
+    lastTouchEnd = now
+  }, { passive: false })
+
+  document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false })
+  document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false })
+  document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false })
+  document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false })
+
+  window.addEventListener('wheel', (e) => {
+    if (e.ctrlKey) e.preventDefault()
+  }, { passive: false })
+}
 
 // Supabase magic-link Redirects kommen als Fragment zurück.
 // Weil wir createWebHashHistory nutzen, können Tokens in einer der Formen landen:
@@ -54,6 +77,7 @@ async function bootstrap() {
   app.mount('#app')
 }
 
+disableZoomGestures()
 bootstrap()
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

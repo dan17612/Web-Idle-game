@@ -873,6 +873,10 @@ async function doFusion(species, tier) {
   justify-content: center;
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.4),
     inset 0 0 40px rgba(255, 255, 255, 0.05);
