@@ -5,22 +5,33 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     session: null,
     profile: null,
+    identities: [],
     loading: true
   }),
   getters: {
     user: (s) => s.session?.user || null,
-    isAuth: (s) => !!s.session
+    isAuth: (s) => !!s.session,
+    hasGoogleLinked: (s) => (s.identities || []).some((i) => i.provider === 'google'),
+    canUnlinkGoogle: (s) => (s.identities || []).some((i) => i.provider === 'google')
   },
   actions: {
     async init() {
       const { data } = await supabase.auth.getSession()
       this.session = data.session
-      if (this.session) await this.loadProfile()
+      if (this.session) {
+        await this.loadProfile()
+        await this.loadIdentities()
+      }
       this.loading = false
       supabase.auth.onAuthStateChange(async (_e, sess) => {
         this.session = sess
-        if (sess) await this.loadProfile()
-        else this.profile = null
+        if (sess) {
+          await this.loadProfile()
+          await this.loadIdentities()
+        } else {
+          this.profile = null
+          this.identities = []
+        }
       })
     },
     async loadProfile() {
@@ -32,6 +43,15 @@ export const useAuthStore = defineStore('auth', {
         .maybeSingle()
       if (error) console.error(error)
       this.profile = data
+    },
+    async loadIdentities() {
+      if (!this.session) return
+      const { data, error } = await supabase.auth.getUserIdentities()
+      if (error) {
+        console.error(error)
+        return
+      }
+      this.identities = data?.identities || []
     },
     async sendMagicLink(email, username) {
       const options = { emailRedirectTo: AUTH_REDIRECT_URL }
@@ -50,6 +70,34 @@ export const useAuthStore = defineStore('auth', {
       const options = { emailRedirectTo: AUTH_REDIRECT_URL, data: username ? { username } : undefined }
       const { error } = await supabase.auth.signUp({ email, password, options })
       if (error) throw error
+    },
+    async signInWithGoogle() {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: AUTH_REDIRECT_URL,
+          queryParams: { prompt: 'select_account' }
+        }
+      })
+      if (error) throw error
+    },
+    async linkGoogleIdentity() {
+      const { error } = await supabase.auth.linkIdentity({
+        provider: 'google',
+        options: {
+          redirectTo: AUTH_REDIRECT_URL,
+          queryParams: { prompt: 'select_account' }
+        }
+      })
+      if (error) throw error
+    },
+    async unlinkGoogleIdentity() {
+      await this.loadIdentities()
+      const googleIdentity = (this.identities || []).find((i) => i.provider === 'google')
+      if (!googleIdentity) throw new Error('Google ist nicht verknüpft.')
+      const { error } = await supabase.auth.unlinkIdentity(googleIdentity)
+      if (error) throw error
+      await this.loadIdentities()
     },
     async setPassword(password) {
       const { error } = await supabase.auth.updateUser({ password })
@@ -90,6 +138,7 @@ export const useAuthStore = defineStore('auth', {
     async signOut() {
       await supabase.auth.signOut()
       this.profile = null
+      this.identities = []
     }
   }
 })

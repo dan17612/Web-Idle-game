@@ -95,6 +95,26 @@ async function changePassword() {
   finally { busy.value = '' }
 }
 
+async function linkGoogle() {
+  if (auth.hasGoogleLinked) return flash('Google ist bereits verknüpft.')
+  busy.value = 'google'
+  try {
+    await auth.linkGoogleIdentity()
+    flash('Weiterleitung zu Google gestartet …')
+  } catch (e) { flash(e.message || String(e), true) }
+  finally { busy.value = '' }
+}
+
+async function unlinkGoogle() {
+  if (!auth.hasGoogleLinked) return flash('Google ist nicht verknüpft.')
+  busy.value = 'google-unlink'
+  try {
+    await auth.unlinkGoogleIdentity()
+    flash('Google-Verknüpfung entfernt.')
+  } catch (e) { flash(e.message || String(e), true) }
+  finally { busy.value = '' }
+}
+
 async function logout() {
   await auth.signOut()
   router.replace({ name: 'login' })
@@ -169,6 +189,32 @@ async function logout() {
     </section>
 
     <section class="card stack">
+      <h2 style="margin:0">Verknüpfte Konten</h2>
+      <div class="row">
+        <span>Google:</span>
+        <b :class="auth.hasGoogleLinked ? 'linked-ok' : 'linked-no'">
+          {{ auth.hasGoogleLinked ? 'Verknüpft' : 'Nicht verknüpft' }}
+        </b>
+      </div>
+      <p class="hint">Verknüpfe dein Google-Konto, damit du dich auch mit Google anmelden kannst.</p>
+      <div class="row account-actions">
+        <button class="btn" :disabled="busy==='google' || auth.hasGoogleLinked" @click="linkGoogle">
+          {{
+            auth.hasGoogleLinked
+              ? 'Bereits verknüpft'
+              : busy==='google'
+                ? '...'
+                : 'Mit Google verknüpfen'
+          }}
+        </button>
+        <button class="btn secondary" :disabled="busy==='google-unlink' || !auth.canUnlinkGoogle" @click="unlinkGoogle">
+          {{ busy==='google-unlink' ? '...' : 'Verknüpfung aufheben' }}
+        </button>
+      </div>
+      <p class="hint">Du kannst die Verknüpfung jederzeit aufheben und dich weiter per Magic Link anmelden.</p>
+    </section>
+
+    <section class="card stack">
       <button class="btn danger" @click="logout">Abmelden</button>
     </section>
   </div>
@@ -180,6 +226,9 @@ async function logout() {
 .hint { font-size: 12px; opacity: 0.75; margin: 0; }
 .info { color: #3a8; font-size: 14px; }
 .btn.danger { background: #c33; color: #fff; }
+.linked-ok { color: #3a8; }
+.linked-no { color: #e90; }
+.account-actions { justify-content: flex-start; gap: 8px; }
 .avatar-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px;
 }
@@ -192,3 +241,5 @@ async function logout() {
 .avatar-cell.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 textarea { width: 100%; padding: 8px; font-size: 16px; border-radius: 10px; border: 1px solid var(--border); background: #0f1736; color: inherit; resize: vertical; }
 </style>
+
+
