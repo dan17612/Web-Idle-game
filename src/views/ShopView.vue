@@ -216,6 +216,10 @@ async function buy(key) {
 async function feed(food) {
   error.value = "";
   success.value = "";
+  if (game.boostActive) {
+    error.value = "Boost ist bereits aktiv.";
+    return;
+  }
   busyKey.value = "food-" + food.food;
   try {
     const res = await game.feedPet(food.food);
@@ -529,7 +533,11 @@ function adminRestock(species) {
         <button
           class="btn full"
           style="margin-top: 8px"
-          :disabled="busyKey === 'food-' + f.food || game.displayCoins < f.cost"
+          :disabled="
+            busyKey === 'food-' + f.food ||
+            game.displayCoins < f.cost ||
+            game.boostActive
+          "
           @click="feed(f)"
         >
           {{ busyKey === "food-" + f.food ? "..." : "Füttern" }}
