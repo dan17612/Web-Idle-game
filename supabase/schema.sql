@@ -1012,7 +1012,7 @@ begin
   if p_addressee is null or trim(p_addressee) = '' then
     is_pub := true; target := null;
   else
-    select id into target from public.profiles where username = p_addressee;
+    select id into target from public.profiles where lower(username) = lower(p_addressee);
     if target is null then raise exception 'recipient not found'; end if;
     if target = uid then raise exception 'cannot trade with yourself'; end if;
   end if;
