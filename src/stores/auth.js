@@ -19,14 +19,14 @@ export const useAuthStore = defineStore('auth', {
       const { data } = await supabase.auth.getSession()
       this.session = data.session
       if (this.session) {
-        await this.loadProfile()
+        try { await this.loadProfile() } catch (e) { console.error(e) }
         await this.loadIdentities()
       }
       this.loading = false
       supabase.auth.onAuthStateChange(async (_e, sess) => {
         this.session = sess
         if (sess) {
-          await this.loadProfile()
+          try { await this.loadProfile() } catch (e) { console.error(e) }
           await this.loadIdentities()
         } else {
           this.profile = null
@@ -43,6 +43,13 @@ export const useAuthStore = defineStore('auth', {
         .maybeSingle()
       if (error) console.error(error)
       this.profile = data
+      if (this.profile?.is_banned) {
+        await supabase.auth.signOut()
+        this.profile = null
+        this.identities = []
+        this.session = null
+        throw new Error('Dein Account ist gebannt.')
+      }
     },
     async loadIdentities() {
       if (!this.session) return
@@ -98,6 +105,19 @@ export const useAuthStore = defineStore('auth', {
       const { error } = await supabase.auth.unlinkIdentity(googleIdentity)
       if (error) throw error
       await this.loadIdentities()
+    },
+    async requestMyData() {
+      const { data, error } = await supabase.rpc('request_my_data')
+      if (error) throw error
+      return data
+    },
+    async deleteMyAccount() {
+      const { error } = await supabase.rpc('delete_my_account')
+      if (error) throw error
+      await supabase.auth.signOut()
+      this.profile = null
+      this.identities = []
+      this.session = null
     },
     async setPassword(password) {
       const { error } = await supabase.auth.updateUser({ password })

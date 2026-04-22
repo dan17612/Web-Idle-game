@@ -12,6 +12,7 @@ const routes = [
   { path: '/profile', name: 'profile', component: () => import('./views/ProfileView.vue'), meta: { auth: true } },
   { path: '/index', name: 'index', component: () => import('./views/IndexView.vue'), meta: { auth: true } },
   { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue'), meta: { auth: true } },
+  { path: '/privacy', name: 'privacy', component: () => import('./views/PrivacyView.vue') },
   { path: '/login', name: 'login', component: () => import('./views/AuthView.vue') }
 ]
 
