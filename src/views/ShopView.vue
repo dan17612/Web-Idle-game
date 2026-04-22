@@ -163,6 +163,13 @@ function serverNow() {
   return now.value + serverOffset.value;
 }
 
+function fmtMmSs(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
 const countdown = computed(() => {
   if (!rotatesAt.value) return "—";
   const s = Math.max(0, Math.floor((rotatesAt.value - serverNow()) / 1000));
@@ -170,6 +177,21 @@ const countdown = computed(() => {
   const sec = s % 60;
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 });
+
+const favoriteForFood = computed(() => {
+  const fav = game.favoriteAnimal;
+  if (!fav) return null;
+  const info = SPECIES[fav.species];
+  if (!info) return null;
+  return {
+    emoji: info.emoji,
+    name: info.name,
+  };
+});
+
+const boostRemaining = computed(() =>
+  Math.max(0, game.petBoostUntil - (now.value + game.serverOffset)),
+);
 
 const speciesList = computed(() =>
   Object.entries(SPECIES).map(([key, info]) => {
@@ -517,21 +539,47 @@ function adminRestock(species) {
   </template>
 
   <template v-if="tab === 'food'">
-    <p class="subtitle">
-      Füttere dein Haustier. Verschiedene Futter bieten unterschiedliche Boosts
-      und Dauern. Höherer Boost überschreibt niedrigeren; gleicher Boost
-      verlängert die Dauer.
+    <div class="card food-hero" :class="{ boosted: game.boostActive }">
+      <div class="food-hero-head">
+        <div class="food-hero-icon">🍖</div>
+        <div>
+          <div class="food-hero-title">Füttern</div>
+          <div class="food-hero-sub">
+            Wähle ein Futter für deinen Liebling und aktiviere einen Boost.
+          </div>
+        </div>
+      </div>
+      <div class="food-hero-status">
+        <div class="food-pet" v-if="favoriteForFood">
+          <span class="food-pet-emoji">{{ favoriteForFood.emoji }}</span>
+          <span class="food-pet-name">{{ favoriteForFood.name }}</span>
+        </div>
+        <div v-else class="food-pet empty">Kein Liebling ausgewählt</div>
+        <div v-if="game.boostActive" class="food-boost-chip">
+          Boost aktiv · {{ fmtMmSs(boostRemaining) }}
+        </div>
+      </div>
+    </div>
+    <p class="subtitle food-note">
+      Höherer Boost überschreibt niedrigeren; gleicher Boost verlängert die
+      Dauer.
     </p>
     <div class="grid">
-      <div v-for="f in foods" :key="f.food" class="animal-card">
+      <div
+        v-for="f in foods"
+        :key="f.food"
+        class="animal-card food-card"
+        :class="{ locked: game.boostActive }"
+      >
         <div class="animal-emoji">{{ f.emoji }}</div>
         <div class="animal-name">{{ f.name }}</div>
-        <div class="animal-meta">
-          ×{{ f.multiplier }} · {{ f.duration_min }} Min
+        <div class="animal-meta food-meta">
+          <span class="food-pill">×{{ f.multiplier }} Boost</span>
+          <span class="food-pill">{{ f.duration_min }} Min</span>
         </div>
         <div class="animal-cost">🪙 {{ formatCoins(f.cost) }}</div>
         <button
-          class="btn full"
+          class="btn full feed-btn"
           style="margin-top: 8px"
           :disabled="
             busyKey === 'food-' + f.food ||
@@ -653,6 +701,122 @@ function adminRestock(species) {
   border-color: var(--accent);
   color: var(--accent);
   background: rgba(255, 209, 102, 0.08);
+}
+
+.food-hero {
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, #1e4c44, #163a52 52%, #17284a);
+  border-color: rgba(6, 214, 160, 0.45);
+}
+.food-hero.boosted {
+  box-shadow: 0 0 0 1px rgba(6, 214, 160, 0.45) inset;
+}
+.food-hero-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.food-hero-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+.food-hero-title {
+  font-size: 18px;
+  font-weight: 800;
+}
+.food-hero-sub {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.food-hero-status {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.food-pet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.food-pet.empty {
+  color: rgba(255, 255, 255, 0.72);
+}
+.food-pet-emoji {
+  font-size: 16px;
+}
+.food-pet-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+.food-boost-chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: rgba(255, 209, 102, 0.2);
+  color: #ffdf9f;
+  border: 1px solid rgba(255, 209, 102, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.food-note {
+  margin-bottom: 10px;
+}
+
+.food-card {
+  background: linear-gradient(165deg, #19284d, #122344 62%, #101d39);
+  border-color: rgba(98, 169, 255, 0.25);
+  transition:
+    transform 0.12s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.food-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(6, 214, 160, 0.6);
+}
+.food-card.locked {
+  opacity: 0.75;
+}
+.food-meta {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.food-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.feed-btn {
+  font-weight: 800;
+}
+
+@media (max-width: 520px) {
+  .food-hero-title {
+    font-size: 16px;
+  }
+  .food-hero-sub {
+    font-size: 11px;
+  }
 }
 
 .chest-modal {

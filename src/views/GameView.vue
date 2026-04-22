@@ -43,7 +43,6 @@ const ownedAnimals = computed(() =>
   })),
 );
 
-const pickerOpen = ref(false);
 const giftClaimed = ref(null); // { species, emoji, name, bonusTaps } after reveal
 const giftBusy = ref(false);
 const giftError = ref("");
@@ -212,8 +211,9 @@ function fmtReady(a) {
 const fusionSpecies = ref("");
 const fusionTier = ref("");
 
-const fusionSelectedGroup = computed(() =>
-  fusionGroups.value.find((g) => g.species === fusionSpecies.value) || null,
+const fusionSelectedGroup = computed(
+  () =>
+    fusionGroups.value.find((g) => g.species === fusionSpecies.value) || null,
 );
 const fusionSelectedTier = computed(() => {
   if (!fusionTier.value) return null;
@@ -258,15 +258,6 @@ async function doFusion(species, tier) {
   }
 }
 
-async function pickFavorite(animalId) {
-  try {
-    await game.setFavoriteAnimal(animalId);
-    pickerOpen.value = false;
-  } catch (e) {
-    error.value = e.message;
-    setTimeout(() => (error.value = ""), 2500);
-  }
-}
 </script>
 
 <template>
@@ -284,7 +275,11 @@ async function pickFavorite(animalId) {
             Deine Start-Taps sind leer — als neuer Spieler bekommst du ein
             einmaliges Willkommensgeschenk.
           </p>
-          <p v-if="giftError" class="error" style="text-align: center; margin: 0 0 10px">
+          <p
+            v-if="giftError"
+            class="error"
+            style="text-align: center; margin: 0 0 10px"
+          >
             {{ giftError }}
           </p>
           <button class="btn full" :disabled="giftBusy" @click="openGift">
@@ -307,7 +302,9 @@ async function pickFavorite(animalId) {
 
     <div class="welcome">
       <router-link to="/profile" class="welcome-link">
-        <div class="welcome-avatar">{{ auth.profile?.avatar_emoji || "👤" }}</div>
+        <div class="welcome-avatar">
+          {{ auth.profile?.avatar_emoji || "👤" }}
+        </div>
         <div>
           <div class="subtitle" style="margin: 0">Willkommen zurück</div>
           <div class="username">
@@ -342,7 +339,12 @@ async function pickFavorite(animalId) {
               {{ game.tapsRemaining }}
             </span>
             <span style="opacity: 0.4"> / {{ game.tapsMax }}</span>
-            <span v-if="game.bonusTaps > 0" class="bonus-chip" title="Einmalige Bonus-Taps">+{{ game.bonusTaps }} 🎁</span>
+            <span
+              v-if="game.bonusTaps > 0"
+              class="bonus-chip"
+              title="Einmalige Bonus-Taps"
+              >+{{ game.bonusTaps }} 🎁</span
+            >
           </div>
           <div class="tap-reset">↻ {{ fmtTime(tapCooldown) }}</div>
         </div>
@@ -402,7 +404,11 @@ async function pickFavorite(animalId) {
             </div>
           </div>
           <div class="tu-next">
-            <template v-if="!game.tapMulMaxed">Nächster Lvl: ×{{ (game.tapMultiplier + 0.25).toFixed(2) }}</template>
+            <template v-if="!game.tapMulMaxed"
+              >Nächster Lvl: ×{{
+                (game.tapMultiplier + 0.25).toFixed(2)
+              }}</template
+            >
             <template v-else>Maximum erreicht</template>
           </div>
           <button
@@ -430,7 +436,9 @@ async function pickFavorite(animalId) {
             </div>
           </div>
           <div class="tu-next">
-            <template v-if="!game.tapCapMaxed">Nächster Lvl: {{ 10 + game.tapCapLevel * 5 }} / Runde</template>
+            <template v-if="!game.tapCapMaxed"
+              >Nächster Lvl: {{ 10 + game.tapCapLevel * 5 }} / Runde</template
+            >
             <template v-else>Maximum erreicht</template>
           </div>
           <button
@@ -477,64 +485,43 @@ async function pickFavorite(animalId) {
             }}
           </button>
         </div>
-      </div>
-    </div>
-
-    <div class="card pet-card" :class="{ boosted: game.favoriteBoostActive }">
-      <div class="pet-top">
-        <div class="pet-emoji">
-          {{ favEmoji }}{{ game.favoriteBoostActive ? "✨" : "" }}
-        </div>
-        <div class="pet-body">
-          <div class="pet-title">
-            {{ favAnimal ? favAnimal.info.name : "Kein Liebling gewählt" }}
-          </div>
-          <div v-if="game.favoriteBoostActive" class="pet-status boost">
-            ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
-          </div>
-          <div v-else class="pet-status">
-            Wähle & füttere deinen Liebling für ×-Boost.
-          </div>
-        </div>
-        <div class="pet-actions">
-          <button
-            class="btn secondary small"
-            :disabled="!ownedAnimals.length"
-            @click="pickerOpen = !pickerOpen"
-          >
-            ⭐ Wählen
-          </button>
-          <button
-            class="btn small"
-            :disabled="!favAnimal"
-            @click="router.push('/shop?tab=food')"
-          >
-            🍖 Füttern
-          </button>
-        </div>
-      </div>
-      <div v-if="pickerOpen && ownedAnimals.length" class="fav-strip">
-        <button
-          v-for="a in ownedAnimals"
-          :key="a.id"
-          class="fav-pill"
-          :class="{
-            active: a.id === game.favoriteAnimalId,
-            tiered: (a.tier || 'normal') !== 'normal',
-          }"
-          :style="
-            (a.tier || 'normal') !== 'normal'
-              ? { '--tier-color': tierInfo(a.tier).color }
-              : null
-          "
-          @click="pickFavorite(a.id)"
+        <div
+          class="card pet-card"
+          :class="{ boosted: game.favoriteBoostActive }"
         >
-          <span class="fav-pill-emoji">{{ a.info.emoji }}</span>
-          <span v-if="tierInfo(a.tier).badge" class="fav-pill-badge">{{
-            tierInfo(a.tier).badge
-          }}</span>
-          <span class="fav-pill-name">{{ a.info.name }}</span>
-        </button>
+          <div class="pet-top">
+            <div class="pet-emoji">
+              {{ favEmoji }}
+            </div>
+            <div class="pet-body">
+              <div class="pet-title">
+                {{ favAnimal ? favAnimal.info.name : "Kein Liebling gewählt" }}
+              </div>
+              <div v-if="game.favoriteBoostActive" class="pet-status boost">
+                ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
+              </div>
+              <div v-else class="pet-status">
+                Wähle & füttere deinen Liebling für ×-Boost.
+              </div>
+            </div>
+            <div class="pet-actions">
+              <button
+                class="btn secondary"
+                :disabled="!ownedAnimals.length"
+                @click="router.push('/inventory')"
+              >
+                ⭐ Wählen
+              </button>
+              <button
+                class="btn"
+                :disabled="!favAnimal"
+                @click="router.push('/shop?tab=food')"
+              >
+                🍖 Füttern
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -673,8 +660,13 @@ async function pickFavorite(animalId) {
           Keine normalen, nicht ausgerüsteten Tiere vorhanden.
         </div>
 
-        <div v-if="fusionLocked" class="fusion-locked hint" style="text-align:center">
-          🔒 Maschine belegt — nur ein Pet gleichzeitig. Warte, bis das laufende Upgrade fertig ist.
+        <div
+          v-if="fusionLocked"
+          class="fusion-locked hint"
+          style="text-align: center"
+        >
+          🔒 Maschine belegt — nur ein Pet gleichzeitig. Warte, bis das laufende
+          Upgrade fertig ist.
         </div>
 
         <div v-else class="fusion-machine">
@@ -686,9 +678,12 @@ async function pickFavorite(animalId) {
                   v-for="a in fusionInputPreview"
                   :key="a.id"
                   class="fm-chip"
-                >{{ fusionSelectedGroup.info.emoji }}</span>
+                  >{{ fusionSelectedGroup.info.emoji }}</span
+                >
               </template>
-              <div v-else class="hint" style="margin:0">Wähle Spezies &amp; Ziel-Stufe</div>
+              <div v-else class="hint" style="margin: 0">
+                Wähle Spezies &amp; Ziel-Stufe
+              </div>
             </div>
           </div>
 
@@ -704,23 +699,28 @@ async function pickFavorite(animalId) {
                 <span
                   class="fm-chip big"
                   :style="{ '--tier-color': fusionSelectedTier.color }"
-                >{{ fusionSelectedGroup.info.emoji }}<sup class="tb">{{ fusionSelectedTier.badge }}</sup></span>
+                  >{{ fusionSelectedGroup.info.emoji
+                  }}<sup class="tb">{{ fusionSelectedTier.badge }}</sup></span
+                >
               </template>
-              <div v-else class="hint" style="margin:0">?</div>
+              <div v-else class="hint" style="margin: 0">?</div>
             </div>
           </div>
         </div>
 
         <div v-if="!fusionLocked" class="fm-controls">
           <div class="fm-row">
-            <label class="hint" style="margin:0">Spezies</label>
+            <label class="hint" style="margin: 0">Spezies</label>
             <div class="fm-species-grid">
               <button
                 v-for="g in fusionGroups"
                 :key="g.species"
                 class="fm-sp-btn"
                 :class="{ active: fusionSpecies === g.species }"
-                @click="fusionSpecies = g.species; fusionTier = ''"
+                @click="
+                  fusionSpecies = g.species;
+                  fusionTier = '';
+                "
               >
                 <span class="fm-sp-emoji">{{ g.info.emoji }}</span>
                 <span class="fm-sp-count">{{ g.count }}×</span>
@@ -729,30 +729,41 @@ async function pickFavorite(animalId) {
           </div>
 
           <div v-if="fusionSelectedGroup" class="fm-row">
-            <label class="hint" style="margin:0">Ziel-Stufe</label>
+            <label class="hint" style="margin: 0">Ziel-Stufe</label>
             <div class="fm-tier-grid">
               <button
                 v-for="t in tierList"
                 :key="t.tier"
                 class="tier-chip fm-tier-chip"
-                :class="{ locked: fusionSelectedGroup.count < t.required_qty, active: fusionTier === t.tier }"
+                :class="{
+                  locked: fusionSelectedGroup.count < t.required_qty,
+                  active: fusionTier === t.tier,
+                }"
                 :style="{ '--tier-color': t.color }"
                 :disabled="fusionSelectedGroup.count < t.required_qty"
                 @click="fusionTier = t.tier"
               >
-                <div class="tier-emoji">{{ fusionSelectedGroup.info.emoji }}<span class="tier-badge">{{ t.badge }}</span></div>
+                <div class="tier-emoji">
+                  {{ fusionSelectedGroup.info.emoji
+                  }}<span class="tier-badge">{{ t.badge }}</span>
+                </div>
                 <div class="tier-name">{{ t.tier }}</div>
-                <div class="tier-meta">{{ t.required_qty }}× · ×{{ t.multiplier }} · {{ t.upgrade_minutes }}min</div>
+                <div class="tier-meta">
+                  {{ t.required_qty }}× · ×{{ t.multiplier }} ·
+                  {{ t.upgrade_minutes }}min
+                </div>
               </button>
             </div>
           </div>
 
           <button
             class="btn full"
-            :disabled="!fusionSelectedGroup || !fusionSelectedTier || fusionBusy"
+            :disabled="
+              !fusionSelectedGroup || !fusionSelectedTier || fusionBusy
+            "
             @click="doFusion(fusionSpecies, fusionTier)"
           >
-            {{ fusionBusy ? '…' : '🏭 Fusion starten' }}
+            {{ fusionBusy ? "…" : "🏭 Fusion starten" }}
           </button>
         </div>
       </div>
@@ -919,17 +930,34 @@ async function pickFavorite(animalId) {
 .pet-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  background: #162048;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
 }
 .pet-top {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 .pet-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 6px;
+  flex-shrink: 0;
+  width: 100%;
+  margin-top: 4px;
+}
+.pet-actions .btn {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .fav-strip {
   display: flex;
@@ -1050,6 +1078,7 @@ async function pickFavorite(animalId) {
 .pet-body {
   flex: 1;
   min-width: 0;
+  flex-basis: 140px;
 }
 .pet-title {
   font-weight: 700;
@@ -1271,6 +1300,7 @@ async function pickFavorite(animalId) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  align-items: stretch;
 }
 .tu-card {
   background: #162048;
@@ -1312,33 +1342,64 @@ async function pickFavorite(animalId) {
 }
 
 .gift-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.65);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000; padding: 16px;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
 }
 .gift-dialog {
-  max-width: 360px; width: 100%;
-  display: flex; flex-direction: column; align-items: center;
-  padding: 22px; text-align: center;
+  max-width: 360px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px;
+  text-align: center;
   animation: giftIn 0.25s ease;
 }
-.gift-emoji { font-size: 72px; line-height: 1; margin-bottom: 10px; }
-.gift-emoji.pop { animation: giftPop 0.5s ease; }
+.gift-emoji {
+  font-size: 72px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.gift-emoji.pop {
+  animation: giftPop 0.5s ease;
+}
 @keyframes giftIn {
-  from { transform: scale(0.85); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 @keyframes giftPop {
-  0% { transform: scale(0.5); }
-  60% { transform: scale(1.25); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.5);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 .bonus-chip {
-  display: inline-block; margin-left: 6px;
-  background: rgba(255,209,102,0.18);
-  color: var(--accent); border: 1px solid var(--accent);
-  border-radius: 999px; padding: 1px 8px;
-  font-size: 11px; font-weight: 700;
+  display: inline-block;
+  margin-left: 6px;
+  background: rgba(255, 209, 102, 0.18);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 700;
 }
 .fusion-card {
   position: relative;
@@ -1373,7 +1434,9 @@ async function pickFavorite(animalId) {
 }
 .fusion-preview {
   width: 100%;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 14px;
   background: #0f1736;
   border: 1px dashed var(--border);
@@ -1381,8 +1444,12 @@ async function pickFavorite(animalId) {
   padding: 18px 14px;
   margin-bottom: 8px;
   cursor: pointer;
-  color: inherit; font: inherit;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+  color: inherit;
+  font: inherit;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.08s ease;
 }
 .fusion-preview:hover {
   background: #162048;
@@ -1390,12 +1457,14 @@ async function pickFavorite(animalId) {
   transform: translateY(-1px);
 }
 .fusion-preview-emoji {
-  font-size: 56px; line-height: 1;
+  font-size: 56px;
+  line-height: 1;
   animation: bob 2.2s ease-in-out infinite;
-  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4));
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
 }
 .fusion-preview-label {
-  font-weight: 700; font-size: 15px;
+  font-weight: 700;
+  font-size: 15px;
 }
 .fusion-machine {
   display: grid;
@@ -1410,46 +1479,122 @@ async function pickFavorite(animalId) {
   border-radius: 14px;
   padding: 10px;
   min-height: 110px;
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.fm-slot-title { font-weight: 700; font-size: 12px; color: var(--muted); }
-.fm-slot-body { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1; }
+.fm-slot-title {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fm-slot-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+}
 .fm-chip {
   font-size: 26px;
-  background: rgba(255,255,255,0.04);
-  padding: 4px 8px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 8px;
+  border-radius: 10px;
   border: 1px solid var(--border);
 }
-.fm-chip.big { font-size: 44px; padding: 6px 14px; filter: drop-shadow(0 0 6px var(--tier-color, transparent)); }
-.fm-chip .tb { font-size: 0.5em; vertical-align: super; }
-.fm-core { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 4px; }
+.fm-chip.big {
+  font-size: 44px;
+  padding: 6px 14px;
+  filter: drop-shadow(0 0 6px var(--tier-color, transparent));
+}
+.fm-chip .tb {
+  font-size: 0.5em;
+  vertical-align: super;
+}
+.fm-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
 .fm-factory {
   font-size: 64px;
   animation: bob 2.2s ease-in-out infinite;
-  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4));
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
 }
-.fm-controls { display: flex; flex-direction: column; gap: 10px; }
-.fm-row { display: flex; flex-direction: column; gap: 6px; }
+.fm-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fm-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .fm-species-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
 }
 .fm-sp-btn {
-  background: #162048; border: 1px solid var(--border); border-radius: 10px;
-  padding: 6px 4px; cursor: pointer; color: inherit; font: inherit;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: #162048;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 4px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
-.fm-sp-btn.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-.fm-sp-emoji { font-size: 24px; line-height: 1; }
-.fm-sp-count { font-size: 10px; color: var(--muted); }
+.fm-sp-btn.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.fm-sp-emoji {
+  font-size: 24px;
+  line-height: 1;
+}
+.fm-sp-count {
+  font-size: 10px;
+  color: var(--muted);
+}
 .fm-tier-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
 }
-.fm-tier-chip.active { outline: 2px solid var(--accent); }
-.fusion-locked { padding: 14px; }
+.fm-tier-chip.active {
+  outline: 2px solid var(--accent);
+}
+.fusion-locked {
+  padding: 14px;
+}
 @media (max-width: 520px) {
-  .fm-factory { font-size: 48px; }
-  .fm-chip { font-size: 22px; padding: 3px 6px; }
-  .fm-chip.big { font-size: 34px; padding: 4px 10px; }
+  .fm-factory {
+    font-size: 48px;
+  }
+  .fm-chip {
+    font-size: 22px;
+    padding: 3px 6px;
+  }
+  .fm-chip.big {
+    font-size: 34px;
+    padding: 4px 10px;
+  }
+}
+@media (max-width: 760px) {
+  .tap-upgrade-grid {
+    grid-template-columns: 1fr;
+  }
+  .pet-top {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
 }
 .upgrading-grid {
   display: grid;
