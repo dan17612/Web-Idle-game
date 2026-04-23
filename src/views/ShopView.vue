@@ -194,25 +194,27 @@ const boostRemaining = computed(() =>
 );
 
 const speciesList = computed(() =>
-  Object.entries(SPECIES).map(([key, info]) => {
-    const catalogQty = stock.value[key] || 0;
-    const forcedQty = forcedStock.value[key] || 0;
-    const randomQty = Math.max(0, catalogQty - forcedQty);
-    const boughtQty = myPurchases.value[key] || 0;
-    const remaining = Math.max(0, catalogQty - boughtQty);
-    return {
-      key,
-      info,
-      qty: catalogQty,
-      randomQty,
-      forcedQty,
-      remaining,
-      boughtQty,
-      inStock: remaining > 0,
-      isForced: forcedQty > 0,
-      enabled: enabledMap.value[key] !== false,
-    };
-  }),
+  Object.entries(SPECIES)
+    .filter(([, info]) => info.shop_visible !== false)
+    .map(([key, info]) => {
+      const catalogQty = stock.value[key] || 0;
+      const forcedQty = forcedStock.value[key] || 0;
+      const randomQty = Math.max(0, catalogQty - forcedQty);
+      const boughtQty = myPurchases.value[key] || 0;
+      const remaining = Math.max(0, catalogQty - boughtQty);
+      return {
+        key,
+        info,
+        qty: catalogQty,
+        randomQty,
+        forcedQty,
+        remaining,
+        boughtQty,
+        inStock: remaining > 0,
+        isForced: forcedQty > 0,
+        enabled: enabledMap.value[key] !== false,
+      };
+    }),
 );
 const stockTotal = computed(() =>
   speciesList.value.reduce((s, x) => s + x.remaining, 0),
@@ -283,12 +285,12 @@ function adminRestock(species) {
   <h1 class="title">🛒 Shop</h1>
 
   <div class="tabs">
-    <button :class="{ active: tab === 'animals' }" @click="tab = 'animals'">
+    <Button :class="{ active: tab === 'animals' }" @click="tab = 'animals'">
       🐾 Tiere
-    </button>
-    <button :class="{ active: tab === 'food' }" @click="tab = 'food'">
+    </Button>
+    <Button :class="{ active: tab === 'food' }" @click="tab = 'food'">
       🍖 Futter
-    </button>
+    </Button>
   </div>
 
   <p v-if="error" class="error">{{ error }}</p>
@@ -337,14 +339,14 @@ function adminRestock(species) {
       </div>
 
       <div v-if="adminOpen" style="margin-top: 12px">
-        <button
+        <Button
           class="btn full"
           style="margin-bottom: 12px"
           :disabled="busyAdmin === 'rotate'"
           @click="callAdmin('admin_force_rotation', {}, 'rotate')"
         >
           🎲 Sofort neu würfeln
-        </button>
+        </Button>
 
         <div v-for="s in speciesList" :key="'adm-' + s.key" class="admin-row">
           <div class="admin-left">
@@ -375,7 +377,7 @@ function adminRestock(species) {
           <div class="admin-actions">
             <label class="weight"
               ><span>⚖️</span>
-              <input
+              <InputText
                 type="number"
                 min="1"
                 max="9999"
@@ -385,15 +387,14 @@ function adminRestock(species) {
                 @keydown.enter.prevent="
                   saveWeight(s.key);
                   $event.target.blur();
-                "
-              />
+                " />
             </label>
             <label class="toggle">
-              <input
-                type="checkbox"
-                :checked="s.enabled"
+              <Checkbox
+                :modelValue="s.enabled"
+                binary
                 :disabled="busyAdmin === 'en-' + s.key"
-                @change="
+                @update:modelValue="
                   callAdmin(
                     'admin_set_species_enabled',
                     { p_species: s.key, p_enabled: !s.enabled },
@@ -405,22 +406,21 @@ function adminRestock(species) {
             </label>
             <label class="weight" title="Menge zum Restocken">
               <span>＋</span>
-              <input
+              <InputText
                 type="number"
                 min="1"
                 max="99"
                 v-model.number="restockQty[s.key]"
-                placeholder="1"
-              />
+                placeholder="1" />
             </label>
-            <button
+            <Button
               class="btn secondary small"
               :disabled="busyAdmin === 'f-' + s.key"
               @click="adminRestock(s.key)"
             >
               Restock
-            </button>
-            <button
+            </Button>
+            <Button
               v-if="s.forcedQty > 0"
               class="btn danger small"
               :disabled="busyAdmin === 'u-' + s.key"
@@ -433,7 +433,7 @@ function adminRestock(species) {
               "
             >
               Stop
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -455,15 +455,15 @@ function adminRestock(species) {
         </div>
       </div>
       <div class="row" style="gap:6px;margin-top:10px">
-        <button
+        <Button
           v-for="n in [1, 2, 3]"
           :key="n"
           class="btn secondary small qty-pick"
           :class="{ active: chestQty === n }"
           :disabled="n > chestRemaining"
           @click="chestQty = n"
-        >×{{ n }}</button>
-        <button
+        >×{{ n }}</Button>
+        <Button
           class="btn"
           style="flex:1"
           :disabled="busyKey === 'chest' || !!chestAnim || chestRemaining < chestQty || game.displayCoins < chestStatus.price * chestQty"
@@ -475,7 +475,7 @@ function adminRestock(species) {
             chestRemaining < chestQty ? `Nur ${chestRemaining} frei` :
             `Öffnen · 🪙 ${formatCoins(chestStatus.price * chestQty)}`
           }}
-        </button>
+        </Button>
       </div>
     </div>
 
@@ -507,7 +507,7 @@ function adminRestock(species) {
           </div>
         </div>
       </div>
-      <button v-if="chestAnim.phase === 'reveal'" class="btn" @click="closeChestAnim">Weiter</button>
+      <Button v-if="chestAnim.phase === 'reveal'" class="btn" @click="closeChestAnim">Weiter</Button>
     </div>
 
     <div class="grid">
@@ -523,7 +523,7 @@ function adminRestock(species) {
         <div class="animal-name">{{ s.info.name }}</div>
         <div class="animal-meta">+{{ formatCoins(s.info.rate) }} / Sek</div>
         <div class="animal-cost">🪙 {{ formatCoins(s.info.cost) }}</div>
-        <button
+        <Button
           v-if="s.inStock"
           class="btn full"
           style="margin-top: 8px"
@@ -531,7 +531,7 @@ function adminRestock(species) {
           @click="buy(s.key)"
         >
           {{ busyKey === s.key ? "..." : "Kaufen" }}
-        </button>
+        </Button>
         <div v-else-if="s.qty > 0" class="stock-badge">Schon gekauft</div>
         <div v-else class="stock-badge">Ausverkauft</div>
       </div>
@@ -578,7 +578,7 @@ function adminRestock(species) {
           <span class="food-pill">{{ f.duration_min }} Min</span>
         </div>
         <div class="animal-cost">🪙 {{ formatCoins(f.cost) }}</div>
-        <button
+        <Button
           class="btn full feed-btn"
           style="margin-top: 8px"
           :disabled="
@@ -589,7 +589,7 @@ function adminRestock(species) {
           @click="feed(f)"
         >
           {{ busyKey === "food-" + f.food ? "..." : "Füttern" }}
-        </button>
+        </Button>
       </div>
     </div>
   </template>
@@ -672,10 +672,9 @@ function adminRestock(species) {
   font-size: 12px;
   color: var(--muted);
 }
-.toggle input {
+.toggle :deep(.p-checkbox) {
   width: 18px;
   height: 18px;
-  accent-color: var(--accent);
 }
 .weight {
   display: inline-flex;
@@ -787,7 +786,7 @@ function adminRestock(species) {
 }
 .food-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(6, 214, 160, 0.6);
+  border-color: rgba(255, 209, 102, 0.6);
 }
 .food-card.locked {
   opacity: 0.75;

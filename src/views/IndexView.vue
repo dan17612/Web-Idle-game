@@ -110,7 +110,7 @@ const filters = [
 
     <div class="card filter-card">
       <div class="filter-bar">
-        <button
+        <Button
           v-for="f in filters"
           :key="f.k"
           class="filter-chip"
@@ -121,7 +121,7 @@ const filters = [
           <span>{{ f.badge }}</span>
           <span>{{ f.label }}</span>
           <span class="filter-count">{{ tierCounts[f.k] || 0 }}</span>
-        </button>
+        </Button>
       </div>
     </div>
 

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="stack">
     <h1 class="title">Datenschutzerklaerung</h1>
 

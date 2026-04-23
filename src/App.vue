@@ -14,6 +14,15 @@ const auth = useAuthStore();
 const game = useGameStore();
 const route = useRoute();
 
+const STALE_MS = 90_000; // 90s – danach Game-Daten neu laden
+
+function refreshIfStale() {
+  if (!auth.isAuth || game.loading) return;
+  if (Date.now() - game.lastLoadedAt > STALE_MS) {
+    game.load().catch(() => {});
+  }
+}
+
 const broadcast = ref(null);
 let broadcastTimer = null;
 let broadcastChannel = null;
@@ -82,31 +91,42 @@ onMounted(async () => {
     if (auth.isAuth) game.persist();
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden" && auth.isAuth) game.persist();
+    if (document.visibilityState === "hidden" && auth.isAuth) {
+      game.persist();
+    } else if (document.visibilityState === "visible") {
+      refreshIfStale();
+    }
   });
 });
+
+// Bei Route-Wechsel prüfen ob Daten veraltet sind
+watch(route, () => refreshIfStale());
 
 const showNav = computed(() => auth.isAuth && route.name !== "login");
 
 const reloading = ref(false);
-async function hardReload() {
+
+async function softRefresh() {
   if (reloading.value) return;
   reloading.value = true;
   try {
-    if (auth.isAuth) {
-      try { await game.persist(); } catch {}
-    }
+    if (auth.isAuth) await game.load();
+  } catch {
+    // Soft-Refresh fehlgeschlagen → Hard-Reload als Fallback
+    await hardReload();
+  } finally {
+    reloading.value = false;
+  }
+}
+
+async function hardReload() {
+  try {
+    if (auth.isAuth) { try { await game.persist(); } catch {} }
     if ("caches" in window) {
-      try {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
-      } catch {}
+      try { await Promise.all((await caches.keys()).map((k) => caches.delete(k))); } catch {}
     }
     if (navigator.serviceWorker) {
-      try {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.update()));
-      } catch {}
+      try { await Promise.all((await navigator.serviceWorker.getRegistrations()).map((r) => r.update())); } catch {}
     }
   } finally {
     const url = new URL(window.location.href);
@@ -125,15 +145,15 @@ async function hardReload() {
           <span class="coin">🪙</span>
           <span class="amount">{{ formatCoins(game.displayCoins) }}</span>
         </div>
-        <button
+        <Button
           type="button"
-          class="settings-link"
-          title="Seite neu laden"
+          class="settings-link refresh-btn"
+          title="Daten aktualisieren"
           :disabled="reloading"
-          @click="hardReload"
+          @click="softRefresh"
         >
-          {{ reloading ? "…" : "🔄" }}
-        </button>
+          <i :class="['pi', 'pi-refresh', { 'pi-spin': reloading }]" />
+        </Button>
         <router-link to="/settings" class="settings-link" title="Einstellungen"
           >⚙️</router-link
         >
@@ -175,7 +195,7 @@ async function hardReload() {
             <div v-if="g.note" class="gift-note">„{{ g.note }}"</div>
           </div>
         </div>
-        <button class="btn full" @click="game.pendingGiftToast = null">Danke!</button>
+        <Button class="btn full" @click="game.pendingGiftToast = null">Danke!</Button>
       </div>
     </div>
 
@@ -195,14 +215,14 @@ async function hardReload() {
       </router-link>
     </nav>
 
-    <button
+    <Button
       v-if="showNav && auth.profile?.is_admin"
       class="admin-fab"
       @click="adminOpen = true"
       title="Admin"
     >
       🛠️
-    </button>
+    </Button>
 
     <AdminModal v-if="adminOpen" @close="adminOpen = false" />
     <SpeedInsights />

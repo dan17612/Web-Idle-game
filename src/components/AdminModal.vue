@@ -1,5 +1,5 @@
-﻿<script setup>
-import { ref, onMounted } from 'vue'
+<script setup>
+import { computed, ref, onMounted } from 'vue'
 import { supabase } from '../supabase'
 import { SPECIES } from '../animals'
 
@@ -19,6 +19,14 @@ const users = ref([])
 
 const giftForm = ref({ username: '', coins: 0, species: '', tier: 'normal', qty: 1, note: '' })
 const TIERS = ['normal', 'gold', 'diamond', 'epic', 'rainbow']
+const giftTierOptions = computed(() => TIERS.map((tier) => ({ label: tier, value: tier })))
+const giftSpeciesOptions = computed(() => {
+  const species = speciesRows.value.map((r) => ({
+    label: `${SPECIES[r.species]?.emoji || '❓'} ${SPECIES[r.species]?.name || r.species}`,
+    value: r.species
+  }))
+  return [{ label: '- keine -', value: '' }, ...species]
+})
 
 function flash(msg, isError = false) {
   if (isError) {
@@ -184,14 +192,14 @@ async function deleteUser(u) {
     <div class="modal-card">
       <div class="row between" style="margin-bottom:12px">
         <h2>Admin</h2>
-        <button class="btn secondary small" @click="emit('close')">X</button>
+        <Button class="btn secondary small" @click="emit('close')">X</Button>
       </div>
 
       <div class="tabs">
-        <button :class="{ active: tab==='broadcast' }" @click="tab='broadcast'">Broadcast</button>
-        <button :class="{ active: tab==='shop' }" @click="tab='shop'">Shop</button>
-        <button :class="{ active: tab==='gift' }" @click="tab='gift'">Gift</button>
-        <button :class="{ active: tab==='users' }" @click="tab='users'">Users</button>
+        <Button :class="{ active: tab==='broadcast' }" @click="tab='broadcast'">Broadcast</Button>
+        <Button :class="{ active: tab==='shop' }" @click="tab='shop'">Shop</Button>
+        <Button :class="{ active: tab==='gift' }" @click="tab='gift'">Gift</Button>
+        <Button :class="{ active: tab==='users' }" @click="tab='users'">Users</Button>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
@@ -199,52 +207,59 @@ async function deleteUser(u) {
 
       <template v-if="tab === 'broadcast'">
         <p class="subtitle">Erscheint kurz mittig bei allen Spielern.</p>
-        <textarea
+        <Textarea
           v-model="broadcastMsg"
           rows="3"
           maxlength="280"
           placeholder="Nachricht..."
           style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card-2);color:inherit"
         />
-        <button class="btn full" style="margin-top:10px" :disabled="busy==='bc'" @click="sendBroadcast">
+        <Button class="btn full" style="margin-top:10px" :disabled="busy==='bc'" @click="sendBroadcast">
           {{ busy==='bc' ? '...' : 'An alle senden' }}
-        </button>
+        </Button>
       </template>
 
       <template v-if="tab === 'gift'">
         <p class="subtitle">Geschenk wird beim naechsten Login des Empfaengers automatisch eingeloest.</p>
         <label class="subtitle">Empfaenger - mehrere mit Komma oder <code>@all</code></label>
-        <input v-model="giftForm.username" placeholder="alice, bob, charlie oder @all" style="width:100%;margin-bottom:8px" />
+        <InputText v-model="giftForm.username" placeholder="alice, bob, charlie oder @all" style="width:100%;margin-bottom:8px" />
         <label class="subtitle">Muenzen (optional)</label>
-        <input type="number" min="0" v-model.number="giftForm.coins" placeholder="0" style="width:100%;margin-bottom:8px" />
+        <InputText type="number" min="0" v-model.number="giftForm.coins" placeholder="0" style="width:100%;margin-bottom:8px" />
         <label class="subtitle">Spezies (optional)</label>
-        <select v-model="giftForm.species" style="width:100%;padding:8px;border-radius:8px;background:var(--card-2);color:inherit;border:1px solid var(--border);margin-bottom:8px">
-          <option value="">- keine -</option>
-          <option v-for="r in speciesRows" :key="r.species" :value="r.species">{{ SPECIES[r.species]?.emoji }} {{ SPECIES[r.species]?.name || r.species }}</option>
-        </select>
+        <Select
+          v-model="giftForm.species"
+          :options="giftSpeciesOptions"
+          optionLabel="label"
+          optionValue="value"
+          style="width:100%;margin-bottom:8px"
+        />
         <div class="row" style="gap:8px;margin-bottom:8px">
           <div style="flex:1">
             <label class="subtitle">Tier</label>
-            <select v-model="giftForm.tier" style="width:100%;padding:8px;border-radius:8px;background:var(--card-2);color:inherit;border:1px solid var(--border)">
-              <option v-for="t in TIERS" :key="t" :value="t">{{ t }}</option>
-            </select>
+            <Select
+              v-model="giftForm.tier"
+              :options="giftTierOptions"
+              optionLabel="label"
+              optionValue="value"
+              style="width:100%"
+            />
           </div>
           <div style="width:90px">
             <label class="subtitle">Anzahl</label>
-            <input type="number" min="1" max="50" v-model.number="giftForm.qty" style="width:100%" />
+            <InputText type="number" min="1" max="50" v-model.number="giftForm.qty" style="width:100%" />
           </div>
         </div>
         <label class="subtitle">Notiz (optional)</label>
-        <input v-model="giftForm.note" maxlength="140" placeholder="z.B. Willkommen" style="width:100%;margin-bottom:10px" />
-        <button class="btn full" :disabled="busy==='gift'" @click="sendGift">
+        <InputText v-model="giftForm.note" maxlength="140" placeholder="z.B. Willkommen" style="width:100%;margin-bottom:10px" />
+        <Button class="btn full" :disabled="busy==='gift'" @click="sendGift">
           {{ busy==='gift' ? '...' : 'Geschenk einreihen' }}
-        </button>
+        </Button>
       </template>
 
       <template v-if="tab === 'shop'">
-        <button class="btn full" :disabled="busy==='rotate'" @click="rotate" style="margin-bottom:10px">
+        <Button class="btn full" :disabled="busy==='rotate'" @click="rotate" style="margin-bottom:10px">
           Sofort neu wuerfeln
-        </button>
+        </Button>
         <div v-for="r in speciesRows" :key="r.species" class="admin-row">
           <div class="admin-left">
             <span style="font-size:22px">{{ SPECIES[r.species]?.emoji }}</span>
@@ -255,23 +270,26 @@ async function deleteUser(u) {
           </div>
           <div class="admin-actions">
             <label class="weight"><span>W</span>
-              <input
+              <InputText
                 type="number"
                 min="1"
                 max="9999"
                 v-model.number="weightDraft[r.species]"
                 @blur="saveWeight(r.species)"
-                @keydown.enter.prevent="saveWeight(r.species); $event.target.blur()"
-              />
+                @keydown.enter.prevent="saveWeight(r.species); $event.target.blur()" />
             </label>
             <label class="toggle">
-              <input type="checkbox" :checked="r.enabled" @change="toggleEnabled(r)" />
+              <Checkbox
+                :modelValue="r.enabled"
+                binary
+                @update:modelValue="toggleEnabled(r)"
+              />
             </label>
             <label class="weight"><span>+</span>
-              <input type="number" min="1" max="99" v-model.number="restockQty[r.species]" placeholder="1" />
+              <InputText type="number" min="1" max="99" v-model.number="restockQty[r.species]" placeholder="1" />
             </label>
-            <button class="btn secondary small" :disabled="busy==='r-'+r.species" @click="restock(r.species)">Restock</button>
-            <button class="btn danger small" :disabled="busy==='s-'+r.species" @click="stop(r.species)">Stop</button>
+            <Button class="btn secondary small" :disabled="busy==='r-'+r.species" @click="restock(r.species)">Restock</Button>
+            <Button class="btn danger small" :disabled="busy==='s-'+r.species" @click="stop(r.species)">Stop</Button>
           </div>
         </div>
       </template>
@@ -279,15 +297,14 @@ async function deleteUser(u) {
       <template v-if="tab === 'users'">
         <p class="subtitle">Accounts verwalten: suchen, bannen/entbannen, loeschen.</p>
         <div class="row" style="gap:8px;margin-bottom:10px">
-          <input
+          <InputText
             v-model="userSearch"
             placeholder="Suche nach Username oder E-Mail"
             style="flex:1"
-            @keydown.enter.prevent="loadUsers"
-          />
-          <button class="btn secondary small" :disabled="busy==='users'" @click="loadUsers">
+            @keydown.enter.prevent="loadUsers" />
+          <Button class="btn secondary small" :disabled="busy==='users'" @click="loadUsers">
             {{ busy==='users' ? '...' : 'Suchen' }}
-          </button>
+          </Button>
         </div>
         <div v-for="u in users" :key="u.id" class="admin-row">
           <div class="admin-left">
@@ -302,29 +319,29 @@ async function deleteUser(u) {
             </div>
           </div>
           <div class="admin-actions">
-            <button
+            <Button
               v-if="!u.is_banned"
               class="btn danger small"
               :disabled="busy===`ban-${u.id}` || u.is_admin"
               @click="setBan(u, true)"
             >
               {{ busy===`ban-${u.id}` ? '...' : 'Bannen' }}
-            </button>
-            <button
+            </Button>
+            <Button
               v-else
               class="btn secondary small"
               :disabled="busy===`unban-${u.id}` || u.is_admin"
               @click="setBan(u, false)"
             >
               {{ busy===`unban-${u.id}` ? '...' : 'Entbannen' }}
-            </button>
-            <button
+            </Button>
+            <Button
               class="btn danger small"
               :disabled="busy===`del-${u.id}` || u.is_admin"
               @click="deleteUser(u)"
             >
               {{ busy===`del-${u.id}` ? '...' : 'Loeschen' }}
-            </button>
+            </Button>
           </div>
         </div>
       </template>
@@ -346,7 +363,7 @@ async function deleteUser(u) {
 .admin-left { display: flex; gap: 10px; align-items: center; min-width: 0; }
 .admin-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .btn.small { padding: 6px 10px; font-size: 12px; }
-.toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
+.toggle :deep(.p-checkbox) { width: 20px; height: 20px; }
 .weight { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
 .weight input { width: 54px; padding: 4px 6px; font-size: 16px; border-radius: 8px; text-align: right; }
 .pill {
