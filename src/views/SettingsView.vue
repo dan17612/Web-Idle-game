@@ -196,18 +196,18 @@ async function logout() {
       <h2 style="margin:0">Avatar wählen</h2>
       <p class="hint">Wähle ein Emoji oder gib ein eigenes ein.</p>
       <div class="avatar-grid">
-        <button
+        <Button
           v-for="e in AVATAR_CHOICES"
           :key="e"
           class="avatar-cell"
           :class="{ active: auth.profile?.avatar_emoji === e }"
           :disabled="busy==='avatar'"
           @click="pickAvatar(e)"
-        >{{ e }}</button>
+        >{{ e }}</Button>
       </div>
       <div class="row" style="gap:6px">
-        <input v-model="newAvatar" type="text" placeholder="🦖" maxlength="4" style="flex:1" />
-        <button class="btn secondary" :disabled="busy==='avatar'" @click="saveCustomAvatar">Setzen</button>
+        <InputText v-model="newAvatar" type="text" placeholder="🦖" maxlength="4" style="flex:1" />
+        <Button class="btn secondary" :disabled="busy==='avatar'" @click="saveCustomAvatar">Setzen</Button>
       </div>
     </section>
 
@@ -217,29 +217,29 @@ async function logout() {
     <section class="card stack">
       <h2 style="margin:0">Username ändern</h2>
       <p class="hint">3-20 Zeichen, Buchstaben/Ziffern/_ . -</p>
-      <input v-model="newUsername" type="text" placeholder="neuer_username" autocomplete="off" maxlength="20" />
-      <button class="btn" :disabled="busy==='username'" @click="changeUsername">
+      <InputText v-model="newUsername" type="text" placeholder="neuer_username" autocomplete="off" maxlength="20" />
+      <Button class="btn" :disabled="busy==='username'" @click="changeUsername">
         {{ busy==='username' ? '...' : 'Username ändern' }}
-      </button>
+      </Button>
     </section>
 
     <section class="card stack">
       <h2 style="margin:0">E-Mail ändern</h2>
       <p class="hint">Du erhältst einen Bestätigungs-Link per E-Mail. Beide Adressen (alt & neu) müssen bestätigt werden.</p>
-      <input v-model="newEmail" type="email" placeholder="neue@adresse.de" autocomplete="email" />
-      <button class="btn" :disabled="busy==='email'" @click="changeEmail">
+      <InputText v-model="newEmail" type="email" placeholder="neue@adresse.de" autocomplete="email" />
+      <Button class="btn" :disabled="busy==='email'" @click="changeEmail">
         {{ busy==='email' ? '...' : 'Bestätigungs-Link senden' }}
-      </button>
+      </Button>
     </section>
 
     <section class="card stack">
       <h2 style="margin:0">Passwort</h2>
       <p class="hint">Setze oder ändere dein Passwort. Magic-Link-Login bleibt möglich.</p>
-      <input v-model="newPassword" type="password" placeholder="Neues Passwort" autocomplete="new-password" />
-      <input v-model="newPassword2" type="password" placeholder="Passwort wiederholen" autocomplete="new-password" />
-      <button class="btn" :disabled="busy==='password'" @click="changePassword">
+      <InputText v-model="newPassword" type="password" placeholder="Neues Passwort" autocomplete="new-password" />
+      <InputText v-model="newPassword2" type="password" placeholder="Passwort wiederholen" autocomplete="new-password" />
+      <Button class="btn" :disabled="busy==='password'" @click="changePassword">
         {{ busy==='password' ? '...' : 'Passwort speichern' }}
-      </button>
+      </Button>
     </section>
 
     <section class="card stack">
@@ -252,12 +252,12 @@ async function logout() {
       </div>
       <p class="hint">Verknüpfe dein Google-Konto, damit du dich auch mit Google anmelden kannst.</p>
       <div class="row account-actions">
-        <button class="btn" :disabled="busy==='google' || auth.hasGoogleLinked" @click="linkGoogle">
+        <Button class="btn" :disabled="busy==='google' || auth.hasGoogleLinked" @click="linkGoogle">
           {{ auth.hasGoogleLinked ? 'Bereits verknüpft' : busy==='google' ? '...' : 'Mit Google verknüpfen' }}
-        </button>
-        <button class="btn secondary" :disabled="busy==='google-unlink' || !auth.canUnlinkGoogle" @click="unlinkGoogle">
+        </Button>
+        <Button class="btn secondary" :disabled="busy==='google-unlink' || !auth.canUnlinkGoogle" @click="unlinkGoogle">
           {{ busy==='google-unlink' ? '...' : 'Verknüpfung aufheben' }}
-        </button>
+        </Button>
       </div>
       <p class="hint">Du kannst die Verknüpfung jederzeit aufheben und dich weiter per Magic Link anmelden.</p>
     </section>
@@ -265,22 +265,22 @@ async function logout() {
     <section class="card stack">
       <h2 style="margin:0">Daten anfordern</h2>
       <p class="hint">Lade deine gespeicherten Kontodaten als JSON-Datei herunter.</p>
-      <button class="btn secondary" :disabled="busy==='export'" @click="requestData">
+      <Button class="btn secondary" :disabled="busy==='export'" @click="requestData">
         {{ busy==='export' ? '...' : 'Meine Daten herunterladen' }}
-      </button>
+      </Button>
     </section>
 
     <section class="card stack danger-zone">
       <h2 style="margin:0">Account löschen</h2>
       <p class="hint">Diese Aktion ist endgültig. Gib zur Bestätigung LOESCHEN ein.</p>
-      <input v-model="deleteConfirm" type="text" placeholder="LOESCHEN" autocomplete="off" />
-      <button class="btn danger" :disabled="busy==='delete'" @click="deleteAccount">
+      <InputText v-model="deleteConfirm" type="text" placeholder="LOESCHEN" autocomplete="off" />
+      <Button class="btn danger" :disabled="busy==='delete'" @click="deleteAccount">
         {{ busy==='delete' ? '...' : 'Account endgültig löschen' }}
-      </button>
+      </Button>
     </section>
 
     <section class="card stack">
-      <button class="btn danger" @click="logout">Abmelden</button>
+      <Button class="btn danger" @click="logout">Abmelden</Button>
     </section>
   </div>
 </template>

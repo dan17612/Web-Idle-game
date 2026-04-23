@@ -45,7 +45,7 @@ function onInput(e) {
 
 <template>
   <div class="coin-input">
-    <input
+    <InputText
       type="text"
       inputmode="decimal"
       autocomplete="off"
@@ -54,8 +54,7 @@ function onInput(e) {
       :placeholder="placeholder"
       :required="required"
       :disabled="disabled"
-      :class="{ bad: invalid }"
-    />
+      :class="{ bad: invalid }" />
     <div class="preview" :class="{ bad: invalid }" v-if="preview">{{ preview }}</div>
   </div>
 </template>
