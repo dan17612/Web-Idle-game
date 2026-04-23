@@ -51,11 +51,11 @@ async function send() {
   <p class="subtitle">Schicke anderen Spielern Münzen über ihren Usernamen.</p>
 
   <form class="card stack" @submit.prevent="send">
-    <input v-model="form.username" placeholder="Empfänger-Username" required />
+    <InputText v-model="form.username" placeholder="Empfänger-Username" required />
     <CoinInput v-model="form.amount" placeholder="Betrag (z.B. 10M)" required />
-    <button class="btn full" :disabled="busy || !form.username || !form.amount || form.amount < 1">
+    <Button type="submit" class="btn full" :disabled="busy || !form.username || !form.amount || form.amount < 1">
       {{ busy ? '...' : 'Senden' }}
-    </button>
+    </Button>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="msg" class="success">{{ msg }}</p>
   </form>

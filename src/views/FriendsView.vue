@@ -22,23 +22,28 @@ const sendModal = reactive({ open: false, to: '', amount: 0, busy: false, err: '
 
 async function load() {
   loading.value = true
-  const { data, error: e } = await supabase
-    .from('friends_view')
-    .select('*')
-    .order('status')
-    .order('created_at', { ascending: false })
-  if (e) error.value = e.message
-  friends.value = data || []
-  // Avatare nachladen
-  const names = [...new Set((data || []).map(f => f.friend_username).filter(Boolean))]
-  if (names.length) {
-    const { data: ps } = await supabase.from('profiles')
-      .select('username, avatar_emoji').in('username', names)
-    const m = {}
-    for (const p of ps || []) m[p.username] = p.avatar_emoji || '👤'
-    avatars.value = m
+  error.value = ''
+  try {
+    const { data, error: e } = await supabase
+      .from('friends_view')
+      .select('*')
+      .order('status')
+      .order('created_at', { ascending: false })
+    if (e) throw e
+    friends.value = data || []
+    const names = [...new Set((data || []).map(f => f.friend_username).filter(Boolean))]
+    if (names.length) {
+      const { data: ps } = await supabase.from('profiles')
+        .select('username, avatar_emoji').in('username', names)
+      const m = {}
+      for (const p of ps || []) m[p.username] = p.avatar_emoji || '👤'
+      avatars.value = m
+    }
+  } catch (e) {
+    error.value = e?.message || 'Laden fehlgeschlagen'
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 }
 onMounted(load)
 
@@ -115,23 +120,23 @@ function openProfile(username) {
   <form class="card stack" @submit.prevent="sendRequest">
     <label class="subtitle">Freund hinzufügen (Username)</label>
     <div class="row">
-      <input v-model="requestName" placeholder="z.B. maxi42" style="flex:1" />
-      <button class="btn" :disabled="busy || !requestName.trim()">Senden</button>
+      <InputText v-model="requestName" placeholder="z.B. maxi42" style="flex:1" />
+      <Button type="submit" class="btn" :disabled="busy || !requestName.trim()">Senden</Button>
     </div>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="success" class="success">{{ success }}</p>
   </form>
 
   <div class="tabs">
-    <button :class="{ active: tab==='friends' }" @click="tab='friends'">
+    <Button :class="{ active: tab==='friends' }" @click="tab='friends'">
       Freunde <span class="count">{{ accepted.length }}</span>
-    </button>
-    <button :class="{ active: tab==='incoming' }" @click="tab='incoming'">
+    </Button>
+    <Button :class="{ active: tab==='incoming' }" @click="tab='incoming'">
       Eingang <span class="count" v-if="incoming.length">{{ incoming.length }}</span>
-    </button>
-    <button :class="{ active: tab==='outgoing' }" @click="tab='outgoing'">
+    </Button>
+    <Button :class="{ active: tab==='outgoing' }" @click="tab='outgoing'">
       Ausgang
-    </button>
+    </Button>
   </div>
 
   <div class="card">
@@ -140,17 +145,17 @@ function openProfile(username) {
     <template v-else-if="tab==='friends'">
       <div v-if="!accepted.length" class="subtitle">Noch keine Freunde. Schick eine Anfrage!</div>
       <div v-for="f in accepted" :key="f.friendship_id" class="list-item friend-row">
-        <button class="avatar" @click="openProfile(f.friend_username)" :title="`Profil von ${f.friend_username}`">
+        <Button class="avatar" @click="openProfile(f.friend_username)" :title="`Profil von ${f.friend_username}`">
           {{ av(f.friend_username) }}
-        </button>
+        </Button>
         <div class="body">
           <div class="title-sm">{{ f.friend_username }}</div>
           <div class="sub">🪙 {{ formatCoins(f.friend_coins) }}</div>
         </div>
         <div class="actions">
-          <button class="btn small" @click="openSend(f.friend_username)" title="Münzen senden">💸</button>
-          <button class="btn secondary small" @click="openTrade(f.friend_username)" title="Trade anbieten">🔄</button>
-          <button class="btn danger small" @click="remove(f.friend_id)" title="Entfernen">×</button>
+          <Button class="btn small" @click="openSend(f.friend_username)" title="Münzen senden">💸</Button>
+          <Button class="btn secondary small" @click="openTrade(f.friend_username)" title="Trade anbieten">🔄</Button>
+          <Button class="btn danger small" @click="remove(f.friend_id)" title="Entfernen">×</Button>
         </div>
       </div>
     </template>
@@ -164,8 +169,8 @@ function openProfile(username) {
           <div class="sub">möchte dein Freund werden</div>
         </div>
         <div class="actions">
-          <button class="btn small" :disabled="busy" @click="respond(f.friendship_id, true)">✓</button>
-          <button class="btn danger small" :disabled="busy" @click="respond(f.friendship_id, false)">×</button>
+          <Button class="btn small" :disabled="busy" @click="respond(f.friendship_id, true)">✓</Button>
+          <Button class="btn danger small" :disabled="busy" @click="respond(f.friendship_id, false)">×</Button>
         </div>
       </div>
     </template>
@@ -178,7 +183,7 @@ function openProfile(username) {
           <div class="title-sm">{{ f.friend_username }}</div>
           <div class="sub">wartet auf Antwort</div>
         </div>
-        <button class="btn danger small" :disabled="busy" @click="remove(f.friend_id)">×</button>
+        <Button class="btn danger small" :disabled="busy" @click="remove(f.friend_id)">×</Button>
       </div>
     </template>
   </div>
@@ -188,15 +193,15 @@ function openProfile(username) {
     <div class="modal">
       <div class="row between" style="margin-bottom:8px">
         <h3 style="margin:0">💸 Senden an {{ sendModal.to }}</h3>
-        <button class="btn secondary small" @click="closeSend">×</button>
+        <Button class="btn secondary small" @click="closeSend">×</Button>
       </div>
       <div class="subtitle" style="margin:0 0 8px">Dein Guthaben: 🪙 {{ formatCoins(game.displayCoins) }}</div>
       <CoinInput v-model="sendModal.amount" placeholder="Betrag (z.B. 10K)" />
       <p v-if="sendModal.err" class="error" style="margin-top:6px">{{ sendModal.err }}</p>
       <div class="row" style="gap:6px;margin-top:10px">
-        <button class="btn full" :disabled="sendModal.busy || !sendModal.amount" @click="confirmSend">
+        <Button class="btn full" :disabled="sendModal.busy || !sendModal.amount" @click="confirmSend">
           {{ sendModal.busy ? '...' : 'Senden' }}
-        </button>
+        </Button>
       </div>
     </div>
   </div>
@@ -222,7 +227,7 @@ function openProfile(username) {
   font-size: 22px; cursor: pointer;
   color: inherit;
 }
-button.avatar:hover { border-color: var(--accent); }
+.avatar:hover { border-color: var(--accent); }
 .body { flex: 1; min-width: 0; }
 .actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 

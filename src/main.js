@@ -4,7 +4,15 @@ import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
 import { supabase } from './supabase'
+import PrimeVue from 'primevue/config'
+import Aura from '@primeuix/themes/aura'
+import Button from 'primevue/button'
+import InputText from 'primevue/inputtext'
+import Textarea from 'primevue/textarea'
+import Checkbox from 'primevue/checkbox'
+import Select from 'primevue/select'
 import './styles.css'
+import 'primeicons/primeicons.css'
 // Zoom global deaktivieren (Pinch, Double-Tap, Gesture-Zoom).
 function disableZoomGestures() {
   let lastTouchEnd = 0
@@ -69,6 +77,16 @@ async function bootstrap() {
   const app = createApp(App)
   const pinia = createPinia()
   app.use(pinia)
+  app.use(PrimeVue, {
+    theme: {
+      preset: Aura
+    }
+  })
+  app.component('Button', Button)
+  app.component('InputText', InputText)
+  app.component('Textarea', Textarea)
+  app.component('Checkbox', Checkbox)
+  app.component('Select', Select)
 
   const auth = useAuthStore(pinia)
   await auth.init()

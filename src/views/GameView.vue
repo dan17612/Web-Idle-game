@@ -160,6 +160,63 @@ async function upgradeTap(kind) {
   }
 }
 
+// === Crafter ===
+const crafterOpen      = ref(false)
+const crafterBusy      = ref(false)
+const crafterError     = ref('')
+const crafterSuccess   = ref('')
+const crafterRecipes   = ref([])
+const crafterLoaded    = ref(false)
+const crafterRecipeId  = ref('')   // selected recipe id
+
+const crafterSelected = computed(() =>
+  crafterRecipes.value.find(r => r.id === crafterRecipeId.value) || null
+)
+
+async function loadCrafterRecipes() {
+  if (crafterLoaded.value) return
+  try {
+    crafterRecipes.value = await game.loadCraftRecipes()
+    crafterLoaded.value = true
+  } catch (e) {
+    crafterError.value = e.message
+  }
+}
+
+function ingCount(recipe, idx) {
+  const ing = recipe?.ingredients?.[idx]
+  if (!ing) return 0
+  return game.animals.filter(a =>
+    a.species === ing.species &&
+    (a.tier || 'normal') === (ing.tier || 'normal') &&
+    !a.equipped && !isUpgrading(a)
+  ).length
+}
+
+function canCraft(recipe) {
+  return recipe?.ingredients?.every((ing, i) => ingCount(recipe, i) >= ing.qty) ?? false
+}
+
+async function doCraft() {
+  const recipe = crafterSelected.value
+  if (!recipe || crafterBusy.value || !canCraft(recipe)) return
+  crafterBusy.value = true
+  crafterError.value = ''
+  crafterSuccess.value = ''
+  try {
+    const data = await game.craftAnimal(recipe.id)
+    const outInfo = speciesInfo(data.animal.species)
+    crafterSuccess.value = `${outInfo.emoji} ${outInfo.name} gecraftet!`
+    crafterRecipeId.value = ''
+    setTimeout(() => (crafterSuccess.value = ''), 3000)
+  } catch (e) {
+    crafterError.value = e.message
+    setTimeout(() => (crafterError.value = ''), 3000)
+  } finally {
+    crafterBusy.value = false
+  }
+}
+
 // === Fusion ===
 const fusionOpen = ref(false);
 const fusionBusy = ref(false);
@@ -282,9 +339,9 @@ async function doFusion(species, tier) {
           >
             {{ giftError }}
           </p>
-          <button class="btn full" :disabled="giftBusy" @click="openGift">
+          <Button class="btn full" :disabled="giftBusy" @click="openGift">
             {{ giftBusy ? "…" : "🎁 Geschenk öffnen" }}
-          </button>
+          </Button>
         </template>
         <template v-else>
           <div class="gift-emoji pop">{{ giftClaimed.emoji }}</div>
@@ -295,7 +352,7 @@ async function doFusion(species, tier) {
           <p style="margin: 0 0 14px">
             +{{ giftClaimed.bonusTaps }} einmalige Bonus-Taps
           </p>
-          <button class="btn full" @click="closeGiftDialog">Super!</button>
+          <Button class="btn full" @click="closeGiftDialog">Super!</Button>
         </template>
       </div>
     </div>
@@ -411,7 +468,7 @@ async function doFusion(species, tier) {
             >
             <template v-else>Maximum erreicht</template>
           </div>
-          <button
+          <Button
             class="btn"
             :disabled="game.tapMulMaxed || !canUpgradeMul || !!upgradingTap"
             @click="upgradeTap('mul')"
@@ -423,7 +480,7 @@ async function doFusion(species, tier) {
                   ? "MAX"
                   : "⬆ " + formatCoins(game.nextTapCost)
             }}
-          </button>
+          </Button>
         </div>
         <div class="tu-card">
           <div class="tu-head">
@@ -441,7 +498,7 @@ async function doFusion(species, tier) {
             >
             <template v-else>Maximum erreicht</template>
           </div>
-          <button
+          <Button
             class="btn"
             :disabled="game.tapCapMaxed || !canUpgradeCap || !!upgradingTap"
             @click="upgradeTap('cap')"
@@ -453,7 +510,7 @@ async function doFusion(species, tier) {
                   ? "MAX"
                   : "⬆ " + formatCoins(game.nextCapCost)
             }}
-          </button>
+          </Button>
         </div>
         <div class="tu-card">
           <div class="tu-head">
@@ -471,7 +528,7 @@ async function doFusion(species, tier) {
             </template>
             <template v-else> Maximum erreicht </template>
           </div>
-          <button
+          <Button
             class="btn"
             :disabled="!canUpgradeOffline || !!upgradingTap"
             @click="upgradeTap('offline')"
@@ -483,7 +540,7 @@ async function doFusion(species, tier) {
                   ? "MAX"
                   : "⬆ " + formatCoins(game.nextOfflineCost)
             }}
-          </button>
+          </Button>
         </div>
         <div
           class="card pet-card"
@@ -505,20 +562,20 @@ async function doFusion(species, tier) {
               </div>
             </div>
             <div class="pet-actions">
-              <button
+              <Button
                 class="btn secondary"
                 :disabled="!ownedAnimals.length"
                 @click="router.push('/inventory')"
               >
                 ⭐ Wählen
-              </button>
-              <button
+              </Button>
+              <Button
                 class="btn"
                 :disabled="!favAnimal"
                 @click="router.push('/shop?tab=food')"
               >
                 🍖 Füttern
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -613,28 +670,134 @@ async function doFusion(species, tier) {
       </div>
     </div>
 
+    <!-- Crafter-Maschine -->
+    <div class="card crafter-card">
+      <div class="row between" style="margin-bottom: 8px">
+        <h2 class="title" style="margin: 0; font-size: 18px">⚗️ Crafter-Maschine</h2>
+        <Button
+          class="btn fusion-toggle"
+          @click="crafterOpen = !crafterOpen; if (crafterOpen) loadCrafterRecipes()"
+        >
+          {{ crafterOpen ? "✕ Schließen" : "⚗️ Öffnen" }}
+        </Button>
+      </div>
+      <p class="hint">
+        Kombiniere Rainbow-Tiere zu einzigartigen Spezies. Gecraftete Tiere gibt es nicht im Shop oder in der Truhe.
+      </p>
+
+      <Button v-if="!crafterOpen" class="fusion-preview" @click="crafterOpen = true; loadCrafterRecipes()">
+        <span class="fusion-preview-emoji">⚗️</span>
+        <span class="fusion-preview-label">Rezept wählen</span>
+      </Button>
+
+      <div v-if="crafterOpen" class="fusion-body">
+        <p v-if="crafterError"   class="error"   style="text-align:center;margin:0 0 6px">{{ crafterError }}</p>
+        <p v-if="crafterSuccess" class="success" style="text-align:center;margin:0 0 6px">{{ crafterSuccess }}</p>
+
+        <div v-if="!crafterLoaded" class="hint" style="text-align:center;padding:12px">Lade Rezepte…</div>
+        <div v-else-if="!crafterRecipes.length" class="hint" style="text-align:center;padding:12px">Keine Rezepte verfügbar.</div>
+
+        <template v-else>
+          <!-- Maschinen-Anzeige (gleiche Optik wie Fusion) -->
+          <div class="fusion-machine">
+            <div class="fm-slot fm-left">
+              <div class="fm-slot-title">🔸 Zutaten</div>
+              <div class="fm-slot-body">
+                <template v-if="crafterSelected">
+                  <div
+                    v-for="(ing, i) in crafterSelected.ingredients"
+                    :key="i"
+                    class="cr-ing-wrap"
+                  >
+                    <span class="fm-chip" :class="{ 'cr-short': ingCount(crafterSelected, i) < ing.qty }">
+                      {{ speciesInfo(ing.species).emoji }}<sup v-if="ing.tier && ing.tier !== 'normal'" class="tb">{{ tierInfo(ing.tier).badge }}</sup>
+                    </span>
+                    <span
+                      class="cr-qty-label"
+                      :class="{ ok: ingCount(crafterSelected, i) >= ing.qty }"
+                    >{{ ingCount(crafterSelected, i) }}/{{ ing.qty }}</span>
+                  </div>
+                </template>
+                <div v-else class="hint" style="margin:0">Rezept wählen</div>
+              </div>
+            </div>
+
+            <div class="fm-core">
+              <div class="fm-factory" style="font-size:52px">⚗️</div>
+              <div v-if="crafterBusy" class="hint">…</div>
+            </div>
+
+            <div class="fm-slot fm-right">
+              <div class="fm-slot-title">✨ Ergebnis</div>
+              <div class="fm-slot-body">
+                <template v-if="crafterSelected">
+                  <span class="fm-chip big cr-out-chip">
+                    {{ speciesInfo(crafterSelected.output_species).emoji }}
+                  </span>
+                </template>
+                <div v-else class="hint" style="margin:0">?</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rezept-Auswahl (gleiche Optik wie Spezies-Picker in Fusion) -->
+          <div class="fm-controls">
+            <div class="fm-row">
+              <label class="hint" style="margin:0">Rezept</label>
+              <div class="fm-species-grid">
+                <Button
+                  v-for="r in crafterRecipes"
+                  :key="r.id"
+                  class="fm-sp-btn"
+                  :class="{ active: crafterRecipeId === r.id }"
+                  @click="crafterRecipeId = r.id"
+                >
+                  <span class="fm-sp-emoji">{{ speciesInfo(r.output_species).emoji }}</span>
+                  <span class="fm-sp-count">{{ r.name }}</span>
+                  <span class="cr-ready-dot" :class="{ ready: canCraft(r) }">●</span>
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              class="btn full"
+              :disabled="!crafterSelected || !canCraft(crafterSelected) || crafterBusy"
+              @click="doCraft"
+            >
+              {{
+                crafterBusy           ? "…"
+                : !crafterSelected    ? "Rezept wählen"
+                : canCraft(crafterSelected) ? "⚗️ Craften"
+                : "Nicht genug Zutaten"
+              }}
+            </Button>
+          </div>
+        </template>
+      </div>
+    </div>
+
     <div class="card fusion-card">
       <div class="row between" style="margin-bottom: 8px">
         <h2 class="title" style="margin: 0; font-size: 18px">
           🧬 Fusions-Maschine
         </h2>
-        <button class="btn fusion-toggle" @click="fusionOpen = !fusionOpen">
+        <Button class="btn fusion-toggle" @click="fusionOpen = !fusionOpen">
           {{ fusionOpen ? "✕ Schließen" : "🧬 Öffnen" }}
-        </button>
+        </Button>
       </div>
       <p class="hint">
         Kombiniere gleiche Tiere (normal, nicht ausgerüstet) zu höherwertigen
         Tieren. 3× → 🥇 Gold, 6× → 💎 Diamant, 9× → 🟣 Episch, 12× → 🌈 Rainbow.
       </p>
 
-      <button
+      <Button
         v-if="!fusionOpen"
         class="fusion-preview"
         @click="fusionOpen = true"
       >
         <span class="fusion-preview-emoji">🏭</span>
         <span class="fusion-preview-label">Wähle Spezies</span>
-      </button>
+      </Button>
 
       <div v-if="upgradingList.length > 0" class="upgrading-grid">
         <div
@@ -712,7 +875,7 @@ async function doFusion(species, tier) {
           <div class="fm-row">
             <label class="hint" style="margin: 0">Spezies</label>
             <div class="fm-species-grid">
-              <button
+              <Button
                 v-for="g in fusionGroups"
                 :key="g.species"
                 class="fm-sp-btn"
@@ -724,14 +887,14 @@ async function doFusion(species, tier) {
               >
                 <span class="fm-sp-emoji">{{ g.info.emoji }}</span>
                 <span class="fm-sp-count">{{ g.count }}×</span>
-              </button>
+              </Button>
             </div>
           </div>
 
           <div v-if="fusionSelectedGroup" class="fm-row">
             <label class="hint" style="margin: 0">Ziel-Stufe</label>
             <div class="fm-tier-grid">
-              <button
+              <Button
                 v-for="t in tierList"
                 :key="t.tier"
                 class="tier-chip fm-tier-chip"
@@ -752,11 +915,11 @@ async function doFusion(species, tier) {
                   {{ t.required_qty }}× · ×{{ t.multiplier }} ·
                   {{ t.upgrade_minutes }}min
                 </div>
-              </button>
+              </Button>
             </div>
           </div>
 
-          <button
+          <Button
             class="btn full"
             :disabled="
               !fusionSelectedGroup || !fusionSelectedTier || fusionBusy
@@ -764,7 +927,7 @@ async function doFusion(species, tier) {
             @click="doFusion(fusionSpecies, fusionTier)"
           >
             {{ fusionBusy ? "…" : "🏭 Fusion starten" }}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1687,5 +1850,44 @@ async function doFusion(species, tier) {
     opacity: 0;
     transform: translate(-50%, -60px);
   }
+}
+
+/* === Crafter-Maschine === */
+.crafter-card {
+  position: relative;
+}
+.cr-ing-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.cr-qty-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.cr-qty-label.ok {
+  color: var(--accent-2);
+}
+.cr-ready-dot {
+  font-size: 8px;
+  color: var(--border);
+  margin-top: 2px;
+  line-height: 1;
+}
+.cr-ready-dot.ready {
+  color: var(--accent-2);
+  filter: drop-shadow(0 0 4px var(--accent-2));
+}
+.fm-chip.cr-out-chip {
+  filter: drop-shadow(0 0 12px rgba(255, 209, 102, 0.5));
+  border-color: rgba(255, 209, 102, 0.35);
+  animation: bob 2.4s ease-in-out infinite;
+}
+.fm-chip.cr-short {
+  opacity: 0.45;
+  border-color: var(--danger);
 }
 </style>

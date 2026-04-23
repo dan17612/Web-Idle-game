@@ -18,6 +18,7 @@ export const useGameStore = defineStore('game', {
     offlineLevel: 1,
     lastCollected: null,
     loading: false,
+    lastLoadedAt: 0,
     tickCoins: 0,
     tapsUsed: 0,
     tapsMax: TAP_MAX,
@@ -155,6 +156,7 @@ export const useGameStore = defineStore('game', {
       this.applyOffline()
       this.loading = false
       this.claimPendingGifts().catch(() => {})
+      this.lastLoadedAt = Date.now()
     },
     async claimPendingGifts() {
       const auth = useAuthStore()
@@ -342,6 +344,21 @@ export const useGameStore = defineStore('game', {
       })
       if (error) throw error
       this.coins = Number(data?.sender_balance ?? this.coins - amount)
+      return data
+    },
+    async loadCraftRecipes() {
+      const { data, error } = await supabase
+        .from('craft_recipes')
+        .select('*')
+        .eq('enabled', true)
+        .order('created_at')
+      if (error) throw error
+      return data || []
+    },
+    async craftAnimal(recipeId) {
+      const { data, error } = await supabase.rpc('craft_animal', { p_recipe_id: recipeId })
+      if (error) throw error
+      await this.load()
       return data
     }
   }

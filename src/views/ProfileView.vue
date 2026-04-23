@@ -136,8 +136,8 @@ function openSend() {
         </div>
       </div>
       <div v-if="!isSelf" class="actions-col">
-        <button class="btn small" @click="openSend">💸 Senden</button>
-        <button class="btn secondary small" @click="openTrade">🔄 Trade</button>
+        <Button class="btn small" @click="openSend">💸 Senden</Button>
+        <Button class="btn secondary small" @click="openTrade">🔄 Trade</Button>
       </div>
     </div>
 
@@ -174,7 +174,7 @@ function openSend() {
 
           <template v-if="c.owned && c.variants.length > 1">
             <div class="var-tabs">
-              <button
+              <Button
                 v-for="t in c.variants"
                 :key="t"
                 class="var-tab"
@@ -185,7 +185,7 @@ function openSend() {
               >
                 <span>{{ tierInfo(t).badge || '⚪' }}</span>
                 <span class="var-count">{{ c.counts[t] }}</span>
-              </button>
+              </Button>
             </div>
             <div class="col-tier-line">
               {{ tierFor(c) }} · ×{{ c.counts[tierFor(c)] }}

@@ -221,14 +221,14 @@ const filters = [
         :style="{ width: game.equipSlots ? (game.equippedCount / game.equipSlots * 100) + '%' : '0%' }"
       />
     </div>
-    <button
+    <Button
       v-if="slotInfo.next_cost != null"
       class="btn slot-buy"
       :disabled="busy === 'slot' || game.displayCoins < slotInfo.next_cost"
       @click="buySlot"
     >
       🪙 {{ formatCoins(slotInfo.next_cost) }}
-    </button>
+    </Button>
     <span v-else class="subtitle" style="margin:0;font-size:12px">Max</span>
   </div>
 
@@ -237,7 +237,7 @@ const filters = [
   <!-- Filter -->
   <div class="card filter-card">
     <div class="filter-bar">
-      <button
+      <Button
         v-for="f in filters"
         :key="f.k"
         class="filter-chip"
@@ -248,7 +248,7 @@ const filters = [
         <span>{{ f.badge }}</span>
         <span>{{ f.label }}</span>
         <span class="filter-count">{{ counts[f.k] || 0 }}</span>
-      </button>
+      </Button>
     </div>
   </div>
 
@@ -277,13 +277,13 @@ const filters = [
         <!-- Top badges row -->
         <div class="inv-top">
           <span class="stack-badge">×{{ g.total }}</span>
-          <button
+          <Button
             class="fav-btn"
             :class="{ active: g.favoriteInGroup }"
             :disabled="busy === `fav-${g.key}`"
             @click="setFavorite(g)"
             title="Als Liebling markieren"
-          >{{ g.favoriteInGroup ? "★" : "☆" }}</button>
+          >{{ g.favoriteInGroup ? "★" : "☆" }}</Button>
         </div>
 
         <!-- Emoji -->
@@ -306,12 +306,12 @@ const filters = [
 
         <!-- Equip stepper -->
         <div v-if="!g.upgrading" class="equip-row">
-          <button
+          <Button
             class="step-btn"
             :disabled="busy === `uneq-${g.key}` || busy === `eq-${g.key}` || !g.equippedIds.length"
             @click="unequipOne(g)"
             title="Einen abziehen"
-          >−</button>
+          >−</Button>
 
           <div class="equip-counter">
             <span class="eq-num">{{ g.equippedCount }}</span>
@@ -319,40 +319,40 @@ const filters = [
             <span class="eq-total">{{ g.total }}</span>
           </div>
 
-          <button
+          <Button
             class="step-btn plus"
             :disabled="busy === `eq-${g.key}` || busy === `uneq-${g.key}` || !g.unequippedReadyIds.length || game.freeSlots <= 0"
             @click="equipOne(g)"
             title="Einen ausrüsten"
-          >+</button>
+          >+</Button>
         </div>
 
         <!-- Extra actions: equip all / unequip all -->
         <div v-if="!g.upgrading && g.total > 1" class="bulk-row">
-          <button
+          <Button
             class="btn-ghost"
             :disabled="busy === `eq-${g.key}` || !g.unequippedReadyIds.length || game.freeSlots <= 0"
             @click="equipAll(g)"
-          >Alle anlegen</button>
-          <button
+          >Alle anlegen</Button>
+          <Button
             class="btn-ghost danger"
             :disabled="busy === `uneq-${g.key}` || !g.equippedIds.length"
             @click="unequipAll(g)"
-          >Alle abziehen</button>
+          >Alle abziehen</Button>
         </div>
         <div v-else-if="!g.upgrading" class="bulk-row single">
-          <button
+          <Button
             v-if="!g.equippedCount"
             class="btn secondary small"
             :disabled="busy === `eq-${g.key}` || !g.unequippedReadyIds.length || game.freeSlots <= 0"
             @click="equipOne(g)"
-          >Ausrüsten</button>
-          <button
+          >Ausrüsten</Button>
+          <Button
             v-else
             class="btn small"
             :disabled="busy === `uneq-${g.key}` || !g.equippedIds.length"
             @click="unequipOne(g)"
-          >Abziehen</button>
+          >Abziehen</Button>
         </div>
       </div>
     </div>

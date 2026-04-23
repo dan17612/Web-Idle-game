@@ -352,17 +352,17 @@ function tierColor(a) {
   <h1 class="title">🔄 Trade &amp; Senden</h1>
 
   <div class="tabs">
-    <button :class="{ active: tab==='new' }" @click="tab='new'">➕ Neu</button>
-    <button :class="{ active: tab==='in' }" @click="tab='in'">
+    <Button :class="{ active: tab==='new' }" @click="tab='new'">➕ Neu</Button>
+    <Button :class="{ active: tab==='in' }" @click="tab='in'">
       📥 Eingang<span v-if="incoming.length" class="pill">{{ incoming.length }}</span>
-    </button>
-    <button :class="{ active: tab==='out' }" @click="tab='out'">
+    </Button>
+    <Button :class="{ active: tab==='out' }" @click="tab='out'">
       📤 Ausgang<span v-if="outgoing.length" class="pill">{{ outgoing.length }}</span>
-    </button>
-    <button :class="{ active: tab==='public' }" @click="tab='public'">
+    </Button>
+    <Button :class="{ active: tab==='public' }" @click="tab='public'">
       🌐 Public<span v-if="visiblePublicTrades.length" class="pill" style="background:var(--accent-2);color:#001a15">{{ visiblePublicTrades.length }}</span>
-    </button>
-    <button :class="{ active: tab==='hist' }" @click="tab='hist'">🗂️</button>
+    </Button>
+    <Button :class="{ active: tab==='hist' }" @click="tab='hist'">🗂️</Button>
   </div>
 
   <p v-if="error" class="error">{{ error }}</p>
@@ -371,30 +371,30 @@ function tierColor(a) {
   <!-- NEU -->
   <template v-if="tab === 'new'">
     <div class="tabs small" style="margin-bottom:10px">
-      <button :class="{ active: mode==='trade' }" @click="mode='trade'">🔄 Tausch</button>
-      <button :class="{ active: mode==='send' }" @click="mode='send'">💸 Senden</button>
+      <Button :class="{ active: mode==='trade' }" @click="mode='trade'">🔄 Tausch</Button>
+      <Button :class="{ active: mode==='send' }" @click="mode='send'">💸 Senden</Button>
     </div>
 
     <!-- SENDEN -->
     <div v-if="mode === 'send'" class="card stack">
       <div class="subtitle" style="margin:0">Einseitige Münz-Überweisung, kein Einverständnis nötig.</div>
-      <input v-model="sendForm.username" placeholder="Empfänger-Username" />
+      <InputText v-model="sendForm.username" placeholder="Empfänger-Username" />
       <CoinInput v-model="sendForm.amount" placeholder="Betrag (z.B. 10M)" />
-      <button class="btn full" :disabled="busy || !sendForm.username || !sendForm.amount" @click="sendGift">
+      <Button class="btn full" :disabled="busy || !sendForm.username || !sendForm.amount" @click="sendGift">
         {{ busy ? '...' : 'Senden' }}
-      </button>
+      </Button>
     </div>
 
     <!-- TAUSCH -->
     <div v-else>
       <div class="card stack">
         <label class="row between" style="margin:0;gap:6px">
-          <span><input type="checkbox" v-model="isPublicOffer" /> 🌐 Öffentlich posten</span>
+          <span class="row" style="gap:6px;align-items:center"><Checkbox v-model="isPublicOffer" binary /> 🌐 Öffentlich posten</span>
           <span class="subtitle" style="margin:0">Jeder kann akzeptieren</span>
         </label>
         <template v-if="!isPublicOffer">
           <label class="subtitle" style="margin:0">Handelspartner</label>
-          <input v-model="partnerUsername" placeholder="Username" autocomplete="off" />
+          <InputText v-model="partnerUsername" placeholder="Username" autocomplete="off" />
         </template>
         <div v-else class="subtitle" style="margin:0">Nenne nur Münzen als Gegenleistung (keine konkreten Tier-IDs).</div>
         <div v-if="!isPublicOffer && partnerSearching" class="subtitle">Suche…</div>
@@ -424,7 +424,7 @@ function tierColor(a) {
               <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
               <span class="chip-count">×{{ g.selected }}</span>
             </div>
-            <button class="chip-add" @click="pickerOpen = pickerOpen==='mine'?'':'mine'">＋ Tier</button>
+            <Button class="chip-add" @click="pickerOpen = pickerOpen==='mine'?'':'mine'">＋ Tier</Button>
           </div>
           <CoinInput v-model="offer.myCoins" placeholder="Münzen (optional)" />
 
@@ -463,7 +463,7 @@ function tierColor(a) {
               <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
               <span class="chip-count">×{{ g.selected }}</span>
             </div>
-            <button class="chip-add" @click="pickerOpen = pickerOpen==='theirs'?'':'theirs'">＋ Tier</button>
+            <Button class="chip-add" @click="pickerOpen = pickerOpen==='theirs'?'':'theirs'">＋ Tier</Button>
           </div>
           <CoinInput v-model="offer.theirCoins" placeholder="Münzen (optional)" />
 
@@ -488,10 +488,10 @@ function tierColor(a) {
       </div>
 
       <div v-if="isPublicOffer || partnerProfile" class="card stack">
-        <input v-model="offer.note" maxlength="200" placeholder="Notiz (optional)" />
-        <button class="btn full" :disabled="busy" @click="propose">
+        <InputText v-model="offer.note" maxlength="200" placeholder="Notiz (optional)" />
+        <Button class="btn full" :disabled="busy" @click="propose">
           {{ busy ? '...' : (isPublicOffer ? 'Öffentlich posten' : 'Trade-Anfrage senden') }}
-        </button>
+        </Button>
       </div>
     </div>
   </template>
@@ -505,12 +505,12 @@ function tierColor(a) {
         <div style="font-weight:700">Von {{ t.requester_username }}</div>
         <div class="row" style="gap:6px;align-items:center">
           <span v-if="t.expires_at" class="badge" title="Läuft in">⏳ {{ fmtExpiry(t) }}</span>
-          <button
+          <Button
             v-if="t.requester_id !== auth.user.id"
             class="btn secondary small"
             title="Ausblenden"
             @click="hidePublicTrade(t.id)"
-          >🙈</button>
+          >🙈</Button>
           <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString('de-DE') }}</span>
         </div>
       </div>
@@ -549,13 +549,13 @@ function tierColor(a) {
             </div>
           </div>
         </div>
-        <button class="btn full" style="margin-top:8px" :disabled="busy" @click="acceptPublic(t)">
+        <Button class="btn full" style="margin-top:8px" :disabled="busy" @click="acceptPublic(t)">
           {{ busy ? '...' : 'Annehmen' }}
-        </button>
+        </Button>
       </template>
       <div v-else class="row" style="gap:6px;margin-top:8px">
         <span class="badge">Dein Angebot</span>
-        <button class="btn danger small" :disabled="busy" @click="act(t.id, 'cancel_trade')">Zurückziehen</button>
+        <Button class="btn danger small" :disabled="busy" @click="act(t.id, 'cancel_trade')">Zurückziehen</Button>
       </div>
     </div>
   </template>
@@ -589,8 +589,8 @@ function tierColor(a) {
       </div>
       <div v-if="t.note" class="subtitle" style="margin:4px 0 0">„{{ t.note }}"</div>
       <div class="row" style="gap:6px;margin-top:8px">
-        <button class="btn" :disabled="busy" @click="act(t.id, 'accept_trade')">✓ Annehmen</button>
-        <button class="btn secondary" :disabled="busy" @click="act(t.id, 'decline_trade')">✗ Ablehnen</button>
+        <Button class="btn" :disabled="busy" @click="act(t.id, 'accept_trade')">✓ Annehmen</Button>
+        <Button class="btn secondary" :disabled="busy" @click="act(t.id, 'decline_trade')">✗ Ablehnen</Button>
       </div>
     </div>
   </template>
@@ -620,7 +620,7 @@ function tierColor(a) {
           </div>
         </div>
       </div>
-      <button class="btn danger" :disabled="busy" @click="act(t.id, 'cancel_trade')" style="margin-top:8px">Zurückziehen</button>
+      <Button class="btn danger" :disabled="busy" @click="act(t.id, 'cancel_trade')" style="margin-top:8px">Zurückziehen</Button>
     </div>
   </template>
 
@@ -656,7 +656,8 @@ function tierColor(a) {
 </template>
 
 <style scoped>
-.tabs.small button { padding: 6px 10px; font-size: 13px; }
+.tabs.small button,
+.tabs.small .p-button { padding: 6px 10px; font-size: 13px; }
 .pill { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:999px; background:var(--danger); color:#fff; font-size:10px; font-weight:800; }
 .partner-card { display:flex; gap:10px; align-items:center; padding:8px; background:var(--card-2); border-radius:10px; }
 .partner-avatar {

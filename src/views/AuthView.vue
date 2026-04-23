@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
@@ -126,7 +126,7 @@ async function signInGoogle() {
 
       <div class="card stack auth-card">
         <h1 class="auth-title">Anmelden oder registrieren</h1>
-        <button
+        <Button
           type="button"
           class="oauth-google"
           :disabled="busy"
@@ -161,7 +161,7 @@ async function signInGoogle() {
             />
           </svg>
           <span>Mit Google anmelden</span>
-        </button>
+        </Button>
 
         <div class="sep">
           <span></span>
@@ -169,7 +169,7 @@ async function signInGoogle() {
           <span></span>
         </div>
 
-        <button
+        <Button
           v-if="step === 'choice'"
           type="button"
           class="btn secondary full"
@@ -177,49 +177,47 @@ async function signInGoogle() {
           @click="step = 'email'"
         >
           E-Mail
-        </button>
+        </Button>
 
         <template v-if="step === 'email'">
-          <input
+          <InputText
             v-model="form.email"
             type="email"
             placeholder="E-Mail"
             autocomplete="email"
-            :disabled="busy"
-          />
-          <input
+            :disabled="busy" />
+          <InputText
             v-model="form.password"
             type="password"
             placeholder="Passwort"
             autocomplete="current-password"
-            :disabled="busy"
-          />
+            :disabled="busy" />
 
-          <button
+          <Button
             class="btn full"
             :disabled="busy"
             @click="signInOrSignUpWithPassword"
           >
             {{ busy ? "..." : "Weiter mit E-Mail" }}
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
             class="text-link"
             :disabled="busy"
             @click="signInWithMagicLink"
           >
             Einmal mit Link anmelden
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
             class="text-link muted"
             :disabled="busy"
             @click="step = 'choice'"
           >
             Zurueck
-          </button>
+          </Button>
         </template>
 
         <p class="legal">
