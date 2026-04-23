@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, computed, ref, watch } from "vue";
+import { onMounted, onUnmounted, computed, ref, watch, onBeforeUnmount } from "vue";
 import { useAuthStore } from "./stores/auth";
 import { useGameStore } from "./stores/game";
 import { useRoute } from "vue-router";
@@ -13,6 +13,17 @@ const adminOpen = ref(false);
 const auth = useAuthStore();
 const game = useGameStore();
 const route = useRoute();
+
+// Online/Offline-Erkennung
+const isOnline = ref(navigator.onLine);
+function handleOnline() { isOnline.value = true; }
+function handleOffline() { isOnline.value = false; }
+window.addEventListener('online', handleOnline);
+window.addEventListener('offline', handleOffline);
+onBeforeUnmount(() => {
+  window.removeEventListener('online', handleOnline);
+  window.removeEventListener('offline', handleOffline);
+});
 
 const broadcast = ref(null);
 let broadcastTimer = null;
@@ -48,8 +59,10 @@ function subscribeBroadcasts() {
 watch(
   () => auth.isAuth,
   (v) => {
-    if (v) subscribeBroadcasts();
-    else if (broadcastChannel) {
+    if (v) {
+      game.load();
+      subscribeBroadcasts();
+    } else if (broadcastChannel) {
       supabase.removeChannel(broadcastChannel);
       broadcastChannel = null;
     }
@@ -146,6 +159,12 @@ async function hardReload() {
     </main>
 
     <transition name="broadcast-fade">
+      <div v-if="!isOnline" class="offline-toast">
+        📶 Keine Internetverbindung
+      </div>
+    </transition>
+
+    <transition name="broadcast-fade">
       <div v-if="broadcast" class="broadcast-toast" :key="broadcast.id">
         <div class="broadcast-icon">📢</div>
         <div class="broadcast-text">{{ broadcast.text }}</div>
@@ -210,6 +229,21 @@ async function hardReload() {
 </template>
 
 <style scoped>
+.offline-toast {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #c33;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  white-space: nowrap;
+}
 .broadcast-toast {
   position: fixed;
   top: 50%;

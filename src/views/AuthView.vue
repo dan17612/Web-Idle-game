@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
@@ -42,37 +42,39 @@ async function signInOrSignUpWithPassword() {
 
   busy.value = true;
   try {
-    await auth.signInWithPassword(email, password);
-    info.value = "Angemeldet.";
-    return;
-  } catch (e) {
-    const msg = cleanMessage(e?.message || String(e));
-
-    const canTrySignUp =
-      msg.includes("invalid login credentials") ||
-      msg.includes("invalid credentials") ||
-      msg.includes("user not found");
-
-    if (!canTrySignUp) {
-      throw e;
-    }
-  }
-
-  try {
-    await auth.signUpWithPassword(email, password);
-    info.value =
-      "Neues Konto erstellt. Falls noetig, bitte E-Mail bestaetigen.";
-  } catch (e) {
-    const msg = cleanMessage(e?.message || String(e));
-    if (
-      msg.includes("already registered") ||
-      msg.includes("already been registered")
-    ) {
-      error.value =
-        "Diese E-Mail existiert bereits. Bitte Passwort pruefen oder Einmal-Link nutzen.";
+    let canTrySignUp = false;
+    try {
+      await auth.signInWithPassword(email, password);
+      info.value = "Angemeldet.";
       return;
+    } catch (e) {
+      const msg = cleanMessage(e?.message || String(e));
+      canTrySignUp =
+        msg.includes("invalid login credentials") ||
+        msg.includes("invalid credentials") ||
+        msg.includes("user not found");
+      if (!canTrySignUp) {
+        error.value = e?.message || String(e);
+        return;
+      }
     }
-    throw e;
+
+    try {
+      await auth.signUpWithPassword(email, password);
+      info.value =
+        "Neues Konto erstellt. Falls noetig, bitte E-Mail bestaetigen.";
+    } catch (e) {
+      const msg = cleanMessage(e?.message || String(e));
+      if (
+        msg.includes("already registered") ||
+        msg.includes("already been registered")
+      ) {
+        error.value =
+          "Diese E-Mail existiert bereits. Bitte Passwort pruefen oder Einmal-Link nutzen.";
+      } else {
+        error.value = e?.message || String(e);
+      }
+    }
   } finally {
     busy.value = false;
   }
