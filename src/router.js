@@ -4,6 +4,7 @@ import { useAuthStore } from './stores/auth'
 const routes = [
   { path: '/', name: 'game', component: () => import('./views/GameView.vue'), meta: { auth: true } },
   { path: '/shop', name: 'shop', component: () => import('./views/ShopView.vue'), meta: { auth: true } },
+  { path: '/tickets', name: 'tickets', component: () => import('./views/TicketsView.vue'), meta: { auth: true } },
   { path: '/inventory', name: 'inventory', component: () => import('./views/InventoryView.vue'), meta: { auth: true } },
   { path: '/trade', name: 'trade', component: () => import('./views/TradeView.vue'), meta: { auth: true } },
   { path: '/send', redirect: '/trade' },

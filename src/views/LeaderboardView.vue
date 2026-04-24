@@ -3,16 +3,17 @@ import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 import { formatCoins } from '../animals'
+import { t } from '../i18n'
 
 const router = useRouter()
-const route  = useRoute()
-const rows   = ref([])
+const route = useRoute()
+const rows = ref([])
 const loading = ref(true)
-const error   = ref('')
+const error = ref('')
 
 async function load() {
   loading.value = true
-  error.value   = ''
+  error.value = ''
   try {
     const { data, error: e } = await supabase
       .from('profiles')
@@ -22,15 +23,16 @@ async function load() {
     if (e) throw e
     rows.value = data || []
   } catch (e) {
-    error.value = e?.message || 'Laden fehlgeschlagen'
-    rows.value  = []
+    error.value = e?.message || t('leaderboard.loadFailed')
+    rows.value = []
   } finally {
     loading.value = false
   }
 }
 
-// Neu laden wenn man zur Bestenliste navigiert (z.B. zurück-Navigation)
-watch(() => route.name, (name) => { if (name === 'leaderboard') load() })
+watch(() => route.name, (name) => {
+  if (name === 'leaderboard') load()
+})
 onMounted(load)
 
 function openProfile(username) {
@@ -39,25 +41,25 @@ function openProfile(username) {
 </script>
 
 <template>
-  <h1 class="title">🏆 Bestenliste</h1>
-  <p class="subtitle">Die reichsten Zoo-Besitzer weltweit.</p>
+  <h1 class="title">🏆 {{ t('leaderboard.title') }}</h1>
+  <p class="subtitle">{{ t('leaderboard.subtitle') }}</p>
 
   <div class="card">
     <div v-if="loading" class="lb-state">
       <i class="pi pi-spin pi-spinner" style="font-size:24px; color: var(--muted)" />
-      <span class="subtitle" style="margin:0">Lädt…</span>
+      <span class="subtitle" style="margin:0">{{ t('common.loading') }}</span>
     </div>
 
     <div v-else-if="error" class="lb-state">
       <i class="pi pi-exclamation-triangle" style="font-size:24px; color: var(--danger)" />
       <span class="error" style="margin:0">{{ error }}</span>
       <Button class="btn secondary" style="margin-top:4px" @click="load">
-        <i class="pi pi-refresh" /> Erneut versuchen
+        <i class="pi pi-refresh" /> {{ t('leaderboard.retry') }}
       </Button>
     </div>
 
     <div v-else-if="!rows.length" class="lb-state">
-      <span class="subtitle" style="margin:0">Noch leer.</span>
+      <span class="subtitle" style="margin:0">{{ t('leaderboard.empty') }}</span>
     </div>
 
     <template v-else>

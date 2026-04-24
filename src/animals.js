@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { supabase } from './supabase'
+import { locale } from './i18n'
 
 // DB-driven species cache (gefüllt beim App-Start)
 export const SPECIES = reactive({})
@@ -12,6 +13,37 @@ export const TIERS = reactive({
   epic:    { multiplier: 1.75, required_qty: 9,  upgrade_minutes: 12, order: 3, badge: '🟣', color: '#a855f7' },
   rainbow: { multiplier: 2.0,  required_qty: 12, upgrade_minutes: 15, order: 4, badge: '🌈', color: '#ff6bd6' }
 })
+
+const SPECIES_NAMES = {
+  chick: { de: 'Küken', en: 'Chick', ru: 'Цыплёнок' },
+  chicken: { de: 'Huhn', en: 'Chicken', ru: 'Курица' },
+  rabbit: { de: 'Hase', en: 'Rabbit', ru: 'Кролик' },
+  pig: { de: 'Schwein', en: 'Pig', ru: 'Свинья' },
+  sheep: { de: 'Schaf', en: 'Sheep', ru: 'Овца' },
+  cow: { de: 'Kuh', en: 'Cow', ru: 'Корова' },
+  horse: { de: 'Pferd', en: 'Horse', ru: 'Лошадь' },
+  scorpion: { de: 'Skorpion', en: 'Scorpion', ru: 'Скорпион' },
+  panda: { de: 'Panda', en: 'Panda', ru: 'Панда' },
+  tiger: { de: 'Tiger', en: 'Tiger', ru: 'Тигр' },
+  lion: { de: 'Löwe', en: 'Lion', ru: 'Лев' },
+  peacock: { de: 'Pfau', en: 'Peacock', ru: 'Павлин' },
+  dragon: { de: 'Drache', en: 'Dragon', ru: 'Дракон' }
+}
+
+function humanizeSpeciesKey(key) {
+  return String(key || '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+export function speciesName(key, fallback = '') {
+  const lang = locale.value || 'en'
+  const names = SPECIES_NAMES[key]
+  if (names?.[lang]) return names[lang]
+  if (fallback) return fallback
+  if (names) return names.en || names.de || Object.values(names)[0] || humanizeSpeciesKey(key)
+  return fallback || humanizeSpeciesKey(key)
+}
 
 export async function loadCatalog() {
   const [{ data: sp }, { data: tiers }] = await Promise.all([
@@ -43,7 +75,12 @@ export async function loadCatalog() {
 }
 
 export function speciesInfo(key) {
-  return SPECIES[key] || { key, name: key, emoji: '❓', cost: 0, rate: 0 }
+  const raw = SPECIES[key]
+  if (!raw) return { key, name: speciesName(key, key), emoji: '❓', cost: 0, rate: 0 }
+  return {
+    ...raw,
+    name: speciesName(key, raw.name || key)
+  }
 }
 
 export function tierInfo(tier) {

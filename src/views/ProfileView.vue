@@ -3,7 +3,8 @@ import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
-import { SPECIES, TIERS, tierInfo, loadCatalog, formatCoins } from '../animals'
+import { SPECIES, tierInfo, loadCatalog, formatCoins } from '../animals'
+import { t } from '../i18n'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,7 +14,6 @@ const profile = ref(null)
 const animals = ref([])
 const loading = ref(false)
 const error = ref('')
-// Pro Spezies: aktuell ausgewähltes Tier-Tab
 const activeTier = reactive({})
 
 const username = computed(() => String(route.query.u || auth.profile?.username || ''))
@@ -23,43 +23,50 @@ const tierOrder = ['normal', 'gold', 'diamond', 'epic', 'rainbow']
 
 async function load() {
   if (!username.value) return
-  loading.value = true; error.value = ''
+  loading.value = true
+  error.value = ''
   try {
     if (!Object.keys(SPECIES).length) await loadCatalog()
     const { data: p, error: pe } = await supabase.from('profiles')
       .select('id, username, coins, avatar_emoji, created_at')
       .eq('username', username.value).maybeSingle()
     if (pe) throw pe
-    if (!p) { error.value = 'Spieler nicht gefunden'; profile.value = null; return }
+    if (!p) {
+      error.value = t('profile.playerNotFound')
+      profile.value = null
+      return
+    }
     profile.value = p
     const { data: a } = await supabase.from('animals_public')
       .select('id, species, tier, equipped').eq('owner_id', p.id)
     animals.value = a || []
-  } catch (e) { error.value = e.message }
-  finally { loading.value = false }
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    loading.value = false
+  }
 }
 onMounted(load)
 watch(() => route.query.u, load)
 
-// Sammlung je Spezies mit Counts pro Tier
 const collection = computed(() => {
   const bySpecies = {}
   for (const a of animals.value) {
-    const t = a.tier || 'normal'
+    const tier = a.tier || 'normal'
     if (!bySpecies[a.species]) {
       bySpecies[a.species] = { counts: {}, best: 'normal', total: 0 }
     }
     const s = bySpecies[a.species]
-    s.counts[t] = (s.counts[t] || 0) + 1
+    s.counts[tier] = (s.counts[tier] || 0) + 1
     s.total++
-    if (tierRank[t] > tierRank[s.best]) s.best = t
+    if (tierRank[tier] > tierRank[s.best]) s.best = tier
   }
   return Object.values(SPECIES)
     .filter(s => s.enabled !== false || !!bySpecies[s.key])
     .sort((a, b) => a.cost - b.cost)
     .map(s => {
       const d = bySpecies[s.key]
-      const variants = tierOrder.filter(t => d?.counts?.[t])
+      const variants = tierOrder.filter(tt => d?.counts?.[tt])
       return {
         species: s.key,
         info: s,
@@ -67,7 +74,7 @@ const collection = computed(() => {
         total: d?.total || 0,
         counts: d?.counts || {},
         best: d?.best || null,
-        variants,
+        variants
       }
     })
 })
@@ -78,27 +85,27 @@ const stats = computed(() => {
   return s
 })
 
-// Badges: "Alle in mindestens Gold/Diamond/Epic/Rainbow" + Komplett
 const badges = computed(() => {
   const all = collection.value
   if (!all.length) return []
   const out = []
   const every = all.every(c => c.owned)
-  if (every) out.push({ key: 'complete', label: 'Komplett', emoji: '📚', color: '#9bb0ff' })
-  const minRank = every
-    ? Math.min(...all.map(c => tierRank[c.best]))
-    : -1
-  if (minRank >= 1) out.push({ key: 'all-gold', label: 'Alle Gold', emoji: '🥇', color: '#ffd166' })
-  if (minRank >= 2) out.push({ key: 'all-diamond', label: 'Alle Diamant', emoji: '💎', color: '#63f2ff' })
-  if (minRank >= 3) out.push({ key: 'all-epic', label: 'Alle Episch', emoji: '🟣', color: '#a855f7' })
-  if (minRank >= 4) out.push({ key: 'all-rainbow', label: 'Alle Rainbow', emoji: '🌈', color: '#ff6bd6' })
+  if (every) out.push({ key: 'complete', label: t('profile.badges.complete'), emoji: '📚', color: '#9bb0ff' })
+  const minRank = every ? Math.min(...all.map(c => tierRank[c.best])) : -1
+  if (minRank >= 1) out.push({ key: 'all-gold', label: t('profile.badges.allGold'), emoji: '🥇', color: '#ffd166' })
+  if (minRank >= 2) out.push({ key: 'all-diamond', label: t('profile.badges.allDiamond'), emoji: '💎', color: '#63f2ff' })
+  if (minRank >= 3) out.push({ key: 'all-epic', label: t('profile.badges.allEpic'), emoji: '🟣', color: '#a855f7' })
+  if (minRank >= 4) out.push({ key: 'all-rainbow', label: t('profile.badges.allRainbow'), emoji: '🌈', color: '#ff6bd6' })
   return out
 })
 
 function tierFor(c) {
   return activeTier[c.species] || c.best || 'normal'
 }
-function selectTier(sp, tier) { activeTier[sp] = tier }
+
+function selectTier(species, tier) {
+  activeTier[species] = tier
+}
 
 const isSelf = computed(() => auth.profile?.username === profile.value?.username)
 
@@ -106,6 +113,7 @@ function openTrade() {
   if (!profile.value || isSelf.value) return
   router.push({ name: 'trade', query: { partner: profile.value.username } })
 }
+
 function openSend() {
   if (!profile.value || isSelf.value) return
   router.push({ name: 'trade', query: { send: profile.value.username } })
@@ -113,8 +121,8 @@ function openSend() {
 </script>
 
 <template>
-  <h1 class="title">👤 Profil</h1>
-  <div v-if="loading" class="card subtitle">Lädt…</div>
+  <h1 class="title">👤 {{ t('profile.title') }}</h1>
+  <div v-if="loading" class="card subtitle">{{ t('common.loading') }}</div>
   <p v-else-if="error" class="error">{{ error }}</p>
 
   <template v-else-if="profile">
@@ -132,29 +140,29 @@ function openSend() {
           >{{ b.emoji }}</span>
         </div>
         <div class="subtitle" style="margin:2px 0 0">
-          🪙 {{ formatCoins(profile.coins) }} · {{ animals.length }} Tiere
+          {{ t('profile.coinsAndAnimals', { coins: formatCoins(profile.coins), animals: animals.length }) }}
         </div>
       </div>
       <div v-if="!isSelf" class="actions-col">
-        <Button class="btn small" @click="openSend">💸 Senden</Button>
-        <Button class="btn secondary small" @click="openTrade">🔄 Trade</Button>
+        <Button class="btn small" @click="openSend">💸 {{ t('profile.send') }}</Button>
+        <Button class="btn secondary small" @click="openTrade">🔄 {{ t('profile.trade') }}</Button>
       </div>
     </div>
 
     <div class="card">
-      <div class="subtitle" style="margin:0 0 6px">Sammlung nach Tier</div>
+      <div class="subtitle" style="margin:0 0 6px">{{ t('profile.collectionByTier') }}</div>
       <div class="tier-stats">
-        <div v-for="t in tierOrder" :key="t" class="stat" :style="{ '--c': tierInfo(t).color }">
-          <span class="stat-badge">{{ tierInfo(t).badge || '⚪' }}</span>
-          <span class="stat-count">{{ stats[t] }}</span>
-          <span class="stat-name">{{ t }}</span>
+        <div v-for="tier in tierOrder" :key="tier" class="stat" :style="{ '--c': tierInfo(tier).color }">
+          <span class="stat-badge">{{ tierInfo(tier).badge || '⚪' }}</span>
+          <span class="stat-count">{{ stats[tier] }}</span>
+          <span class="stat-name">{{ t(`profile.tiers.${tier}`) }}</span>
         </div>
       </div>
     </div>
 
     <div class="card">
       <div class="subtitle" style="margin:0 0 8px">
-        Spezies-Index ({{ collection.filter(c=>c.owned).length }}/{{ collection.length }})
+        {{ t('profile.speciesIndex', { owned: collection.filter(c=>c.owned).length, total: collection.length }) }}
       </div>
       <div class="col-grid">
         <div
@@ -175,26 +183,26 @@ function openSend() {
           <template v-if="c.owned && c.variants.length > 1">
             <div class="var-tabs">
               <Button
-                v-for="t in c.variants"
-                :key="t"
+                v-for="tier in c.variants"
+                :key="tier"
                 class="var-tab"
-                :class="{ active: tierFor(c) === t }"
-                :style="{ '--t': tierInfo(t).color }"
-                @click="selectTier(c.species, t)"
-                :title="`${t} × ${c.counts[t]}`"
+                :class="{ active: tierFor(c) === tier }"
+                :style="{ '--t': tierInfo(tier).color }"
+                @click="selectTier(c.species, tier)"
+                :title="`${tier} × ${c.counts[tier]}`"
               >
-                <span>{{ tierInfo(t).badge || '⚪' }}</span>
-                <span class="var-count">{{ c.counts[t] }}</span>
+                <span>{{ tierInfo(tier).badge || '⚪' }}</span>
+                <span class="var-count">{{ c.counts[tier] }}</span>
               </Button>
             </div>
             <div class="col-tier-line">
-              {{ tierFor(c) }} · ×{{ c.counts[tierFor(c)] }}
+              {{ t(`profile.tiers.${tierFor(c)}`) }} · ×{{ c.counts[tierFor(c)] }}
             </div>
           </template>
           <div v-else-if="c.owned" class="col-tier-line" :style="{ color: tierInfo(c.best).color }">
-            {{ c.best }} · ×{{ c.counts[c.best] }}
+            {{ t(`profile.tiers.${c.best}`) }} · ×{{ c.counts[c.best] }}
           </div>
-          <div v-else class="col-tier-line missing-label">fehlt</div>
+          <div v-else class="col-tier-line missing-label">{{ t('profile.missing') }}</div>
         </div>
       </div>
     </div>
@@ -237,7 +245,7 @@ function openSend() {
 }
 .stat-badge { display: block; font-size: 18px; }
 .stat-count { font-weight: 800; font-size: 16px; }
-.stat-name { display: block; font-size: 10px; color: var(--muted); text-transform: capitalize; }
+.stat-name { display: block; font-size: 10px; color: var(--muted); }
 
 .col-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px;
@@ -264,7 +272,7 @@ function openSend() {
   font-size: 16px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
 }
 .col-name { font-size: 12px; font-weight: 700; }
-.col-tier-line { font-size: 10px; text-transform: capitalize; font-weight: 700; }
+.col-tier-line { font-size: 10px; font-weight: 700; }
 .missing-label { color: var(--muted); }
 
 .var-tabs {

@@ -3,10 +3,10 @@ import { ref, computed, onMounted } from "vue";
 import { useGameStore } from "../stores/game";
 import { supabase } from "../supabase";
 import { speciesInfo, formatCoins, tierInfo, isUpgrading, animalRate } from "../animals";
+import { t } from "../i18n";
 
 const game = useGameStore();
 const error = ref("");
-const success = ref("");
 const busy = ref("");
 const slotInfo = ref({ current_slots: 1, next_slot: 2, next_cost: null });
 const filter = ref("all");
@@ -93,7 +93,7 @@ const groupedAnimals = computed(() => {
 
 const counts = computed(() => {
   const c = { all: enriched.value.length, equipped: 0 };
-  for (const t of tierOrder) c[t] = 0;
+  for (const tier of tierOrder) c[tier] = 0;
   for (const a of enriched.value) {
     if (a.equipped) c.equipped++;
     c[a.t] = (c[a.t] || 0) + 1;
@@ -105,7 +105,7 @@ async function equipOne(group) {
   error.value = "";
   const id = group.unequippedReadyIds[0];
   if (!id || game.freeSlots <= 0) {
-    if (game.freeSlots <= 0) error.value = "Keine freien Slots — erst einen kaufen oder Tier abziehen.";
+    if (game.freeSlots <= 0) error.value = t("inventory.noFreeSlots");
     return;
   }
   busy.value = `eq-${group.key}`;
@@ -186,7 +186,7 @@ async function buySlot() {
   error.value = "";
   busy.value = "slot";
   try {
-    const data = await game.buyEquipSlot();
+    await game.buyEquipSlot();
     await loadSlot();
   } catch (e) {
     error.value = e.message;
@@ -195,24 +195,23 @@ async function buySlot() {
   }
 }
 
-const filters = [
-  { k: "all", label: "Alle", badge: "📦" },
-  { k: "equipped", label: "Aktiv", badge: "🎯" },
-  { k: "rainbow", label: "Rainbow", badge: "🌈" },
-  { k: "epic", label: "Episch", badge: "🟣" },
-  { k: "diamond", label: "Diamant", badge: "💎" },
-  { k: "gold", label: "Gold", badge: "🥇" },
-  { k: "normal", label: "Normal", badge: "⚪" },
-];
+const filters = computed(() => [
+  { k: "all", label: t("index.filters.all"), badge: "📦" },
+  { k: "equipped", label: t("inventory.active"), badge: "🎯" },
+  { k: "rainbow", label: t("profile.tiers.rainbow"), badge: "🌈" },
+  { k: "epic", label: t("profile.tiers.epic"), badge: "🟣" },
+  { k: "diamond", label: t("profile.tiers.diamond"), badge: "💎" },
+  { k: "gold", label: t("profile.tiers.gold"), badge: "🥇" },
+  { k: "normal", label: t("profile.tiers.normal"), badge: "⚪" },
+]);
 </script>
 
 <template>
-  <h1 class="title">📦 Inventar</h1>
+  <h1 class="title">📦 {{ t("inventory.title") }}</h1>
 
-  <!-- Slot-Bar -->
   <div class="card slot-bar">
     <div class="slot-info">
-      <span class="slot-label">Ausrüst-Slots</span>
+      <span class="slot-label">{{ t("inventory.equipSlots") }}</span>
       <span class="slot-value">{{ game.equippedCount }}<span class="slot-sep">/</span>{{ game.equipSlots }}</span>
     </div>
     <div class="slot-track">
@@ -229,12 +228,11 @@ const filters = [
     >
       🪙 {{ formatCoins(slotInfo.next_cost) }}
     </Button>
-    <span v-else class="subtitle" style="margin:0;font-size:12px">Max</span>
+    <span v-else class="subtitle" style="margin:0;font-size:12px">{{ t("inventory.max") }}</span>
   </div>
 
   <p v-if="error" class="error">{{ error }}</p>
 
-  <!-- Filter -->
   <div class="card filter-card">
     <div class="filter-bar">
       <Button
@@ -253,12 +251,12 @@ const filters = [
   </div>
 
   <div v-if="!enriched.length" class="card subtitle">
-    Noch keine Tiere. Geh in den Shop und kauf dein erstes Tier!
+    {{ t("inventory.empty") }}
   </div>
 
   <div v-else>
     <div class="inv-summary-row subtitle">
-      {{ groupedAnimals.length }} Stapel · {{ filteredAnimals.length }} Tiere
+      {{ t("inventory.summary", { groups: groupedAnimals.length, animals: filteredAnimals.length }) }}
     </div>
 
     <div class="inv-grid">
@@ -274,7 +272,6 @@ const filters = [
         }"
         :style="{ '--tier-color': g.td.color }"
       >
-        <!-- Top badges row -->
         <div class="inv-top">
           <span class="stack-badge">×{{ g.total }}</span>
           <Button
@@ -282,35 +279,31 @@ const filters = [
             :class="{ active: g.favoriteInGroup }"
             :disabled="busy === `fav-${g.key}`"
             @click="setFavorite(g)"
-            title="Als Liebling markieren"
+            :title="t('inventory.markFavorite')"
           >{{ g.favoriteInGroup ? "★" : "☆" }}</Button>
         </div>
 
-        <!-- Emoji -->
         <div class="inv-emoji-wrap">
           <span class="inv-emoji">{{ g.info.emoji }}</span>
           <span v-if="g.td.badge" class="tier-badge">{{ g.td.badge }}</span>
         </div>
 
-        <!-- Name + tier label -->
         <div class="inv-name">{{ g.info.name }}</div>
         <div class="inv-tier-label" :style="{ color: g.td.color }">
-          {{ g.t !== 'normal' ? g.t.charAt(0).toUpperCase() + g.t.slice(1) : '' }}
+          {{ g.t !== "normal" ? t(`profile.tiers.${g.t}`) : "" }}
         </div>
 
-        <!-- Rate -->
         <div class="inv-rate">
-          <span v-if="g.upgrading">⏳ Wird aufgewertet</span>
+          <span v-if="g.upgrading">⏳ {{ t("inventory.upgrading") }}</span>
           <span v-else>+{{ formatCoins(g.rate) }}/s</span>
         </div>
 
-        <!-- Equip stepper -->
         <div v-if="!g.upgrading" class="equip-row">
           <Button
             class="step-btn"
             :disabled="busy === `uneq-${g.key}` || busy === `eq-${g.key}` || !g.equippedIds.length"
             @click="unequipOne(g)"
-            title="Einen abziehen"
+            :title="t('inventory.unequipOne')"
           >−</Button>
 
           <div class="equip-counter">
@@ -323,22 +316,21 @@ const filters = [
             class="step-btn plus"
             :disabled="busy === `eq-${g.key}` || busy === `uneq-${g.key}` || !g.unequippedReadyIds.length || game.freeSlots <= 0"
             @click="equipOne(g)"
-            title="Einen ausrüsten"
+            :title="t('inventory.equipOne')"
           >+</Button>
         </div>
 
-        <!-- Extra actions: equip all / unequip all -->
         <div v-if="!g.upgrading && g.total > 1" class="bulk-row">
           <Button
             class="btn-ghost"
             :disabled="busy === `eq-${g.key}` || !g.unequippedReadyIds.length || game.freeSlots <= 0"
             @click="equipAll(g)"
-          >Alle anlegen</Button>
+          >{{ t("inventory.equipAll") }}</Button>
           <Button
             class="btn-ghost danger"
             :disabled="busy === `uneq-${g.key}` || !g.equippedIds.length"
             @click="unequipAll(g)"
-          >Alle abziehen</Button>
+          >{{ t("inventory.unequipAll") }}</Button>
         </div>
         <div v-else-if="!g.upgrading" class="bulk-row single">
           <Button
@@ -346,13 +338,13 @@ const filters = [
             class="btn secondary small"
             :disabled="busy === `eq-${g.key}` || !g.unequippedReadyIds.length || game.freeSlots <= 0"
             @click="equipOne(g)"
-          >Ausrüsten</Button>
+          >{{ t("inventory.equip") }}</Button>
           <Button
             v-else
             class="btn small"
             :disabled="busy === `uneq-${g.key}` || !g.equippedIds.length"
             @click="unequipOne(g)"
-          >Abziehen</Button>
+          >{{ t("inventory.unequip") }}</Button>
         </div>
       </div>
     </div>

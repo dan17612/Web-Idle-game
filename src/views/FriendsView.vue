@@ -5,11 +5,12 @@ import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
 import { formatCoins } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
+import { t } from '../i18n'
 
 const router = useRouter()
 const game = useGameStore()
 const friends = ref([])
-const avatars = ref({}) // username -> emoji
+const avatars = ref({})
 const loading = ref(false)
 const requestName = ref('')
 const busy = ref(false)
@@ -17,7 +18,6 @@ const error = ref('')
 const success = ref('')
 const tab = ref('friends')
 
-// Inline send-coins modal
 const sendModal = reactive({ open: false, to: '', amount: 0, busy: false, err: '' })
 
 async function load() {
@@ -40,7 +40,7 @@ async function load() {
       avatars.value = m
     }
   } catch (e) {
-    error.value = e?.message || 'Laden fehlgeschlagen'
+    error.value = e?.message || t('friends.loadFailed')
   } finally {
     loading.value = false
   }
@@ -55,33 +55,49 @@ const outgoing = computed(() => friends.value.filter(f => f.status === 'pending'
 
 async function sendRequest() {
   if (!requestName.value.trim()) return
-  busy.value = true; error.value = ''; success.value = ''
+  busy.value = true
+  error.value = ''
+  success.value = ''
   try {
     const { data, error: e } = await supabase.rpc('friend_request', { p_username: requestName.value.trim() })
     if (e) throw e
-    success.value = data?.status === 'accepted' ? 'Freundschaft bestätigt!' : 'Anfrage gesendet.'
+    success.value = data?.status === 'accepted' ? t('friends.requestAccepted') : t('friends.requestSent')
     requestName.value = ''
     await load()
-  } catch (e) { error.value = e.message } finally { busy.value = false }
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    busy.value = false
+  }
 }
 
 async function respond(id, accept) {
-  busy.value = true; error.value = ''
+  busy.value = true
+  error.value = ''
   try {
     const { error: e } = await supabase.rpc('friend_respond', { p_id: id, p_accept: accept })
     if (e) throw e
     await load()
-  } catch (e) { error.value = e.message } finally { busy.value = false }
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    busy.value = false
+  }
 }
 
 async function remove(friendId) {
-  if (!confirm('Freundschaft wirklich entfernen?')) return
-  busy.value = true; error.value = ''
+  if (!confirm(t('friends.removeConfirm'))) return
+  busy.value = true
+  error.value = ''
   try {
     const { error: e } = await supabase.rpc('friend_remove', { p_friend_id: friendId })
     if (e) throw e
     await load()
-  } catch (e) { error.value = e.message } finally { busy.value = false }
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    busy.value = false
+  }
 }
 
 function openSend(username) {
@@ -90,38 +106,52 @@ function openSend(username) {
   sendModal.amount = 0
   sendModal.err = ''
 }
-function closeSend() { sendModal.open = false }
+
+function closeSend() {
+  sendModal.open = false
+}
 
 async function confirmSend() {
   sendModal.err = ''
   const amt = Math.floor(Number(sendModal.amount) || 0)
-  if (amt < 1) { sendModal.err = 'Betrag muss ≥ 1 sein'; return }
-  if (amt > game.displayCoins) { sendModal.err = 'Nicht genug Münzen'; return }
+  if (amt < 1) {
+    sendModal.err = t('friends.amountMin')
+    return
+  }
+  if (amt > game.displayCoins) {
+    sendModal.err = t('storeErrors.notEnoughCoins')
+    return
+  }
   sendModal.busy = true
   try {
     await game.sendCoins(sendModal.to, amt)
-    success.value = `${formatCoins(amt)} 🪙 an ${sendModal.to} gesendet`
+    success.value = t('friends.sentCoins', { amount: formatCoins(amt), username: sendModal.to })
     sendModal.open = false
-    setTimeout(() => success.value = '', 3000)
-  } catch (e) { sendModal.err = e.message } finally { sendModal.busy = false }
+    setTimeout(() => { success.value = '' }, 3000)
+  } catch (e) {
+    sendModal.err = e.message
+  } finally {
+    sendModal.busy = false
+  }
 }
 
 function openTrade(username) {
   router.push({ name: 'trade', query: { partner: username } })
 }
+
 function openProfile(username) {
   router.push({ name: 'profile', query: { u: username } })
 }
 </script>
 
 <template>
-  <h1 class="title">🤝 Freunde</h1>
+  <h1 class="title">🤝 {{ t('friends.title') }}</h1>
 
   <form class="card stack" @submit.prevent="sendRequest">
-    <label class="subtitle">Freund hinzufügen (Username)</label>
+    <label class="subtitle">{{ t('friends.addLabel') }}</label>
     <div class="row">
-      <InputText v-model="requestName" placeholder="z.B. maxi42" style="flex:1" />
-      <Button type="submit" class="btn" :disabled="busy || !requestName.trim()">Senden</Button>
+      <InputText v-model="requestName" :placeholder="t('friends.examplePlaceholder')" style="flex:1" />
+      <Button type="submit" class="btn" :disabled="busy || !requestName.trim()">{{ t('friends.send') }}</Button>
     </div>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="success" class="success">{{ success }}</p>
@@ -129,23 +159,23 @@ function openProfile(username) {
 
   <div class="tabs">
     <Button :class="{ active: tab==='friends' }" @click="tab='friends'">
-      Freunde <span class="count">{{ accepted.length }}</span>
+      {{ t('friends.tabFriends') }} <span class="count">{{ accepted.length }}</span>
     </Button>
     <Button :class="{ active: tab==='incoming' }" @click="tab='incoming'">
-      Eingang <span class="count" v-if="incoming.length">{{ incoming.length }}</span>
+      {{ t('friends.tabIncoming') }} <span class="count" v-if="incoming.length">{{ incoming.length }}</span>
     </Button>
     <Button :class="{ active: tab==='outgoing' }" @click="tab='outgoing'">
-      Ausgang
+      {{ t('friends.tabOutgoing') }}
     </Button>
   </div>
 
   <div class="card">
-    <div v-if="loading" class="subtitle">Lädt…</div>
+    <div v-if="loading" class="subtitle">{{ t('common.loading') }}</div>
 
     <template v-else-if="tab==='friends'">
-      <div v-if="!accepted.length" class="subtitle">Noch keine Freunde. Schick eine Anfrage!</div>
+      <div v-if="!accepted.length" class="subtitle">{{ t('friends.noFriends') }}</div>
       <div v-for="f in accepted" :key="f.friendship_id" class="list-item friend-row">
-        <Button class="avatar" @click="openProfile(f.friend_username)" :title="`Profil von ${f.friend_username}`">
+        <Button class="avatar" @click="openProfile(f.friend_username)" :title="t('friends.profileOf', { username: f.friend_username })">
           {{ av(f.friend_username) }}
         </Button>
         <div class="body">
@@ -153,20 +183,20 @@ function openProfile(username) {
           <div class="sub">🪙 {{ formatCoins(f.friend_coins) }}</div>
         </div>
         <div class="actions">
-          <Button class="btn small" @click="openSend(f.friend_username)" title="Münzen senden">💸</Button>
-          <Button class="btn secondary small" @click="openTrade(f.friend_username)" title="Trade anbieten">🔄</Button>
-          <Button class="btn danger small" @click="remove(f.friend_id)" title="Entfernen">×</Button>
+          <Button class="btn small" @click="openSend(f.friend_username)" :title="t('friends.sendCoinsTitle')">💸</Button>
+          <Button class="btn secondary small" @click="openTrade(f.friend_username)" :title="t('friends.offerTradeTitle')">🔄</Button>
+          <Button class="btn danger small" @click="remove(f.friend_id)" :title="t('friends.removeTitle')">×</Button>
         </div>
       </div>
     </template>
 
     <template v-else-if="tab==='incoming'">
-      <div v-if="!incoming.length" class="subtitle">Keine offenen Anfragen.</div>
+      <div v-if="!incoming.length" class="subtitle">{{ t('friends.noIncoming') }}</div>
       <div v-for="f in incoming" :key="f.friendship_id" class="list-item friend-row">
         <div class="avatar">{{ av(f.friend_username) }}</div>
         <div class="body">
           <div class="title-sm">{{ f.friend_username }}</div>
-          <div class="sub">möchte dein Freund werden</div>
+          <div class="sub">{{ t('friends.wantsToBeFriend') }}</div>
         </div>
         <div class="actions">
           <Button class="btn small" :disabled="busy" @click="respond(f.friendship_id, true)">✓</Button>
@@ -176,31 +206,30 @@ function openProfile(username) {
     </template>
 
     <template v-else>
-      <div v-if="!outgoing.length" class="subtitle">Keine ausstehenden Anfragen.</div>
+      <div v-if="!outgoing.length" class="subtitle">{{ t('friends.noOutgoing') }}</div>
       <div v-for="f in outgoing" :key="f.friendship_id" class="list-item friend-row">
         <div class="avatar">{{ av(f.friend_username) }}</div>
         <div class="body">
           <div class="title-sm">{{ f.friend_username }}</div>
-          <div class="sub">wartet auf Antwort</div>
+          <div class="sub">{{ t('friends.waitingForReply') }}</div>
         </div>
         <Button class="btn danger small" :disabled="busy" @click="remove(f.friend_id)">×</Button>
       </div>
     </template>
   </div>
 
-  <!-- Send modal -->
   <div v-if="sendModal.open" class="modal-backdrop" @click.self="closeSend">
     <div class="modal">
       <div class="row between" style="margin-bottom:8px">
-        <h3 style="margin:0">💸 Senden an {{ sendModal.to }}</h3>
+        <h3 style="margin:0">💸 {{ t('friends.sendTo', { username: sendModal.to }) }}</h3>
         <Button class="btn secondary small" @click="closeSend">×</Button>
       </div>
-      <div class="subtitle" style="margin:0 0 8px">Dein Guthaben: 🪙 {{ formatCoins(game.displayCoins) }}</div>
-      <CoinInput v-model="sendModal.amount" placeholder="Betrag (z.B. 10K)" />
+      <div class="subtitle" style="margin:0 0 8px">{{ t('friends.yourBalance', { amount: formatCoins(game.displayCoins) }) }}</div>
+      <CoinInput v-model="sendModal.amount" :placeholder="t('friends.amountPlaceholder')" />
       <p v-if="sendModal.err" class="error" style="margin-top:6px">{{ sendModal.err }}</p>
       <div class="row" style="gap:6px;margin-top:10px">
         <Button class="btn full" :disabled="sendModal.busy || !sendModal.amount" @click="confirmSend">
-          {{ sendModal.busy ? '...' : 'Senden' }}
+          {{ sendModal.busy ? t('common.loadingShort') : t('friends.send') }}
         </Button>
       </div>
     </div>

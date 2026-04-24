@@ -10,10 +10,311 @@ import {
   tierInfo,
   isUpgrading,
 } from "../animals";
+import { locale } from "../i18n";
 
 const game = useGameStore();
 const auth = useAuthStore();
 const router = useRouter();
+
+const I18N = {
+  de: {
+    gift: {
+      title: "Ein Geschenk fuer dich!",
+      subtitle: "Deine Start-Taps sind leer - als neuer Spieler bekommst du ein einmaliges Willkommensgeschenk.",
+      open: "🎁 Geschenk oeffnen",
+      received: "Du hast erhalten:",
+      bonusTaps: "+{count} einmalige Bonus-Taps",
+      close: "Super!",
+      openFailed: "Fehler beim Oeffnen des Geschenks"
+    },
+    welcome: {
+      back: "Willkommen zurueck",
+      defaultPlayer: "Spieler",
+      profileHint: "-> Profil & Sammlung"
+    },
+    tap: {
+      income: "Einkommen",
+      taps: "Taps",
+      bonusTitle: "Einmalige Bonus-Taps",
+      limitReached: "Limit erreicht. Neue Taps in {time}.",
+      favoriteHint: "ist dein Liebling. Tippe fuer Muenzen.",
+      buyFirst: "Kaufe dein erstes Tier im Shop, um es zu fuettern und zu tippen."
+    },
+    upgrades: {
+      title: "👆 Tap-Upgrades",
+      multiplier: "Multiplikator",
+      moreTaps: "Mehr Taps",
+      offline: "Offline-Zeit",
+      level: "Lvl {lvl}",
+      round: "Runde",
+      nextLevel: "Naechster Lvl: {value}",
+      maximum: "Maximum erreicht",
+      max: "MAX",
+      upgrade: "⬆ {cost}",
+      noFavorite: "Kein Liebling gewaehlt",
+      chooseFavorite: "Waehle & fuettere deinen Liebling fuer x-Boost.",
+      choose: "⭐ Waehlen",
+      feed: "🍖 Fuettern"
+    },
+    quick: {
+      inventory: "Inventar",
+      shop: "Shop",
+      trade: "Trade",
+      friends: "Freunde",
+      index: "Index",
+      collection: "Sammlung",
+      swap: "Tauschen",
+      send: "Senden",
+      animals: "{count} Tiere",
+      animalsFood: "Tiere & Futter",
+      tickets: "Tickets",
+      release: "Tier freilassen"
+    },
+    equipped: {
+      title: "🎯 Ausgeruestet",
+      manage: "📦 Inventar verwalten",
+      freeSlotAria: "Freier Slot {slot} - zum Inventar",
+      freeSlot: "Freier Slot",
+      tapToEquip: "Tippen zum Ausruesten"
+    },
+    crafter: {
+      title: "⚗️ Crafter-Maschine",
+      toggleOpen: "⚗️ Oeffnen",
+      toggleClose: "✕ Schliessen",
+      hint: "Kombiniere Rainbow-Tiere zu einzigartigen Spezies. Gecraftete Tiere gibt es nicht im Shop oder in der Truhe.",
+      pickRecipe: "Rezept waehlen",
+      loading: "Lade Rezepte...",
+      none: "Keine Rezepte verfuegbar.",
+      ingredients: "🔸 Zutaten",
+      result: "✨ Ergebnis",
+      recipe: "Rezept",
+      craft: "⚗️ Craften",
+      notEnough: "Nicht genug Zutaten",
+      crafted: "{emoji} {name} gecraftet!"
+    },
+    fusion: {
+      title: "🧬 Fusions-Maschine",
+      toggleOpen: "🧬 Oeffnen",
+      toggleClose: "✕ Schliessen",
+      hint: "Kombiniere gleiche Tiere (normal, nicht ausgeruestet) zu hoeherwertigen Tieren. 3x -> 🥇 Gold, 6x -> 💎 Diamant, 9x -> 🟣 Episch, 12x -> 🌈 Rainbow.",
+      pickSpecies: "Waehle Spezies",
+      none: "Keine normalen, nicht ausgeruesteten Tiere vorhanden.",
+      locked: "🔒 Maschine belegt - nur ein Pet gleichzeitig. Warte, bis das laufende Upgrade fertig ist.",
+      input: "🎯 Eingang",
+      output: "✨ Ausgang",
+      pickBoth: "Waehle Spezies & Ziel-Stufe",
+      species: "Spezies",
+      targetTier: "Ziel-Stufe",
+      start: "🏭 Fusion starten",
+      busySingle: "Maschine belegt - nur ein Pet gleichzeitig."
+    },
+    common: {
+      loadingShort: "…"
+    }
+  },
+  en: {
+    gift: {
+      title: "A gift for you!",
+      subtitle: "Your starter taps are empty - as a new player you get a one-time welcome gift.",
+      open: "🎁 Open gift",
+      received: "You received:",
+      bonusTaps: "+{count} one-time bonus taps",
+      close: "Awesome!",
+      openFailed: "Error opening the gift"
+    },
+    welcome: {
+      back: "Welcome back",
+      defaultPlayer: "Player",
+      profileHint: "-> Profile & Collection"
+    },
+    tap: {
+      income: "Income",
+      taps: "Taps",
+      bonusTitle: "One-time bonus taps",
+      limitReached: "Limit reached. New taps in {time}.",
+      favoriteHint: "is your favorite. Tap for coins.",
+      buyFirst: "Buy your first animal in the shop to feed and tap it."
+    },
+    upgrades: {
+      title: "👆 Tap Upgrades",
+      multiplier: "Multiplier",
+      moreTaps: "More taps",
+      offline: "Offline time",
+      level: "Lvl {lvl}",
+      round: "round",
+      nextLevel: "Next lvl: {value}",
+      maximum: "Maximum reached",
+      max: "MAX",
+      upgrade: "⬆ {cost}",
+      noFavorite: "No favorite selected",
+      chooseFavorite: "Choose & feed your favorite for an x-boost.",
+      choose: "⭐ Choose",
+      feed: "🍖 Feed"
+    },
+    quick: {
+      inventory: "Inventory",
+      shop: "Shop",
+      trade: "Trade",
+      friends: "Friends",
+      index: "Index",
+      collection: "Collection",
+      swap: "Swap",
+      send: "Send",
+      animals: "{count} animals",
+      animalsFood: "Animals & Food",
+      tickets: "Tickets",
+      release: "Release pet"
+    },
+    equipped: {
+      title: "🎯 Equipped",
+      manage: "📦 Manage inventory",
+      freeSlotAria: "Free slot {slot} - to inventory",
+      freeSlot: "Free slot",
+      tapToEquip: "Tap to equip"
+    },
+    crafter: {
+      title: "⚗️ Crafter Machine",
+      toggleOpen: "⚗️ Open",
+      toggleClose: "✕ Close",
+      hint: "Combine rainbow animals into unique species. Crafted animals cannot be found in the shop or chest.",
+      pickRecipe: "Choose recipe",
+      loading: "Loading recipes...",
+      none: "No recipes available.",
+      ingredients: "🔸 Ingredients",
+      result: "✨ Result",
+      recipe: "Recipe",
+      craft: "⚗️ Craft",
+      notEnough: "Not enough ingredients",
+      crafted: "{emoji} {name} crafted!"
+    },
+    fusion: {
+      title: "🧬 Fusion Machine",
+      toggleOpen: "🧬 Open",
+      toggleClose: "✕ Close",
+      hint: "Combine identical animals (normal, unequipped) into higher tiers. 3x -> 🥇 Gold, 6x -> 💎 Diamond, 9x -> 🟣 Epic, 12x -> 🌈 Rainbow.",
+      pickSpecies: "Choose species",
+      none: "No normal unequipped animals available.",
+      locked: "🔒 Machine busy - only one pet at a time. Wait until the current upgrade finishes.",
+      input: "🎯 Input",
+      output: "✨ Output",
+      pickBoth: "Choose species & target tier",
+      species: "Species",
+      targetTier: "Target tier",
+      start: "🏭 Start fusion",
+      busySingle: "Machine busy - only one pet at a time."
+    },
+    common: {
+      loadingShort: "…"
+    }
+  },
+  ru: {
+    gift: {
+      title: "Подарок для тебя!",
+      subtitle: "Твои стартовые тапы закончились - как новый игрок ты получаешь одноразовый приветственный подарок.",
+      open: "🎁 Открыть подарок",
+      received: "Ты получил:",
+      bonusTaps: "+{count} одноразовых бонус-тапов",
+      close: "Супер!",
+      openFailed: "Ошибка при открытии подарка"
+    },
+    welcome: {
+      back: "С возвращением",
+      defaultPlayer: "Игрок",
+      profileHint: "-> Профиль и коллекция"
+    },
+    tap: {
+      income: "Доход",
+      taps: "Тапы",
+      bonusTitle: "Одноразовые бонус-тапы",
+      limitReached: "Лимит достигнут. Новые тапы через {time}.",
+      favoriteHint: "твой любимец. Тапай для монет.",
+      buyFirst: "Купи первое животное в магазине, чтобы кормить его и тапать."
+    },
+    upgrades: {
+      title: "👆 Улучшения тапа",
+      multiplier: "Множитель",
+      moreTaps: "Больше тапов",
+      offline: "Офлайн-время",
+      level: "Ур. {lvl}",
+      round: "цикл",
+      nextLevel: "След. ур.: {value}",
+      maximum: "Достигнут максимум",
+      max: "MAX",
+      upgrade: "⬆ {cost}",
+      noFavorite: "Любимец не выбран",
+      chooseFavorite: "Выбери и покорми любимца для x-буста.",
+      choose: "⭐ Выбрать",
+      feed: "🍖 Кормить"
+    },
+    quick: {
+      inventory: "Инвентарь",
+      shop: "Магазин",
+      trade: "Обмен",
+      friends: "Друзья",
+      index: "Индекс",
+      collection: "Коллекция",
+      swap: "Обмен",
+      send: "Отправка",
+      animals: "{count} животных",
+      animalsFood: "Животные и еда",
+      tickets: "Тикеты",
+      release: "Отпустить питомца"
+    },
+    equipped: {
+      title: "🎯 Экипировано",
+      manage: "📦 Управлять инвентарем",
+      freeSlotAria: "Свободный слот {slot} - в инвентарь",
+      freeSlot: "Свободный слот",
+      tapToEquip: "Нажми для экипировки"
+    },
+    crafter: {
+      title: "⚗️ Крафт-машина",
+      toggleOpen: "⚗️ Открыть",
+      toggleClose: "✕ Закрыть",
+      hint: "Комбинируй радужных животных в уникальные виды. Скрафченных животных нет в магазине и сундуке.",
+      pickRecipe: "Выбрать рецепт",
+      loading: "Загрузка рецептов...",
+      none: "Рецептов нет.",
+      ingredients: "🔸 Ингредиенты",
+      result: "✨ Результат",
+      recipe: "Рецепт",
+      craft: "⚗️ Крафт",
+      notEnough: "Недостаточно ингредиентов",
+      crafted: "{emoji} {name} скрафчен!"
+    },
+    fusion: {
+      title: "🧬 Машина слияния",
+      toggleOpen: "🧬 Открыть",
+      toggleClose: "✕ Закрыть",
+      hint: "Комбинируй одинаковых животных (обычных, не экипированных) в более высокий тир. 3x -> 🥇 Золото, 6x -> 💎 Алмаз, 9x -> 🟣 Эпик, 12x -> 🌈 Радужный.",
+      pickSpecies: "Выбери вид",
+      none: "Нет обычных неэкипированных животных.",
+      locked: "🔒 Машина занята - только один питомец одновременно. Подожди завершения текущего апгрейда.",
+      input: "🎯 Вход",
+      output: "✨ Выход",
+      pickBoth: "Выбери вид и целевой тир",
+      species: "Вид",
+      targetTier: "Целевой тир",
+      start: "🏭 Начать слияние",
+      busySingle: "Машина занята - только один питомец одновременно."
+    },
+    common: {
+      loadingShort: "…"
+    }
+  }
+};
+
+function tx(key, vars = {}) {
+  const lang = I18N[locale.value] ? locale.value : "en";
+  let value = I18N[lang];
+  for (const part of key.split(".")) value = value?.[part];
+  if (value == null) {
+    value = I18N.en;
+    for (const part of key.split(".")) value = value?.[part];
+  }
+  const text = String(value ?? key);
+  return text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ""));
+}
 
 const equipped = computed(() =>
   game.animals
@@ -65,7 +366,7 @@ async function openGift() {
       bonusTaps: data.bonus_taps || 50,
     };
   } catch (e) {
-    giftError.value = e.message || "Fehler beim Öffnen des Geschenks";
+    giftError.value = e.message || tx("gift.openFailed");
   } finally {
     giftBusy.value = false;
   }
@@ -206,7 +507,7 @@ async function doCraft() {
   try {
     const data = await game.craftAnimal(recipe.id)
     const outInfo = speciesInfo(data.animal.species)
-    crafterSuccess.value = `${outInfo.emoji} ${outInfo.name} gecraftet!`
+    crafterSuccess.value = tx("crafter.crafted", { emoji: outInfo.emoji, name: outInfo.name })
     crafterRecipeId.value = ''
     setTimeout(() => (crafterSuccess.value = ''), 3000)
   } catch (e) {
@@ -295,7 +596,7 @@ async function doFusion(species, tier) {
   const td = TIERS[tier];
   if (!td || group.count < td.required_qty) return;
   if (fusionLocked.value) {
-    error.value = "Maschine belegt — nur ein Pet gleichzeitig.";
+    error.value = tx("fusion.busySingle");
     setTimeout(() => (error.value = ""), 2500);
     return;
   }
@@ -327,10 +628,9 @@ async function doFusion(species, tier) {
       <div class="gift-dialog card">
         <template v-if="!giftClaimed">
           <div class="gift-emoji">🎁</div>
-          <h2 class="title" style="margin: 0 0 6px">Ein Geschenk für dich!</h2>
+          <h2 class="title" style="margin: 0 0 6px">{{ tx("gift.title") }}</h2>
           <p class="subtitle" style="margin: 0 0 14px; text-align: center">
-            Deine Start-Taps sind leer — als neuer Spieler bekommst du ein
-            einmaliges Willkommensgeschenk.
+            {{ tx("gift.subtitle") }}
           </p>
           <p
             v-if="giftError"
@@ -340,19 +640,19 @@ async function doFusion(species, tier) {
             {{ giftError }}
           </p>
           <Button class="btn full" :disabled="giftBusy" @click="openGift">
-            {{ giftBusy ? "…" : "🎁 Geschenk öffnen" }}
+            {{ giftBusy ? tx("common.loadingShort") : tx("gift.open") }}
           </Button>
         </template>
         <template v-else>
           <div class="gift-emoji pop">{{ giftClaimed.emoji }}</div>
-          <h2 class="title" style="margin: 0 0 6px">Du hast erhalten:</h2>
+          <h2 class="title" style="margin: 0 0 6px">{{ tx("gift.received") }}</h2>
           <p style="margin: 0 0 4px; font-weight: 700">
             1× {{ giftClaimed.name }}
           </p>
           <p style="margin: 0 0 14px">
-            +{{ giftClaimed.bonusTaps }} einmalige Bonus-Taps
+            {{ tx("gift.bonusTaps", { count: giftClaimed.bonusTaps }) }}
           </p>
-          <Button class="btn full" @click="closeGiftDialog">Super!</Button>
+          <Button class="btn full" @click="closeGiftDialog">{{ tx("gift.close") }}</Button>
         </template>
       </div>
     </div>
@@ -363,10 +663,10 @@ async function doFusion(species, tier) {
           {{ auth.profile?.avatar_emoji || "👤" }}
         </div>
         <div>
-          <div class="subtitle" style="margin: 0">Willkommen zurück</div>
+          <div class="subtitle" style="margin: 0">{{ tx("welcome.back") }}</div>
           <div class="username">
-            {{ auth.profile?.username || "Spieler" }}
-            <span class="profile-hint">→ Profil & Sammlung</span>
+            {{ auth.profile?.username || tx("welcome.defaultPlayer") }}
+            <span class="profile-hint">{{ tx("welcome.profileHint") }}</span>
           </div>
         </div>
       </router-link>
@@ -378,7 +678,7 @@ async function doFusion(species, tier) {
     <div class="card tap-card">
       <div class="row between" style="margin-bottom: 4px">
         <div>
-          <div class="subtitle" style="margin: 0">Einkommen</div>
+          <div class="subtitle" style="margin: 0">{{ tx("tap.income") }}</div>
           <div class="rate">
             +{{ formatCoins(game.ratePerSec) }}
             <span style="opacity: 0.6">/s</span>
@@ -388,7 +688,7 @@ async function doFusion(species, tier) {
           </div>
         </div>
         <div style="text-align: right">
-          <div class="subtitle" style="margin: 0">Taps</div>
+          <div class="subtitle" style="margin: 0">{{ tx("tap.taps") }}</div>
           <div class="tap-count">
             <span
               :class="{ low: game.tapsRemaining <= 3, zero: tapLimitReached }"
@@ -399,7 +699,7 @@ async function doFusion(species, tier) {
             <span
               v-if="game.bonusTaps > 0"
               class="bonus-chip"
-              title="Einmalige Bonus-Taps"
+              :title="tx('tap.bonusTitle')"
               >+{{ game.bonusTaps }} 🎁</span
             >
           </div>
@@ -430,13 +730,13 @@ async function doFusion(species, tier) {
       </div>
 
       <p v-if="tapLimitReached" class="tap-note locked">
-        Limit erreicht. Neue Taps in {{ fmtTime(tapCooldown) }}.
+        {{ tx("tap.limitReached", { time: fmtTime(tapCooldown) }) }}
       </p>
       <p v-else-if="favAnimal" class="tap-note">
-        <b>{{ favAnimal.info.name }}</b> ist dein Liebling. Tippe für Münzen.
+        <b>{{ favAnimal.info.name }}</b> {{ tx("tap.favoriteHint") }}
       </p>
       <p v-else class="tap-note">
-        Kaufe dein erstes Tier im Shop, um es zu füttern und zu tippen.
+        {{ tx("tap.buyFirst") }}
       </p>
       <p v-if="error" class="error" style="text-align: center; margin: 4px 0 0">
         {{ error }}
@@ -446,7 +746,7 @@ async function doFusion(species, tier) {
     <div class="card">
       <div class="row between" style="margin-bottom: 8px">
         <h2 class="title" style="margin: 0; font-size: 16px">
-          👆 Tap-Upgrades
+          {{ tx("upgrades.title") }}
         </h2>
       </div>
       <div class="tap-upgrade-grid">
@@ -454,19 +754,17 @@ async function doFusion(species, tier) {
           <div class="tu-head">
             <span class="tu-icon">⚡</span>
             <div>
-              <div class="tu-title">Multiplikator</div>
+              <div class="tu-title">{{ tx("upgrades.multiplier") }}</div>
               <div class="tu-sub">
-                Lvl {{ game.tapLevel }} · ×{{ game.tapMultiplier.toFixed(2) }}
+                {{ tx("upgrades.level", { lvl: game.tapLevel }) }} · ×{{ game.tapMultiplier.toFixed(2) }}
               </div>
             </div>
           </div>
           <div class="tu-next">
             <template v-if="!game.tapMulMaxed"
-              >Nächster Lvl: ×{{
-                (game.tapMultiplier + 0.25).toFixed(2)
-              }}</template
+              >{{ tx("upgrades.nextLevel", { value: `×${(game.tapMultiplier + 0.25).toFixed(2)}` }) }}</template
             >
-            <template v-else>Maximum erreicht</template>
+            <template v-else>{{ tx("upgrades.maximum") }}</template>
           </div>
           <Button
             class="btn"
@@ -477,8 +775,8 @@ async function doFusion(species, tier) {
               upgradingTap === "mul"
                 ? "..."
                 : game.tapMulMaxed
-                  ? "MAX"
-                  : "⬆ " + formatCoins(game.nextTapCost)
+                  ? tx("upgrades.max")
+                  : tx("upgrades.upgrade", { cost: formatCoins(game.nextTapCost) })
             }}
           </Button>
         </div>
@@ -486,17 +784,17 @@ async function doFusion(species, tier) {
           <div class="tu-head">
             <span class="tu-icon">🔋</span>
             <div>
-              <div class="tu-title">Mehr Taps</div>
+              <div class="tu-title">{{ tx("upgrades.moreTaps") }}</div>
               <div class="tu-sub">
-                Lvl {{ game.tapCapLevel }} · {{ game.tapsMax }} / Runde
+                {{ tx("upgrades.level", { lvl: game.tapCapLevel }) }} · {{ game.tapsMax }} / {{ tx("upgrades.round") }}
               </div>
             </div>
           </div>
           <div class="tu-next">
             <template v-if="!game.tapCapMaxed"
-              >Nächster Lvl: {{ 10 + game.tapCapLevel * 5 }} / Runde</template
+              >{{ tx("upgrades.nextLevel", { value: `${10 + game.tapCapLevel * 5} / ${tx('upgrades.round')}` }) }}</template
             >
-            <template v-else>Maximum erreicht</template>
+            <template v-else>{{ tx("upgrades.maximum") }}</template>
           </div>
           <Button
             class="btn"
@@ -507,8 +805,8 @@ async function doFusion(species, tier) {
               upgradingTap === "cap"
                 ? "..."
                 : game.tapCapMaxed
-                  ? "MAX"
-                  : "⬆ " + formatCoins(game.nextCapCost)
+                  ? tx("upgrades.max")
+                  : tx("upgrades.upgrade", { cost: formatCoins(game.nextCapCost) })
             }}
           </Button>
         </div>
@@ -516,17 +814,17 @@ async function doFusion(species, tier) {
           <div class="tu-head">
             <span class="tu-icon">💤</span>
             <div>
-              <div class="tu-title">Offline-Zeit</div>
+              <div class="tu-title">{{ tx("upgrades.offline") }}</div>
               <div class="tu-sub">
-                Lvl {{ game.offlineLevel }} · {{ game.maxOfflineHours }}h max
+                {{ tx("upgrades.level", { lvl: game.offlineLevel }) }} · {{ game.maxOfflineHours }}h max
               </div>
             </div>
           </div>
           <div class="tu-next">
             <template v-if="game.maxOfflineHours < 8">
-              Nächster Lvl: {{ (game.maxOfflineHours + 0.5).toFixed(1) }}h
+              {{ tx("upgrades.nextLevel", { value: `${(game.maxOfflineHours + 0.5).toFixed(1)}h` }) }}
             </template>
-            <template v-else> Maximum erreicht </template>
+            <template v-else>{{ tx("upgrades.maximum") }}</template>
           </div>
           <Button
             class="btn"
@@ -537,8 +835,8 @@ async function doFusion(species, tier) {
               upgradingTap === "offline"
                 ? "..."
                 : game.maxOfflineHours >= 8
-                  ? "MAX"
-                  : "⬆ " + formatCoins(game.nextOfflineCost)
+                  ? tx("upgrades.max")
+                  : tx("upgrades.upgrade", { cost: formatCoins(game.nextOfflineCost) })
             }}
           </Button>
         </div>
@@ -552,13 +850,13 @@ async function doFusion(species, tier) {
             </div>
             <div class="pet-body">
               <div class="pet-title">
-                {{ favAnimal ? favAnimal.info.name : "Kein Liebling gewählt" }}
+                {{ favAnimal ? favAnimal.info.name : tx("upgrades.noFavorite") }}
               </div>
               <div v-if="game.favoriteBoostActive" class="pet-status boost">
                 ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
               </div>
               <div v-else class="pet-status">
-                Wähle & füttere deinen Liebling für ×-Boost.
+                {{ tx("upgrades.chooseFavorite") }}
               </div>
             </div>
             <div class="pet-actions">
@@ -567,14 +865,14 @@ async function doFusion(species, tier) {
                 :disabled="!ownedAnimals.length"
                 @click="router.push('/inventory')"
               >
-                ⭐ Wählen
+                {{ tx("upgrades.choose") }}
               </Button>
               <Button
                 class="btn"
                 :disabled="!favAnimal"
                 @click="router.push('/shop?tab=food')"
               >
-                🍖 Füttern
+                {{ tx("upgrades.feed") }}
               </Button>
             </div>
           </div>
@@ -585,41 +883,46 @@ async function doFusion(species, tier) {
     <div class="card quick-actions">
       <router-link to="/inventory" class="qa-btn">
         <span class="qa-icon">📦</span>
-        <span class="qa-label">Inventar</span>
-        <span class="qa-sub">{{ ownedAnimals.length }} Tiere</span>
+        <span class="qa-label">{{ tx("quick.inventory") }}</span>
+        <span class="qa-sub">{{ tx("quick.animals", { count: ownedAnimals.length }) }}</span>
       </router-link>
       <router-link to="/shop" class="qa-btn">
         <span class="qa-icon">🛒</span>
-        <span class="qa-label">Shop</span>
-        <span class="qa-sub">Tiere & Futter</span>
+        <span class="qa-label">{{ tx("quick.shop") }}</span>
+        <span class="qa-sub">{{ tx("quick.animalsFood") }}</span>
       </router-link>
       <router-link to="/trade" class="qa-btn">
         <span class="qa-icon">🔄</span>
-        <span class="qa-label">Trade</span>
-        <span class="qa-sub">Tauschen</span>
+        <span class="qa-label">{{ tx("quick.trade") }}</span>
+        <span class="qa-sub">{{ tx("quick.swap") }}</span>
       </router-link>
       <router-link to="/friends" class="qa-btn">
         <span class="qa-icon">🤝</span>
-        <span class="qa-label">Freunde</span>
-        <span class="qa-sub">Senden</span>
+        <span class="qa-label">{{ tx("quick.friends") }}</span>
+        <span class="qa-sub">{{ tx("quick.send") }}</span>
       </router-link>
       <router-link to="/index" class="qa-btn">
         <span class="qa-icon">🏆</span>
-        <span class="qa-label">Index</span>
-        <span class="qa-sub">Sammlung</span>
+        <span class="qa-label">{{ tx("quick.index") }}</span>
+        <span class="qa-sub">{{ tx("quick.collection") }}</span>
+      </router-link>
+      <router-link to="/tickets" class="qa-btn">
+        <span class="qa-icon">🎟️</span>
+        <span class="qa-label">{{ tx("quick.tickets") }}</span>
+        <span class="qa-sub">{{ tx("quick.release") }}</span>
       </router-link>
     </div>
 
     <div class="card equip-card">
       <div class="row between" style="margin-bottom: 8px">
         <h2 class="title" style="margin: 0; font-size: 18px">
-          🎯 Ausgerüstet
+          {{ tx("equipped.title") }}
           <span class="badge" style="margin-left: 6px"
             >{{ game.equippedCount }} / {{ game.equipSlots }}</span
           >
         </h2>
         <router-link to="/inventory" class="btn inventory-btn">
-          📦 Inventar verwalten
+          {{ tx("equipped.manage") }}
         </router-link>
       </div>
       <div class="farm-grid">
@@ -660,11 +963,11 @@ async function doFusion(species, tier) {
             v-else
             to="/inventory"
             class="farm-cell empty"
-            :aria-label="`Freier Slot ${i + 1} — zum Inventar`"
+            :aria-label="tx('equipped.freeSlotAria', { slot: i + 1 })"
           >
             <div class="farm-plus">＋</div>
-            <div class="farm-meta">Freier Slot</div>
-            <div class="farm-meta-sub">Tippen zum Ausrüsten</div>
+            <div class="farm-meta">{{ tx("equipped.freeSlot") }}</div>
+            <div class="farm-meta-sub">{{ tx("equipped.tapToEquip") }}</div>
           </router-link>
         </template>
       </div>
@@ -673,35 +976,35 @@ async function doFusion(species, tier) {
     <!-- Crafter-Maschine -->
     <div class="card crafter-card">
       <div class="row between" style="margin-bottom: 8px">
-        <h2 class="title" style="margin: 0; font-size: 18px">⚗️ Crafter-Maschine</h2>
+        <h2 class="title" style="margin: 0; font-size: 18px">{{ tx("crafter.title") }}</h2>
         <Button
           class="btn fusion-toggle"
           @click="crafterOpen = !crafterOpen; if (crafterOpen) loadCrafterRecipes()"
         >
-          {{ crafterOpen ? "✕ Schließen" : "⚗️ Öffnen" }}
+          {{ crafterOpen ? tx("crafter.toggleClose") : tx("crafter.toggleOpen") }}
         </Button>
       </div>
       <p class="hint">
-        Kombiniere Rainbow-Tiere zu einzigartigen Spezies. Gecraftete Tiere gibt es nicht im Shop oder in der Truhe.
+        {{ tx("crafter.hint") }}
       </p>
 
       <Button v-if="!crafterOpen" class="fusion-preview" @click="crafterOpen = true; loadCrafterRecipes()">
         <span class="fusion-preview-emoji">⚗️</span>
-        <span class="fusion-preview-label">Rezept wählen</span>
+        <span class="fusion-preview-label">{{ tx("crafter.pickRecipe") }}</span>
       </Button>
 
       <div v-if="crafterOpen" class="fusion-body">
         <p v-if="crafterError"   class="error"   style="text-align:center;margin:0 0 6px">{{ crafterError }}</p>
         <p v-if="crafterSuccess" class="success" style="text-align:center;margin:0 0 6px">{{ crafterSuccess }}</p>
 
-        <div v-if="!crafterLoaded" class="hint" style="text-align:center;padding:12px">Lade Rezepte…</div>
-        <div v-else-if="!crafterRecipes.length" class="hint" style="text-align:center;padding:12px">Keine Rezepte verfügbar.</div>
+        <div v-if="!crafterLoaded" class="hint" style="text-align:center;padding:12px">{{ tx("crafter.loading") }}</div>
+        <div v-else-if="!crafterRecipes.length" class="hint" style="text-align:center;padding:12px">{{ tx("crafter.none") }}</div>
 
         <template v-else>
           <!-- Maschinen-Anzeige (gleiche Optik wie Fusion) -->
           <div class="fusion-machine">
             <div class="fm-slot fm-left">
-              <div class="fm-slot-title">🔸 Zutaten</div>
+              <div class="fm-slot-title">{{ tx("crafter.ingredients") }}</div>
               <div class="fm-slot-body">
                 <template v-if="crafterSelected">
                   <div
@@ -718,17 +1021,17 @@ async function doFusion(species, tier) {
                     >{{ ingCount(crafterSelected, i) }}/{{ ing.qty }}</span>
                   </div>
                 </template>
-                <div v-else class="hint" style="margin:0">Rezept wählen</div>
+                <div v-else class="hint" style="margin:0">{{ tx("crafter.pickRecipe") }}</div>
               </div>
             </div>
 
             <div class="fm-core">
               <div class="fm-factory" style="font-size:52px">⚗️</div>
-              <div v-if="crafterBusy" class="hint">…</div>
+              <div v-if="crafterBusy" class="hint">{{ tx("common.loadingShort") }}</div>
             </div>
 
             <div class="fm-slot fm-right">
-              <div class="fm-slot-title">✨ Ergebnis</div>
+              <div class="fm-slot-title">{{ tx("crafter.result") }}</div>
               <div class="fm-slot-body">
                 <template v-if="crafterSelected">
                   <span class="fm-chip big cr-out-chip">
@@ -743,7 +1046,7 @@ async function doFusion(species, tier) {
           <!-- Rezept-Auswahl (gleiche Optik wie Spezies-Picker in Fusion) -->
           <div class="fm-controls">
             <div class="fm-row">
-              <label class="hint" style="margin:0">Rezept</label>
+              <label class="hint" style="margin:0">{{ tx("crafter.recipe") }}</label>
               <div class="fm-species-grid">
                 <Button
                   v-for="r in crafterRecipes"
@@ -765,10 +1068,10 @@ async function doFusion(species, tier) {
               @click="doCraft"
             >
               {{
-                crafterBusy           ? "…"
-                : !crafterSelected    ? "Rezept wählen"
-                : canCraft(crafterSelected) ? "⚗️ Craften"
-                : "Nicht genug Zutaten"
+                crafterBusy ? tx("common.loadingShort")
+                : !crafterSelected ? tx("crafter.pickRecipe")
+                : canCraft(crafterSelected) ? tx("crafter.craft")
+                : tx("crafter.notEnough")
               }}
             </Button>
           </div>
@@ -779,15 +1082,14 @@ async function doFusion(species, tier) {
     <div class="card fusion-card">
       <div class="row between" style="margin-bottom: 8px">
         <h2 class="title" style="margin: 0; font-size: 18px">
-          🧬 Fusions-Maschine
+          {{ tx("fusion.title") }}
         </h2>
         <Button class="btn fusion-toggle" @click="fusionOpen = !fusionOpen">
-          {{ fusionOpen ? "✕ Schließen" : "🧬 Öffnen" }}
+          {{ fusionOpen ? tx("fusion.toggleClose") : tx("fusion.toggleOpen") }}
         </Button>
       </div>
       <p class="hint">
-        Kombiniere gleiche Tiere (normal, nicht ausgerüstet) zu höherwertigen
-        Tieren. 3× → 🥇 Gold, 6× → 💎 Diamant, 9× → 🟣 Episch, 12× → 🌈 Rainbow.
+        {{ tx("fusion.hint") }}
       </p>
 
       <Button
@@ -796,7 +1098,7 @@ async function doFusion(species, tier) {
         @click="fusionOpen = true"
       >
         <span class="fusion-preview-emoji">🏭</span>
-        <span class="fusion-preview-label">Wähle Spezies</span>
+        <span class="fusion-preview-label">{{ tx("fusion.pickSpecies") }}</span>
       </Button>
 
       <div v-if="upgradingList.length > 0" class="upgrading-grid">
@@ -820,7 +1122,7 @@ async function doFusion(species, tier) {
           class="hint"
           style="text-align: center; padding: 12px"
         >
-          Keine normalen, nicht ausgerüsteten Tiere vorhanden.
+          {{ tx("fusion.none") }}
         </div>
 
         <div
@@ -828,13 +1130,12 @@ async function doFusion(species, tier) {
           class="fusion-locked hint"
           style="text-align: center"
         >
-          🔒 Maschine belegt — nur ein Pet gleichzeitig. Warte, bis das laufende
-          Upgrade fertig ist.
+          {{ tx("fusion.locked") }}
         </div>
 
         <div v-else class="fusion-machine">
           <div class="fm-slot fm-left">
-            <div class="fm-slot-title">🎯 Eingang</div>
+            <div class="fm-slot-title">{{ tx("fusion.input") }}</div>
             <div class="fm-slot-body">
               <template v-if="fusionInputPreview.length">
                 <span
@@ -845,18 +1146,18 @@ async function doFusion(species, tier) {
                 >
               </template>
               <div v-else class="hint" style="margin: 0">
-                Wähle Spezies &amp; Ziel-Stufe
+                {{ tx("fusion.pickBoth") }}
               </div>
             </div>
           </div>
 
           <div class="fm-core">
             <div class="fm-factory">🏭</div>
-            <div v-if="fusionBusy" class="hint">…</div>
+            <div v-if="fusionBusy" class="hint">{{ tx("common.loadingShort") }}</div>
           </div>
 
           <div class="fm-slot fm-right">
-            <div class="fm-slot-title">✨ Ausgang</div>
+            <div class="fm-slot-title">{{ tx("fusion.output") }}</div>
             <div class="fm-slot-body">
               <template v-if="fusionSelectedGroup && fusionSelectedTier">
                 <span
@@ -873,7 +1174,7 @@ async function doFusion(species, tier) {
 
         <div v-if="!fusionLocked" class="fm-controls">
           <div class="fm-row">
-            <label class="hint" style="margin: 0">Spezies</label>
+            <label class="hint" style="margin: 0">{{ tx("fusion.species") }}</label>
             <div class="fm-species-grid">
               <Button
                 v-for="g in fusionGroups"
@@ -892,7 +1193,7 @@ async function doFusion(species, tier) {
           </div>
 
           <div v-if="fusionSelectedGroup" class="fm-row">
-            <label class="hint" style="margin: 0">Ziel-Stufe</label>
+            <label class="hint" style="margin: 0">{{ tx("fusion.targetTier") }}</label>
             <div class="fm-tier-grid">
               <Button
                 v-for="t in tierList"
@@ -926,7 +1227,7 @@ async function doFusion(species, tier) {
             "
             @click="doFusion(fusionSpecies, fusionTier)"
           >
-            {{ fusionBusy ? "…" : "🏭 Fusion starten" }}
+            {{ fusionBusy ? tx("common.loadingShort") : tx("fusion.start") }}
           </Button>
         </div>
       </div>

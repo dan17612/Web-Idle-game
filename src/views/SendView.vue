@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import { useRoute } from 'vue-router'
 import { formatCoins } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
+import { currentLocaleTag, t } from '../i18n'
 
 const game = useGameStore()
 const auth = useAuthStore()
@@ -30,47 +31,48 @@ async function loadHistory() {
 onMounted(loadHistory)
 
 async function send() {
-  msg.value = ''; error.value = ''
+  msg.value = ''
+  error.value = ''
   busy.value = true
   try {
     await game.sendCoins(form.username.trim(), form.amount)
-    msg.value = `${formatCoins(form.amount)} 🪙 an ${form.username} gesendet.`
+    msg.value = t('send.sentMessage', { amount: formatCoins(form.amount), username: form.username })
     form.username = ''
     await loadHistory()
   } catch (e) {
     error.value = e.message
   } finally {
     busy.value = false
-    setTimeout(() => msg.value = '', 3000)
+    setTimeout(() => { msg.value = '' }, 3000)
   }
 }
 </script>
 
 <template>
-  <h1 class="title">💸 Münzen senden</h1>
-  <p class="subtitle">Schicke anderen Spielern Münzen über ihren Usernamen.</p>
+  <h1 class="title">💸 {{ t('send.title') }}</h1>
+  <p class="subtitle">{{ t('send.subtitle') }}</p>
 
   <form class="card stack" @submit.prevent="send">
-    <InputText v-model="form.username" placeholder="Empfänger-Username" required />
-    <CoinInput v-model="form.amount" placeholder="Betrag (z.B. 10M)" required />
+    <InputText v-model="form.username" :placeholder="t('send.usernamePlaceholder')" required />
+    <CoinInput v-model="form.amount" :placeholder="t('send.amountPlaceholder')" required />
     <Button type="submit" class="btn full" :disabled="busy || !form.username || !form.amount || form.amount < 1">
-      {{ busy ? '...' : 'Senden' }}
+      {{ busy ? t('common.loadingShort') : t('send.send') }}
     </Button>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="msg" class="success">{{ msg }}</p>
   </form>
 
   <div class="card">
-    <h2 class="title" style="font-size:16px;margin:0 0 8px">Letzte Transaktionen</h2>
-    <div v-if="!history.length" class="subtitle">Noch keine Transaktionen.</div>
-    <div v-for="t in history" :key="t.id" class="list-item">
-      <div class="left">{{ t.from_user === auth.user.id ? '⬆️' : '⬇️' }}</div>
+    <h2 class="title" style="font-size:16px;margin:0 0 8px">{{ t('send.recentTransactions') }}</h2>
+    <div v-if="!history.length" class="subtitle">{{ t('send.noTransactions') }}</div>
+    <div v-for="tx in history" :key="tx.id" class="list-item">
+      <div class="left">{{ tx.from_user === auth.user.id ? '⬆️' : '⬇️' }}</div>
       <div class="body">
         <div class="title-sm">
-          {{ t.from_user === auth.user.id ? 'Gesendet' : 'Empfangen' }}
-          · {{ formatCoins(t.amount) }} 🪙
+          {{ tx.from_user === auth.user.id ? t('send.sent') : t('send.received') }}
+          · {{ formatCoins(tx.amount) }} 🪙
         </div>
-        <div class="sub">{{ t.kind }} · {{ new Date(t.created_at).toLocaleString('de-DE') }}</div>
+        <div class="sub">{{ tx.kind }} · {{ new Date(tx.created_at).toLocaleString(currentLocaleTag()) }}</div>
       </div>
     </div>
   </div>

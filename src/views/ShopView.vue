@@ -4,7 +4,8 @@ import { useRoute } from "vue-router";
 import { useGameStore } from "../stores/game";
 import { useAuthStore } from "../stores/auth";
 import { supabase } from "../supabase";
-import { SPECIES, formatCoins } from "../animals";
+import { SPECIES, speciesInfo, formatCoins } from "../animals";
+import { t } from "../i18n";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -138,7 +139,7 @@ async function loadAdminData() {
 async function saveWeight(species) {
   const val = parseInt(weightDraft.value[species], 10);
   if (!(val > 0)) {
-    error.value = "Gewicht muss > 0 sein";
+    error.value = t("shop.weightMustBePositive");
     return;
   }
   if (val === weightMap.value[species]) return;
@@ -179,9 +180,9 @@ const countdown = computed(() => {
 });
 
 const favoriteForFood = computed(() => {
-  const fav = game.favoriteAnimal;
-  if (!fav) return null;
-  const info = SPECIES[fav.species];
+  const fav = game.favoriteAnimal
+  if (!fav) return null
+  const info = speciesInfo(fav.species)
   if (!info) return null;
   return {
     emoji: info.emoji,
@@ -226,7 +227,7 @@ async function buy(key) {
   busyKey.value = key;
   try {
     await game.buyAnimal(key);
-    success.value = SPECIES[key].name + " gekauft!";
+    success.value = t("shop.boughtAnimal", { animal: speciesInfo(key).name });
     await loadShop();
   } catch (e) {
     error.value = e.message;
@@ -241,13 +242,13 @@ async function feed(food) {
   error.value = "";
   success.value = "";
   if (game.boostActive) {
-    error.value = "Boost ist bereits aktiv.";
+    error.value = t("storeErrors.boostAlreadyActive");
     return;
   }
   busyKey.value = "food-" + food.food;
   try {
     const res = await game.feedPet(food.food);
-    success.value = `${food.name} gefüttert! ×${res.boost_multiplier} Boost aktiv.`;
+    success.value = t("shop.foodFedSuccess", { food: food.name, mult: res.boost_multiplier });
   } catch (e) {
     error.value = e.message;
   } finally {
@@ -282,14 +283,14 @@ function adminRestock(species) {
 </script>
 
 <template>
-  <h1 class="title">🛒 Shop</h1>
+  <h1 class="title">🛒 {{ t("shop.title") }}</h1>
 
   <div class="tabs">
     <Button :class="{ active: tab === 'animals' }" @click="tab = 'animals'">
-      🐾 Tiere
+      🐾 {{ t("shop.animalsTab") }}
     </Button>
     <Button :class="{ active: tab === 'food' }" @click="tab = 'food'">
-      🍖 Futter
+      🍖 {{ t("shop.foodTab") }}
     </Button>
   </div>
 
@@ -299,7 +300,7 @@ function adminRestock(species) {
   <template v-if="tab === 'animals'">
     <div class="card row between" style="margin-bottom: 10px">
       <div>
-        <div class="subtitle" style="margin: 0">Nächste Rotation in</div>
+        <div class="subtitle" style="margin: 0">{{ t("shop.nextRotation") }}</div>
         <div
           style="
             font-weight: 800;
@@ -312,9 +313,9 @@ function adminRestock(species) {
         </div>
       </div>
       <div style="text-align: right">
-        <div class="subtitle" style="margin: 0">Im Bestand</div>
+        <div class="subtitle" style="margin: 0">{{ t("shop.inStock") }}</div>
         <div style="font-weight: 800">
-          {{ stockTotal }} Tier{{ stockTotal === 1 ? "" : "e" }}
+          {{ t("shop.stockCount", { count: stockTotal }) }}
         </div>
       </div>
     </div>
@@ -330,9 +331,9 @@ function adminRestock(species) {
         style="cursor: pointer"
       >
         <div>
-          <div style="font-weight: 800">🛠️ Admin-Panel</div>
+          <div style="font-weight: 800">🛠️ {{ t("shop.adminPanelTitle") }}</div>
           <div class="subtitle" style="margin: 2px 0 0">
-            Tiere aktivieren, restocken, Rotation auslösen
+            {{ t("shop.adminPanelSub") }}
           </div>
         </div>
         <div>{{ adminOpen ? "▲" : "▼" }}</div>
@@ -345,14 +346,14 @@ function adminRestock(species) {
           :disabled="busyAdmin === 'rotate'"
           @click="callAdmin('admin_force_rotation', {}, 'rotate')"
         >
-          🎲 Sofort neu würfeln
+          🎲 {{ t("shop.adminRerollNow") }}
         </Button>
 
         <div v-for="s in speciesList" :key="'adm-' + s.key" class="admin-row">
           <div class="admin-left">
             <span style="font-size: 22px">{{ s.info.emoji }}</span>
             <div>
-              <div style="font-weight: 700">{{ s.info.name }}</div>
+              <div style="font-weight: 700">{{ speciesInfo(s.key).name }}</div>
               <div
                 class="subtitle"
                 style="margin: 0; display: flex; gap: 4px; flex-wrap: wrap"
@@ -365,12 +366,12 @@ function adminRestock(species) {
                     color: var(--accent);
                   "
                 >
-                  Restock ×{{ s.forcedQty }}
+                  {{ t("shop.adminRestockCount", { count: s.forcedQty }) }}
                 </span>
                 <span v-if="s.randomQty > 0" class="badge"
-                  >Rotation ×{{ s.randomQty }}</span
+                  >{{ t("shop.adminRotationCount", { count: s.randomQty }) }}</span
                 >
-                <span v-if="s.qty === 0" style="color: var(--muted)">leer</span>
+                <span v-if="s.qty === 0" style="color: var(--muted)">{{ t("shop.adminEmpty") }}</span>
               </div>
             </div>
           </div>
@@ -402,9 +403,9 @@ function adminRestock(species) {
                   )
                 "
               />
-              <span>{{ s.enabled ? "aktiv" : "aus" }}</span>
+              <span>{{ s.enabled ? t("shop.adminActive") : t("shop.adminInactive") }}</span>
             </label>
-            <label class="weight" title="Menge zum Restocken">
+            <label class="weight" :title="t('shop.adminRestockAmount')">
               <span>＋</span>
               <InputText
                 type="number"
@@ -418,7 +419,7 @@ function adminRestock(species) {
               :disabled="busyAdmin === 'f-' + s.key"
               @click="adminRestock(s.key)"
             >
-              Restock
+              {{ t("shop.restock") }}
             </Button>
             <Button
               v-if="s.forcedQty > 0"
@@ -432,7 +433,7 @@ function adminRestock(species) {
                 )
               "
             >
-              Stop
+              {{ t("shop.adminStop") }}
             </Button>
           </div>
         </div>
@@ -442,13 +443,13 @@ function adminRestock(species) {
     <div class="card chest-card">
       <div class="row between" style="align-items:flex-start">
         <div>
-          <div style="font-weight:800;font-size:18px">🎁 Truhe</div>
+          <div style="font-weight:800;font-size:18px">🎁 {{ t("shop.chestTitle") }}</div>
           <div class="subtitle" style="margin:2px 0 0">
-            Zufälliges Tier (gewichtet nach Seltenheit) · 🪙 {{ formatCoins(chestStatus.price) }} / Stk.
+            {{ t("shop.chestSubtitle", { price: formatCoins(chestStatus.price) }) }}
           </div>
         </div>
         <div style="text-align:right">
-          <div class="subtitle" style="margin:0">Diese Rotation</div>
+          <div class="subtitle" style="margin:0">{{ t("shop.thisRotation") }}</div>
           <div style="font-weight:800">
             {{ chestStatus.bought_slot }} / {{ chestStatus.slot_limit }}
           </div>
@@ -470,18 +471,17 @@ function adminRestock(species) {
           @click="buyChest"
         >
           {{
-            busyKey === 'chest' ? '...' :
-            chestRemaining < 1 ? 'Limit erreicht' :
-            chestRemaining < chestQty ? `Nur ${chestRemaining} frei` :
-            `Öffnen · 🪙 ${formatCoins(chestStatus.price * chestQty)}`
+            busyKey === 'chest' ? t('common.loadingShort') :
+            chestRemaining < 1 ? t('shop.limitReached') :
+            chestRemaining < chestQty ? t('shop.onlyFree', { count: chestRemaining }) :
+            t('shop.openFor', { price: formatCoins(chestStatus.price * chestQty) })
           }}
         </Button>
       </div>
     </div>
 
     <p class="subtitle">
-      Angebot rotiert alle 5 Minuten im festen Takt. Jedes Tier pro Bestand
-      einmal kaufbar.
+      {{ t("shop.rotationHint") }}
     </p>
 
     <div v-if="chestAnim" class="chest-modal" @click.self="chestAnim.phase === 'reveal' && closeChestAnim()">
@@ -502,12 +502,12 @@ function adminRestock(species) {
             class="reveal-animal"
             :style="{ animationDelay: (i * 0.25) + 's' }"
           >
-            {{ SPECIES[s]?.emoji || '❓' }}
-            <div class="reveal-name">{{ SPECIES[s]?.name || s }}</div>
+            {{ speciesInfo(s).emoji || '❓' }}
+            <div class="reveal-name">{{ speciesInfo(s).name }}</div>
           </div>
         </div>
       </div>
-      <Button v-if="chestAnim.phase === 'reveal'" class="btn" @click="closeChestAnim">Weiter</Button>
+      <Button v-if="chestAnim.phase === 'reveal'" class="btn" @click="closeChestAnim">{{ t("shop.continue") }}</Button>
     </div>
 
     <div class="grid">
@@ -517,11 +517,11 @@ function adminRestock(species) {
         class="animal-card"
         :class="{ 'out-of-stock': !s.inStock, 'is-forced': s.isForced }"
       >
-        <div v-if="s.isForced" class="ribbon">⭐ Restock</div>
+        <div v-if="s.isForced" class="ribbon">⭐ {{ t("shop.restock") }}</div>
         <div v-if="s.remaining > 1" class="qty-badge">×{{ s.remaining }}</div>
         <div class="animal-emoji">{{ s.info.emoji }}</div>
-        <div class="animal-name">{{ s.info.name }}</div>
-        <div class="animal-meta">+{{ formatCoins(s.info.rate) }} / Sek</div>
+        <div class="animal-name">{{ speciesInfo(s.key).name }}</div>
+        <div class="animal-meta">+{{ formatCoins(s.info.rate) }} / {{ t("shop.perSec") }}</div>
         <div class="animal-cost">🪙 {{ formatCoins(s.info.cost) }}</div>
         <Button
           v-if="s.inStock"
@@ -530,10 +530,10 @@ function adminRestock(species) {
           :disabled="busyKey === s.key || game.displayCoins < s.info.cost"
           @click="buy(s.key)"
         >
-          {{ busyKey === s.key ? "..." : "Kaufen" }}
+          {{ busyKey === s.key ? t("common.loadingShort") : t("shop.buy") }}
         </Button>
-        <div v-else-if="s.qty > 0" class="stock-badge">Schon gekauft</div>
-        <div v-else class="stock-badge">Ausverkauft</div>
+        <div v-else-if="s.qty > 0" class="stock-badge">{{ t("shop.alreadyBought") }}</div>
+        <div v-else class="stock-badge">{{ t("shop.soldOut") }}</div>
       </div>
     </div>
   </template>
@@ -543,9 +543,9 @@ function adminRestock(species) {
       <div class="food-hero-head">
         <div class="food-hero-icon">🍖</div>
         <div>
-          <div class="food-hero-title">Füttern</div>
+          <div class="food-hero-title">{{ t("shop.feedTitle") }}</div>
           <div class="food-hero-sub">
-            Wähle ein Futter für deinen Liebling und aktiviere einen Boost.
+            {{ t("shop.feedSubtitle") }}
           </div>
         </div>
       </div>
@@ -554,15 +554,14 @@ function adminRestock(species) {
           <span class="food-pet-emoji">{{ favoriteForFood.emoji }}</span>
           <span class="food-pet-name">{{ favoriteForFood.name }}</span>
         </div>
-        <div v-else class="food-pet empty">Kein Liebling ausgewählt</div>
+        <div v-else class="food-pet empty">{{ t("shop.noFavoriteSelected") }}</div>
         <div v-if="game.boostActive" class="food-boost-chip">
-          Boost aktiv · {{ fmtMmSs(boostRemaining) }}
+          {{ t("shop.boostActive") }} · {{ fmtMmSs(boostRemaining) }}
         </div>
       </div>
     </div>
     <p class="subtitle food-note">
-      Höherer Boost überschreibt niedrigeren; gleicher Boost verlängert die
-      Dauer.
+      {{ t("shop.boostHint") }}
     </p>
     <div class="grid">
       <div
@@ -574,8 +573,8 @@ function adminRestock(species) {
         <div class="animal-emoji">{{ f.emoji }}</div>
         <div class="animal-name">{{ f.name }}</div>
         <div class="animal-meta food-meta">
-          <span class="food-pill">×{{ f.multiplier }} Boost</span>
-          <span class="food-pill">{{ f.duration_min }} Min</span>
+          <span class="food-pill">×{{ f.multiplier }} {{ t("shop.boost") }}</span>
+          <span class="food-pill">{{ f.duration_min }} {{ t("shop.minutes") }}</span>
         </div>
         <div class="animal-cost">🪙 {{ formatCoins(f.cost) }}</div>
         <Button
@@ -588,7 +587,7 @@ function adminRestock(species) {
           "
           @click="feed(f)"
         >
-          {{ busyKey === "food-" + f.food ? "..." : "Füttern" }}
+          {{ busyKey === "food-" + f.food ? t("common.loadingShort") : t("shop.feedAction") }}
         </Button>
       </div>
     </div>

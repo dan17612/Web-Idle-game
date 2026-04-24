@@ -13,6 +13,7 @@ import Checkbox from 'primevue/checkbox'
 import Select from 'primevue/select'
 import './styles.css'
 import 'primeicons/primeicons.css'
+import { initLocale, t } from './i18n'
 // Zoom global deaktivieren (Pinch, Double-Tap, Gesture-Zoom).
 function disableZoomGestures() {
   let lastTouchEnd = 0
@@ -72,6 +73,7 @@ async function consumeAuthRedirect() {
 }
 
 async function bootstrap() {
+  initLocale()
   await consumeAuthRedirect()
 
   const app = createApp(App)
@@ -87,6 +89,7 @@ async function bootstrap() {
   app.component('Textarea', Textarea)
   app.component('Checkbox', Checkbox)
   app.component('Select', Select)
+  app.config.globalProperties.$t = t
 
   const auth = useAuthStore(pinia)
   await auth.init()

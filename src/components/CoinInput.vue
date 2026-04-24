@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { formatCoins, parseCoinInput } from '../animals'
+import { currentLocaleTag, t } from '../i18n'
 
 const props = defineProps({
   modelValue: { type: [Number, String, null], default: null },
@@ -26,9 +27,9 @@ const parsed = computed(() => parseCoinInput(raw.value))
 const preview = computed(() => {
   if (!raw.value.trim()) return ''
   const n = parsed.value
-  if (n == null) return 'Ungültig'
+  if (n == null) return t('coin.invalid')
   const short = formatCoins(n)
-  const full = n.toLocaleString('de-DE')
+  const full = n.toLocaleString(currentLocaleTag())
   if (String(n) === raw.value.trim() && short === String(n)) return ''
   if (short === full) return full
   return `${short} · ${full}`
