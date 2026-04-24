@@ -110,7 +110,7 @@ const collection = computed(() => {
 // Stats based on historical species_index data (total ever had per tier)
 const stats = computed(() => {
   const s = { normal: 0, gold: 0, diamond: 0, epic: 0, rainbow: 0 }
-  for (const e of entries.value) s[e.tier || 'normal'] = (s[e.tier || 'normal'] || 0) + e.count
+  for (const e of entries.value) s[e.tier || 'normal'] += e.count
   return s
 })
 
