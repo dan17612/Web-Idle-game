@@ -207,7 +207,7 @@ async function signInGoogle() {
             :disabled="busy"
             @click="signInWithMagicLink"
           >
-            {{ t("auth.magicLink") }}
+            Einmal mit Link anmelden
           </Button>
 
           <Button
