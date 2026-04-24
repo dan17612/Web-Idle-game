@@ -20,16 +20,16 @@ const router = useRouter();
 const I18N = {
   de: {
     gift: {
-      title: "Ein Geschenk fuer dich!",
+      title: "Ein Geschenk für dich!",
       subtitle: "Deine Start-Taps sind leer - als neuer Spieler bekommst du ein einmaliges Willkommensgeschenk.",
-      open: "🎁 Geschenk oeffnen",
+      open: "🎁 Geschenk öffnen",
       received: "Du hast erhalten:",
       bonusTaps: "+{count} einmalige Bonus-Taps",
       close: "Super!",
-      openFailed: "Fehler beim Oeffnen des Geschenks"
+      openFailed: "Fehler beim Öffnen des Geschenks"
     },
     welcome: {
-      back: "Willkommen zurueck",
+      back: "Willkommen zurück",
       defaultPlayer: "Spieler",
       profileHint: "-> Profil & Sammlung"
     },
@@ -38,8 +38,8 @@ const I18N = {
       taps: "Taps",
       bonusTitle: "Einmalige Bonus-Taps",
       limitReached: "Limit erreicht. Neue Taps in {time}.",
-      favoriteHint: "ist dein Liebling. Tippe fuer Muenzen.",
-      buyFirst: "Kaufe dein erstes Tier im Shop, um es zu fuettern und zu tippen."
+      favoriteHint: "ist dein Liebling. Tippe für Münzen.",
+      buyFirst: "Kaufe dein erstes Tier im Shop, um es zu füttern und zu tippen."
     },
     upgrades: {
       title: "👆 Tap-Upgrades",
@@ -48,14 +48,14 @@ const I18N = {
       offline: "Offline-Zeit",
       level: "Lvl {lvl}",
       round: "Runde",
-      nextLevel: "Naechster Lvl: {value}",
+      nextLevel: "Nächster Lvl: {value}",
       maximum: "Maximum erreicht",
       max: "MAX",
       upgrade: "⬆ {cost}",
-      noFavorite: "Kein Liebling gewaehlt",
-      chooseFavorite: "Waehle & fuettere deinen Liebling fuer x-Boost.",
-      choose: "⭐ Waehlen",
-      feed: "🍖 Fuettern"
+      noFavorite: "Kein Liebling gewählt",
+      chooseFavorite: "Wähle & füttere deinen Liebling für x-Boost.",
+      choose: "⭐ Wählen",
+      feed: "🍖 Füttern"
     },
     quick: {
       inventory: "Inventar",
@@ -72,21 +72,21 @@ const I18N = {
       release: "Tier freilassen"
     },
     equipped: {
-      title: "🎯 Ausgeruestet",
+      title: "🎯 Ausgerüstet",
       manage: "📦 Inventar",
-      equipBest: "🏆 Beste ausruesten",
+      equipBest: "🏆 Beste ausrüsten",
       freeSlotAria: "Freier Slot {slot} - zum Inventar",
       freeSlot: "Freier Slot",
-      tapToEquip: "Tippen zum Ausruesten"
+      tapToEquip: "Tippen zum Ausrüsten"
     },
     crafter: {
       title: "⚗️ Crafter-Maschine",
-      toggleOpen: "⚗️ Oeffnen",
-      toggleClose: "✕ Schliessen",
+      toggleOpen: "⚗️ Öffnen",
+      toggleClose: "✕ Schließen",
       hint: "Kombiniere Rainbow-Tiere zu einzigartigen Spezies. Gecraftete Tiere gibt es nicht im Shop oder in der Truhe.",
-      pickRecipe: "Rezept waehlen",
+      pickRecipe: "Rezept wählen",
       loading: "Lade Rezepte...",
-      none: "Keine Rezepte verfuegbar.",
+      none: "Keine Rezepte verfügbar.",
       ingredients: "🔸 Zutaten",
       result: "✨ Ergebnis",
       recipe: "Rezept",
@@ -96,15 +96,15 @@ const I18N = {
     },
     fusion: {
       title: "🧬 Fusions-Maschine",
-      toggleOpen: "🧬 Oeffnen",
-      toggleClose: "✕ Schliessen",
-      hint: "Kombiniere gleiche Tiere (normal, nicht ausgeruestet) zu hoeherwertigen Tieren. 3x -> 🥇 Gold, 6x -> 💎 Diamant, 9x -> 🟣 Episch, 12x -> 🌈 Rainbow.",
-      pickSpecies: "Waehle Spezies",
-      none: "Keine normalen, nicht ausgeruesteten Tiere vorhanden.",
+      toggleOpen: "🧬 Öffnen",
+      toggleClose: "✕ Schließen",
+      hint: "Kombiniere gleiche Tiere (normal, nicht ausgerüstet) zu höherwertigen Tieren. 3x -> 🥇 Gold, 6x -> 💎 Diamant, 9x -> 🟣 Episch, 12x -> 🌈 Rainbow.",
+      pickSpecies: "Wähle Spezies",
+      none: "Keine normalen, nicht ausgerüsteten Tiere vorhanden.",
       locked: "🔒 Maschine belegt - nur ein Pet gleichzeitig. Warte, bis das laufende Upgrade fertig ist.",
       input: "🎯 Eingang",
       output: "✨ Ausgang",
-      pickBoth: "Waehle Spezies & Ziel-Stufe",
+      pickBoth: "Wähle Spezies & Ziel-Stufe",
       species: "Spezies",
       targetTier: "Ziel-Stufe",
       start: "🏭 Fusion starten",
