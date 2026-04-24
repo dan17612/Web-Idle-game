@@ -332,7 +332,10 @@ create policy "broadcasts_auth_read" on public.broadcasts for select
 drop policy if exists "idx self read" on public.species_index;
 create policy "idx self read" on public.species_index for select using ((select auth.uid()) = user_id);
 
+-- Allow any authenticated user to read species_index for profile/index views of other users
 drop policy if exists "idx public read" on public.species_index;
+create policy "idx public read" on public.species_index
+  for select using ((select auth.uid()) is not null);
 
 drop policy if exists "gifts recipient read" on public.pending_gifts;
 create policy "gifts recipient read" on public.pending_gifts for select
