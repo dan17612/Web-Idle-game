@@ -12,9 +12,11 @@ const auth = useAuthStore()
 
 const profile = ref(null)
 const animals = ref([])
+const entries = ref([])
 const loading = ref(false)
 const error = ref('')
 const activeTier = reactive({})
+const filter = ref('all')
 
 const username = computed(() => String(route.query.u || auth.profile?.username || ''))
 
@@ -37,9 +39,12 @@ async function load() {
       return
     }
     profile.value = p
-    const { data: a } = await supabase.from('animals_public')
-      .select('id, species, tier, equipped').eq('owner_id', p.id)
+    const [{ data: a }, { data: rows }] = await Promise.all([
+      supabase.from('animals_public').select('id, species, tier, equipped').eq('owner_id', p.id),
+      supabase.from('species_index').select('species, tier, count, first_at').eq('user_id', p.id).order('first_at')
+    ])
     animals.value = a || []
+    entries.value = rows || []
   } catch (e) {
     error.value = e.message
   } finally {
@@ -49,55 +54,91 @@ async function load() {
 onMounted(load)
 watch(() => route.query.u, load)
 
-const collection = computed(() => {
-  const bySpecies = {}
-  for (const a of animals.value) {
-    const tier = a.tier || 'normal'
-    if (!bySpecies[a.species]) {
-      bySpecies[a.species] = { counts: {}, best: 'normal', total: 0 }
-    }
-    const s = bySpecies[a.species]
-    s.counts[tier] = (s.counts[tier] || 0) + 1
-    s.total++
-    if (tierRank[tier] > tierRank[s.best]) s.best = tier
+// Tier counts from historical species_index entries (total ever had per tier)
+const tierCounts = computed(() => {
+  const c = { all: 0, normal: 0, gold: 0, diamond: 0, epic: 0, rainbow: 0 }
+  for (const e of entries.value) {
+    c[e.tier] = (c[e.tier] || 0) + e.count
+    c.all += e.count
   }
+  return c
+})
+
+// Build a lookup of best tier per species across all entries (ignoring filter)
+const allEntriesMap = computed(() => {
+  const map = {}
+  for (const e of entries.value) {
+    if (!map[e.species]) map[e.species] = 'normal'
+    if (tierRank[e.tier] > tierRank[map[e.species]]) map[e.species] = e.tier
+  }
+  return map
+})
+
+const collection = computed(() => {
+  const filtered = filter.value === 'all'
+    ? entries.value
+    : entries.value.filter(e => e.tier === filter.value)
+
+  const map = {}
+  for (const e of filtered) {
+    if (!map[e.species]) map[e.species] = { counts: {}, best: 'normal', total: 0 }
+    const s = map[e.species]
+    s.counts[e.tier] = (s.counts[e.tier] || 0) + e.count
+    s.total += e.count
+    if (tierRank[e.tier] > tierRank[s.best]) s.best = e.tier
+  }
+
   return Object.values(SPECIES)
-    .filter(s => s.enabled !== false || !!bySpecies[s.key])
+    .filter(s => s.enabled !== false || !!allEntriesMap.value[s.key])
     .sort((a, b) => a.cost - b.cost)
     .map(s => {
-      const d = bySpecies[s.key]
+      const d = map[s.key]
       const variants = tierOrder.filter(tt => d?.counts?.[tt])
       return {
         species: s.key,
         info: s,
         owned: !!d,
+        everOwned: !!allEntriesMap.value[s.key],
         total: d?.total || 0,
         counts: d?.counts || {},
-        best: d?.best || null,
+        best: d?.best || allEntriesMap.value[s.key] || null,
         variants
       }
     })
 })
 
+// Stats based on historical species_index data (total ever had per tier)
 const stats = computed(() => {
   const s = { normal: 0, gold: 0, diamond: 0, epic: 0, rainbow: 0 }
-  for (const a of animals.value) s[a.tier || 'normal']++
+  for (const e of entries.value) s[e.tier || 'normal'] += e.count
   return s
 })
 
+const ownedCount = computed(() => Object.keys(allEntriesMap.value).length)
+const totalSpecies = computed(() => collection.value.length)
+
 const badges = computed(() => {
-  const all = collection.value
-  if (!all.length) return []
+  const allSpecies = Object.values(SPECIES).filter(s => s.enabled !== false)
+  if (!allSpecies.length || !entries.value.length) return []
   const out = []
-  const every = all.every(c => c.owned)
+  const every = allSpecies.every(s => !!allEntriesMap.value[s.key])
   if (every) out.push({ key: 'complete', label: t('profile.badges.complete'), emoji: '📚', color: '#9bb0ff' })
-  const minRank = every ? Math.min(...all.map(c => tierRank[c.best])) : -1
+  const minRank = every ? Math.min(...allSpecies.map(s => tierRank[allEntriesMap.value[s.key] || 'normal'])) : -1
   if (minRank >= 1) out.push({ key: 'all-gold', label: t('profile.badges.allGold'), emoji: '🥇', color: '#ffd166' })
   if (minRank >= 2) out.push({ key: 'all-diamond', label: t('profile.badges.allDiamond'), emoji: '💎', color: '#63f2ff' })
   if (minRank >= 3) out.push({ key: 'all-epic', label: t('profile.badges.allEpic'), emoji: '🟣', color: '#a855f7' })
   if (minRank >= 4) out.push({ key: 'all-rainbow', label: t('profile.badges.allRainbow'), emoji: '🌈', color: '#ff6bd6' })
   return out
 })
+
+const filters = computed(() => [
+  { k: 'all', label: t('index.filters.all'), badge: '📚' },
+  { k: 'rainbow', label: t('index.filters.rainbow'), badge: '🌈' },
+  { k: 'epic', label: t('index.filters.epic'), badge: '🟣' },
+  { k: 'diamond', label: t('index.filters.diamond'), badge: '💎' },
+  { k: 'gold', label: t('index.filters.gold'), badge: '🥇' },
+  { k: 'normal', label: t('index.filters.normal'), badge: '⚪' }
+])
 
 function tierFor(c) {
   return activeTier[c.species] || c.best || 'normal'
@@ -161,9 +202,32 @@ function openSend() {
     </div>
 
     <div class="card">
-      <div class="subtitle" style="margin:0 0 8px">
-        {{ t('profile.speciesIndex', { owned: collection.filter(c=>c.owned).length, total: collection.length }) }}
+      <div class="idx-header">
+        <div class="subtitle" style="margin:0">
+          {{ t('index.speciesProgress', { owned: ownedCount, total: totalSpecies, entries: tierCounts.all }) }}
+        </div>
+        <span class="hint">{{ t('index.permanentHint') }}</span>
       </div>
+    </div>
+
+    <div class="card filter-card">
+      <div class="filter-bar">
+        <Button
+          v-for="f in filters"
+          :key="f.k"
+          class="filter-chip"
+          :class="{ active: filter === f.k }"
+          :disabled="f.k !== 'all' && !tierCounts[f.k]"
+          @click="filter = f.k"
+        >
+          <span>{{ f.badge }}</span>
+          <span>{{ f.label }}</span>
+          <span class="filter-count">{{ tierCounts[f.k] || 0 }}</span>
+        </Button>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="col-grid">
         <div
           v-for="c in collection"
@@ -202,7 +266,7 @@ function openSend() {
           <div v-else-if="c.owned" class="col-tier-line" :style="{ color: tierInfo(c.best).color }">
             {{ t(`profile.tiers.${c.best}`) }} · ×{{ c.counts[c.best] }}
           </div>
-          <div v-else class="col-tier-line missing-label">{{ t('profile.missing') }}</div>
+          <div v-else class="col-tier-line missing-label">{{ t('index.notOwnedYet') }}</div>
         </div>
       </div>
     </div>
@@ -296,4 +360,34 @@ function openSend() {
   box-shadow: 0 0 0 1px var(--t) inset;
 }
 .var-count { font-weight: 800; font-size: 10px; opacity: 0.9; }
+
+.idx-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  flex-wrap: wrap;
+}
+.hint { font-size: 10px; color: var(--muted); max-width: 160px; text-align: right; }
+
+.filter-card { padding: 8px; }
+.filter-bar {
+  display: flex; gap: 6px; overflow-x: auto; padding: 2px;
+  scrollbar-width: thin;
+}
+.filter-chip {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #162048; border: 1px solid var(--border);
+  color: inherit; font: inherit;
+  padding: 6px 10px; border-radius: 999px; cursor: pointer;
+  font-size: 12px;
+}
+.filter-chip.active {
+  background: var(--accent); color: #1b1300; border-color: var(--accent);
+  font-weight: 700;
+}
+.filter-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+.filter-count {
+  background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 999px;
+  font-size: 10px; font-weight: 700;
+}
+.filter-chip.active .filter-count { background: rgba(0,0,0,0.15); }
 </style>
