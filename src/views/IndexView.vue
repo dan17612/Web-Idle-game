@@ -62,9 +62,10 @@ const speciesIndex = computed(() => {
     if (tierRank[e.tier] > tierRank[map[e.species].best]) map[e.species].best = e.tier
   }
 
-  // Alle bekannten Spezies durchgehen, damit auch nicht-besessene fehlen
+  // Alle bekannten Spezies durchgehen, damit auch nicht-besessene fehlen.
+  // Deaktivierte Spezies (z. B. Einhorn, Phoenix) werden angezeigt, wenn der Spieler sie besitzt.
   return Object.values(SPECIES)
-    .filter(s => s.enabled !== false)
+    .filter(s => s.enabled !== false || !!map[s.key])
     .sort((a, b) => a.cost - b.cost)
     .map(s => {
       const d = map[s.key]
