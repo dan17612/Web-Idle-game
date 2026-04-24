@@ -9,6 +9,7 @@ import {
   TIERS,
   tierInfo,
   isUpgrading,
+  compareAnimalsByRate,
 } from "../animals";
 import { locale } from "../i18n";
 
@@ -72,7 +73,8 @@ const I18N = {
     },
     equipped: {
       title: "🎯 Ausgeruestet",
-      manage: "📦 Inventar verwalten",
+      manage: "📦 Inventar",
+      equipBest: "🏆 Beste ausruesten",
       freeSlotAria: "Freier Slot {slot} - zum Inventar",
       freeSlot: "Freier Slot",
       tapToEquip: "Tippen zum Ausruesten"
@@ -167,7 +169,8 @@ const I18N = {
     },
     equipped: {
       title: "🎯 Equipped",
-      manage: "📦 Manage inventory",
+      manage: "📦 Inventory",
+      equipBest: "🏆 Equip best",
       freeSlotAria: "Free slot {slot} - to inventory",
       freeSlot: "Free slot",
       tapToEquip: "Tap to equip"
@@ -263,6 +266,7 @@ const I18N = {
     equipped: {
       title: "🎯 Экипировано",
       manage: "📦 Управлять инвентарем",
+      equipBest: "🏆 Экипировать лучших",
       freeSlotAria: "Свободный слот {slot} - в инвентарь",
       freeSlot: "Свободный слот",
       tapToEquip: "Нажми для экипировки"
@@ -319,6 +323,8 @@ function tx(key, vars = {}) {
 const equipped = computed(() =>
   game.animals
     .filter((a) => a.equipped)
+    .slice()
+    .sort(compareAnimalsByRate)
     .map((a) => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier) })),
 );
 
@@ -337,11 +343,14 @@ const favAnimal = computed(() => {
 const favEmoji = computed(() => favAnimal.value?.info.emoji || "🐾");
 
 const ownedAnimals = computed(() =>
-  game.animals.map((a) => ({
-    ...a,
-    info: speciesInfo(a.species),
-    td: tierInfo(a.tier || "normal"),
-  })),
+  game.animals
+    .slice()
+    .sort(compareAnimalsByRate)
+    .map((a) => ({
+      ...a,
+      info: speciesInfo(a.species),
+      td: tierInfo(a.tier || "normal"),
+    })),
 );
 
 const giftClaimed = ref(null); // { species, emoji, name, bonusTaps } after reveal
@@ -380,6 +389,7 @@ function closeGiftDialog() {
 const floats = ref([]);
 let floatId = 0;
 const error = ref("");
+const equipBestBusy = ref(false);
 
 const now = ref(Date.now());
 let clockTimer;
@@ -458,6 +468,20 @@ async function upgradeTap(kind) {
     setTimeout(() => (error.value = ""), 2500);
   } finally {
     upgradingTap.value = "";
+  }
+}
+
+async function equipBest() {
+  if (equipBestBusy.value || !ownedAnimals.value.length) return;
+  equipBestBusy.value = true;
+  error.value = "";
+  try {
+    await game.equipBestAnimals();
+  } catch (err) {
+    error.value = err.message;
+    setTimeout(() => (error.value = ""), 2500);
+  } finally {
+    equipBestBusy.value = false;
   }
 }
 
@@ -921,9 +945,18 @@ async function doFusion(species, tier) {
             >{{ game.equippedCount }} / {{ game.equipSlots }}</span
           >
         </h2>
-        <router-link to="/inventory" class="btn inventory-btn">
-          {{ tx("equipped.manage") }}
-        </router-link>
+        <div class="equip-actions">
+          <router-link to="/inventory" class="btn inventory-btn">
+            {{ tx("equipped.manage") }}
+          </router-link>
+          <Button
+            class="btn inventory-btn"
+            :disabled="equipBestBusy || !ownedAnimals.length"
+            @click="equipBest"
+          >
+            {{ equipBestBusy ? tx("common.loadingShort") : tx("equipped.equipBest") }}
+          </Button>
+        </div>
       </div>
       <div class="farm-grid">
         <template v-for="(cell, i) in slotCells" :key="i">
@@ -1604,6 +1637,12 @@ async function doFusion(species, tier) {
 .equip-card {
   position: relative;
 }
+.equip-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .farm-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -1724,6 +1763,16 @@ async function doFusion(species, tier) {
   align-items: center;
   gap: 4px;
   min-height: 40px;
+}
+@media (max-width: 520px) {
+  .equip-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .equip-actions .inventory-btn {
+    flex: 1 1 150px;
+    justify-content: center;
+  }
 }
 .fusion-toggle {
   padding: 10px 16px;

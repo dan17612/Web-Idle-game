@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useGameStore } from "../stores/game";
 import { supabase } from "../supabase";
-import { speciesInfo, formatCoins, tierInfo, isUpgrading, animalRate } from "../animals";
+import { speciesInfo, formatCoins, tierInfo, isUpgrading, animalRate, compareAnimalsByRate } from "../animals";
 import { t } from "../i18n";
 
 const game = useGameStore();
@@ -36,11 +36,14 @@ const enriched = computed(() =>
 );
 
 const filteredAnimals = computed(() =>
-  enriched.value.filter((a) => {
-    if (filter.value === "all") return true;
-    if (filter.value === "equipped") return a.equipped;
-    return a.t === filter.value;
-  }),
+  enriched.value
+    .filter((a) => {
+      if (filter.value === "all") return true;
+      if (filter.value === "equipped") return a.equipped;
+      return a.t === filter.value;
+    })
+    .slice()
+    .sort(compareAnimalsByRate),
 );
 
 const groupedAnimals = computed(() => {
@@ -81,6 +84,7 @@ const groupedAnimals = computed(() => {
   groups.sort((a, b) => {
     if (a.favoriteInGroup !== b.favoriteInGroup) return a.favoriteInGroup ? -1 : 1;
     if ((a.equippedCount > 0) !== (b.equippedCount > 0)) return a.equippedCount > 0 ? -1 : 1;
+    if ((b.rate || 0) !== (a.rate || 0)) return b.rate - a.rate;
     const ra = tierRank[a.t] ?? 99;
     const rb = tierRank[b.t] ?? 99;
     if (ra !== rb) return ra - rb;

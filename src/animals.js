@@ -93,6 +93,19 @@ export function animalRate(a) {
   return info.rate * (t.multiplier || 1)
 }
 
+export function compareAnimalsByRate(a, b) {
+  const rateDiff = animalRate(b) - animalRate(a)
+  if (rateDiff !== 0) return rateDiff
+
+  const tierDiff = (tierInfo(b.tier || 'normal').order ?? 0) - (tierInfo(a.tier || 'normal').order ?? 0)
+  if (tierDiff !== 0) return tierDiff
+
+  const costDiff = (speciesInfo(b.species).cost || 0) - (speciesInfo(a.species).cost || 0)
+  if (costDiff !== 0) return costDiff
+
+  return String(a.id || '').localeCompare(String(b.id || ''))
+}
+
 export function isUpgrading(a) {
   if (!a.upgrade_ready_at) return false
   return new Date(a.upgrade_ready_at).getTime() > Date.now()

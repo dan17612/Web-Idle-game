@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { supabase } from '../supabase'
-import { SPECIES, loadCatalog, animalRate, isUpgrading, tierInfo } from '../animals'
+import { SPECIES, loadCatalog, animalRate, compareAnimalsByRate, isUpgrading, tierInfo } from '../animals'
 import { useAuthStore } from './auth'
 import { t } from '../i18n'
 
@@ -317,6 +317,31 @@ export const useGameStore = defineStore('game', {
       if (error) throw error
       const a = this.animals.find(x => x.id === animalId)
       if (a) a.equipped = true
+    },
+    async equipBestAnimals() {
+      await this.persist()
+      const bestIds = this.animals
+        .filter(a => !isUpgrading(a))
+        .slice()
+        .sort(compareAnimalsByRate)
+        .slice(0, this.equipSlots)
+        .map(a => a.id)
+      const bestSet = new Set(bestIds)
+      const toUnequip = this.animals.filter(a => a.equipped && !bestSet.has(a.id)).map(a => a.id)
+      const toEquip = bestIds.filter(id => !this.animals.find(a => a.id === id)?.equipped)
+
+      for (const id of toUnequip) {
+        const { error } = await supabase.rpc('unequip_animal', { p_animal_id: id })
+        if (error) throw error
+        const a = this.animals.find(x => x.id === id)
+        if (a) a.equipped = false
+      }
+      for (const id of toEquip) {
+        const { error } = await supabase.rpc('equip_animal', { p_animal_id: id })
+        if (error) throw error
+        const a = this.animals.find(x => x.id === id)
+        if (a) a.equipped = true
+      }
     },
     async unequipAnimal(animalId) {
       await this.persist()

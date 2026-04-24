@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useGameStore } from "../stores/game";
-import { speciesInfo, tierInfo, isUpgrading, formatCoins } from "../animals";
+import { speciesInfo, tierInfo, isUpgrading, formatCoins, animalRate } from "../animals";
 import { locale } from "../i18n";
 
 const game = useGameStore();
@@ -152,6 +152,7 @@ const groups = computed(() => {
         tier,
         info: speciesInfo(a.species),
         td: tierInfo(tier),
+        rate: animalRate(a),
         members: []
       });
     }
@@ -159,6 +160,7 @@ const groups = computed(() => {
   }
   const arr = [...map.values()];
   arr.sort((a, b) => {
+    if ((b.rate || 0) !== (a.rate || 0)) return b.rate - a.rate;
     const ta = tierRank[a.tier] ?? 99;
     const tb = tierRank[b.tier] ?? 99;
     if (ta !== tb) return tb - ta;
@@ -182,7 +184,7 @@ const tiersForSpecies = computed(() => {
   if (!releaseSpecies.value) return [];
   return groups.value
     .filter((g) => g.species === releaseSpecies.value)
-    .sort((a, b) => (tierRank[a.tier] ?? 99) - (tierRank[b.tier] ?? 99));
+    .sort((a, b) => (b.rate || 0) - (a.rate || 0) || (tierRank[b.tier] ?? 99) - (tierRank[a.tier] ?? 99));
 });
 
 const selectedGroup = computed(() =>

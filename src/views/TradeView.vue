@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { useGameStore } from '../stores/game'
-import { speciesInfo, formatCoins, tierInfo } from '../animals'
+import { speciesInfo, formatCoins, tierInfo, animalRate, compareAnimalsByRate } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
 import { locale, currentLocaleTag } from '../i18n'
 
@@ -315,17 +315,17 @@ const sendForm = reactive({ username: '', amount: 0 })
 const pickerOpen = ref('') // 'mine' | 'theirs' | ''
 
 const myTradableAnimals = computed(() =>
-  game.animals.filter(a => !a.equipped).map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier || 'normal') }))
+  game.animals.filter(a => !a.equipped).slice().sort(compareAnimalsByRate).map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier || 'normal') }))
 )
 
 function groupByKey(list) {
   const m = new Map()
   for (const a of list) {
     const key = a.species + '|' + (a.tier || 'normal')
-    if (!m.has(key)) m.set(key, { key, species: a.species, tier: a.tier || 'normal', info: a.info || speciesInfo(a.species), td: a.td || tierInfo(a.tier || 'normal'), list: [] })
+    if (!m.has(key)) m.set(key, { key, species: a.species, tier: a.tier || 'normal', info: a.info || speciesInfo(a.species), td: a.td || tierInfo(a.tier || 'normal'), rate: animalRate(a), list: [] })
     m.get(key).list.push(a)
   }
-  return [...m.values()].sort((a, b) => (a.td.order || 0) - (b.td.order || 0) || a.info.name.localeCompare(b.info.name))
+  return [...m.values()].sort((a, b) => (b.rate || 0) - (a.rate || 0) || (b.td.order || 0) - (a.td.order || 0) || a.info.name.localeCompare(b.info.name))
 }
 
 const myGroups = computed(() => groupByKey(myTradableAnimals.value))
@@ -380,7 +380,7 @@ async function lookupPartner() {
     const { data: animals } = await supabase.from('animals')
       .select('id, species, equipped, tier').eq('owner_id', p.id).eq('equipped', false)
       .order('acquired_at')
-    partnerAnimals.value = (animals || []).map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier || 'normal') }))
+    partnerAnimals.value = (animals || []).slice().sort(compareAnimalsByRate).map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier || 'normal') }))
   } finally {
     partnerSearching.value = false
   }
