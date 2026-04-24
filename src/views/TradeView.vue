@@ -6,11 +6,261 @@ import { useAuthStore } from '../stores/auth'
 import { useGameStore } from '../stores/game'
 import { speciesInfo, formatCoins, tierInfo } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
+import { locale, currentLocaleTag } from '../i18n'
 
 const route = useRoute()
 
 const auth = useAuthStore()
 const game = useGameStore()
+
+const I18N = {
+  de: {
+    title: 'Trade & Senden',
+    tabs: { new: 'Neu', incoming: 'Eingang', outgoing: 'Ausgang', public: 'Public' },
+    mode: { trade: 'Tausch', send: 'Senden' },
+    time: { expired: 'abgelaufen' },
+    labels: {
+      profile: 'Profil',
+      addAnimal: '＋ Tier',
+      coinsOptional: 'Muenzen (optional)',
+      noteOptional: 'Notiz (optional)',
+      accept: 'Annehmen',
+      decline: 'Ablehnen',
+      cancel: 'Zurueckziehen',
+      from: 'Von',
+      to: 'An',
+      expiresIn: 'Laeuft in',
+      hide: 'Ausblenden',
+      yourOffer: 'Dein Angebot',
+      offer: 'Bietet',
+      asks: 'Verlangt',
+      nothing: 'nichts',
+      freeOptionalAnimals: 'frei (optional Tiere)',
+      optionalGiveAnimals: 'Optional: Tiere mitgeben',
+      youGet: 'Du bekommst',
+      youGive: 'Du gibst',
+      tradePartner: 'Handelspartner',
+      anyTaker: 'Beliebiger Annehmer',
+      statusAccepted: 'Angenommen',
+      statusDeclined: 'Abgelehnt',
+      statusCancelled: 'Zurueckgezogen',
+      statusExpired: 'Abgelaufen'
+    },
+    hints: {
+      oneWaySend: 'Einseitige Muenz-Ueberweisung, kein Einverstaendnis noetig.',
+      publicPost: 'Oeffentlich posten',
+      anyoneCanAccept: 'Jeder kann akzeptieren',
+      publicCoinsOnly: 'Nenne nur Muenzen als Gegenleistung (keine konkreten Tier-IDs).',
+      searching: 'Suche...',
+      tradableAnimals: '{count} tauschbare Tiere',
+      noMyTradable: 'Keine tauschbaren Tiere. Rueste sie zuerst ab.',
+      noPartnerTradable: 'Dieser Spieler hat keine tauschbaren Tiere.',
+      picker: 'Klick = +1 · Rechtsklick/Chip-Klick = -1',
+      publicList: 'Oeffentliche Angebote - jeder kann annehmen, der die verlangten Muenzen/Tiere hat.',
+      noPublic: 'Keine oeffentlichen Trades.',
+      noIncoming: 'Keine offenen Anfragen.',
+      noOutgoing: 'Keine gesendeten Anfragen offen.',
+      noHistory: 'Noch keine abgeschlossenen Trades.',
+      noPendingNote: 'Noch keine offenen Trades.',
+      directSendTitle: 'Empfaenger-Username',
+      partnerUsernamePlaceholder: 'Username',
+      amountPlaceholder: 'Betrag (z. B. 10M)'
+    },
+    actions: {
+      send: 'Senden',
+      publishPublic: 'Oeffentlich posten',
+      sendTrade: 'Trade-Anfrage senden'
+    },
+    errors: {
+      notFound: 'Nicht gefunden',
+      isSelf: 'Das bist du selbst',
+      partnerOrPublic: 'Partner waehlen oder oeffentlich posten',
+      tradeEmpty: 'Trade ist komplett leer',
+      notEnoughCoins: 'Nicht genug Muenzen',
+      publicNoSpecificAnimals: 'Oeffentliche Trades koennen keine konkreten Tiere vom Annehmer verlangen (nur Muenzen).',
+      recipientRequired: 'Empfaenger angeben',
+      amountMin: 'Betrag muss >= 1 sein',
+      recipientNotFound: 'Empfaenger nicht gefunden'
+    },
+    success: {
+      publicPosted: 'Oeffentlicher Trade veroeffentlicht!',
+      tradeSent: 'Trade-Anfrage gesendet!',
+      coinsSent: '{amount} 🪙 gesendet',
+      tradeAccepted: 'Trade angenommen!',
+      accepted: 'Angenommen!',
+      declined: 'Abgelehnt',
+      cancelled: 'Zurueckgezogen'
+    }
+  },
+  en: {
+    title: 'Trade & Send',
+    tabs: { new: 'New', incoming: 'Incoming', outgoing: 'Outgoing', public: 'Public' },
+    mode: { trade: 'Trade', send: 'Send' },
+    time: { expired: 'expired' },
+    labels: {
+      profile: 'Profile',
+      addAnimal: '＋ Animal',
+      coinsOptional: 'Coins (optional)',
+      noteOptional: 'Note (optional)',
+      accept: 'Accept',
+      decline: 'Decline',
+      cancel: 'Cancel',
+      from: 'From',
+      to: 'To',
+      expiresIn: 'Expires in',
+      hide: 'Hide',
+      yourOffer: 'Your offer',
+      offer: 'Offers',
+      asks: 'Asks',
+      nothing: 'nothing',
+      freeOptionalAnimals: 'free (optional animals)',
+      optionalGiveAnimals: 'Optional: add animals',
+      youGet: 'You get',
+      youGive: 'You give',
+      tradePartner: 'Trade partner',
+      anyTaker: 'Any taker',
+      statusAccepted: 'Accepted',
+      statusDeclined: 'Declined',
+      statusCancelled: 'Cancelled',
+      statusExpired: 'Expired'
+    },
+    hints: {
+      oneWaySend: 'One-way coin transfer, no consent required.',
+      publicPost: 'Post publicly',
+      anyoneCanAccept: 'Anyone can accept',
+      publicCoinsOnly: 'Only request coins as compensation (no specific animal IDs).',
+      searching: 'Searching...',
+      tradableAnimals: '{count} tradable animals',
+      noMyTradable: 'No tradable animals. Unequip them first.',
+      noPartnerTradable: 'This player has no tradable animals.',
+      picker: 'Click = +1 · Right-click/chip click = -1',
+      publicList: 'Public offers - anyone can accept if they have the required coins/animals.',
+      noPublic: 'No public trades.',
+      noIncoming: 'No open requests.',
+      noOutgoing: 'No sent requests pending.',
+      noHistory: 'No completed trades yet.',
+      noPendingNote: 'No open trades yet.',
+      directSendTitle: 'Recipient username',
+      partnerUsernamePlaceholder: 'Username',
+      amountPlaceholder: 'Amount (e.g. 10M)'
+    },
+    actions: {
+      send: 'Send',
+      publishPublic: 'Post publicly',
+      sendTrade: 'Send trade request'
+    },
+    errors: {
+      notFound: 'Not found',
+      isSelf: 'That is you',
+      partnerOrPublic: 'Choose a partner or post publicly',
+      tradeEmpty: 'Trade is completely empty',
+      notEnoughCoins: 'Not enough coins',
+      publicNoSpecificAnimals: 'Public trades cannot require specific animals from the accepter (coins only).',
+      recipientRequired: 'Enter recipient',
+      amountMin: 'Amount must be >= 1',
+      recipientNotFound: 'Recipient not found'
+    },
+    success: {
+      publicPosted: 'Public trade published!',
+      tradeSent: 'Trade request sent!',
+      coinsSent: '{amount} 🪙 sent',
+      tradeAccepted: 'Trade accepted!',
+      accepted: 'Accepted!',
+      declined: 'Declined',
+      cancelled: 'Cancelled'
+    }
+  },
+  ru: {
+    title: 'Обмен и Отправка',
+    tabs: { new: 'Новый', incoming: 'Входящие', outgoing: 'Исходящие', public: 'Публично' },
+    mode: { trade: 'Обмен', send: 'Отправка' },
+    time: { expired: 'истек' },
+    labels: {
+      profile: 'Профиль',
+      addAnimal: '＋ Животное',
+      coinsOptional: 'Монеты (опц.)',
+      noteOptional: 'Заметка (опц.)',
+      accept: 'Принять',
+      decline: 'Отклонить',
+      cancel: 'Отозвать',
+      from: 'От',
+      to: 'Кому',
+      expiresIn: 'Истекает через',
+      hide: 'Скрыть',
+      yourOffer: 'Ваше предложение',
+      offer: 'Предлагает',
+      asks: 'Просит',
+      nothing: 'ничего',
+      freeOptionalAnimals: 'свободно (животные опц.)',
+      optionalGiveAnimals: 'Опционально: добавить животных',
+      youGet: 'Вы получаете',
+      youGive: 'Вы отдаете',
+      tradePartner: 'Партнер по обмену',
+      anyTaker: 'Любой принимающий',
+      statusAccepted: 'Принят',
+      statusDeclined: 'Отклонен',
+      statusCancelled: 'Отозван',
+      statusExpired: 'Истек'
+    },
+    hints: {
+      oneWaySend: 'Односторонний перевод монет, согласие не требуется.',
+      publicPost: 'Опубликовать публично',
+      anyoneCanAccept: 'Любой может принять',
+      publicCoinsOnly: 'Запрашивайте только монеты (без конкретных ID животных).',
+      searching: 'Поиск...',
+      tradableAnimals: 'обмениваемых животных: {count}',
+      noMyTradable: 'Нет обмениваемых животных. Сначала снимите их.',
+      noPartnerTradable: 'У этого игрока нет обмениваемых животных.',
+      picker: 'Клик = +1 · Правый клик/клик по фишке = -1',
+      publicList: 'Публичные предложения - любой может принять при наличии нужных монет/животных.',
+      noPublic: 'Нет публичных обменов.',
+      noIncoming: 'Нет открытых запросов.',
+      noOutgoing: 'Нет отправленных открытых запросов.',
+      noHistory: 'Пока нет завершенных обменов.',
+      noPendingNote: 'Пока нет открытых обменов.',
+      directSendTitle: 'Username получателя',
+      partnerUsernamePlaceholder: 'Username',
+      amountPlaceholder: 'Сумма (например 10M)'
+    },
+    actions: {
+      send: 'Отправить',
+      publishPublic: 'Опубликовать',
+      sendTrade: 'Отправить запрос обмена'
+    },
+    errors: {
+      notFound: 'Не найдено',
+      isSelf: 'Это вы сами',
+      partnerOrPublic: 'Выберите партнера или опубликуйте публично',
+      tradeEmpty: 'Обмен полностью пустой',
+      notEnoughCoins: 'Недостаточно монет',
+      publicNoSpecificAnimals: 'Публичный обмен не может требовать конкретных животных от принимающего (только монеты).',
+      recipientRequired: 'Укажите получателя',
+      amountMin: 'Сумма должна быть >= 1',
+      recipientNotFound: 'Получатель не найден'
+    },
+    success: {
+      publicPosted: 'Публичный обмен опубликован!',
+      tradeSent: 'Запрос обмена отправлен!',
+      coinsSent: '{amount} 🪙 отправлено',
+      tradeAccepted: 'Обмен принят!',
+      accepted: 'Принято!',
+      declined: 'Отклонено',
+      cancelled: 'Отозвано'
+    }
+  }
+}
+
+function tx(key, vars = {}) {
+  const lang = I18N[locale.value] ? locale.value : 'en'
+  let value = I18N[lang]
+  for (const part of key.split('.')) value = value?.[part]
+  if (value == null) {
+    value = I18N.en
+    for (const part of key.split('.')) value = value?.[part]
+  }
+  const text = String(value ?? key)
+  return text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''))
+}
 
 const tab = ref('new')
 const error = ref('')
@@ -28,7 +278,7 @@ const isPublicOffer = ref(false)
 function fmtExpiry(t) {
   if (!t.expires_at) return ''
   const ms = new Date(t.expires_at).getTime() - Date.now()
-  if (ms <= 0) return 'abgelaufen'
+  if (ms <= 0) return tx('time.expired')
   const d = Math.floor(ms / 86400000)
   const h = Math.floor((ms % 86400000) / 3600000)
   if (d >= 1) return `${d}d ${h}h`
@@ -124,8 +374,8 @@ async function lookupPartner() {
     const escaped = name.replace(/[\\_%]/g, '\\$&')
     const { data: p } = await supabase.from('profiles')
       .select('id, username, coins, avatar_emoji').ilike('username', escaped).maybeSingle()
-    if (!p) { partnerError.value = 'Nicht gefunden'; return }
-    if (p.id === auth.user.id) { partnerError.value = 'Das bist du selbst'; return }
+    if (!p) { partnerError.value = tx('errors.notFound'); return }
+    if (p.id === auth.user.id) { partnerError.value = tx('errors.isSelf'); return }
     partnerProfile.value = p
     const { data: animals } = await supabase.from('animals')
       .select('id, species, equipped, tier').eq('owner_id', p.id).eq('equipped', false)
@@ -155,19 +405,19 @@ function resetForm() {
 
 async function propose() {
   error.value = ''; success.value = ''
-  if (!isPublicOffer.value && !partnerProfile.value) { error.value = 'Partner wählen oder öffentlich posten'; return }
+  if (!isPublicOffer.value && !partnerProfile.value) { error.value = tx('errors.partnerOrPublic'); return }
   const reqAnimals = [...offer.myAnimals]
   const addAnimals = [...offer.theirAnimals]
   const reqCoins = Math.max(0, Math.floor(Number(offer.myCoins) || 0))
   const addCoins = Math.max(0, Math.floor(Number(offer.theirCoins) || 0))
   // Mindestens eine Seite muss etwas geben — Münzen dürfen 0 sein.
   if (reqAnimals.length + reqCoins === 0 && addAnimals.length + addCoins === 0) {
-    error.value = 'Trade ist komplett leer'; return
+    error.value = tx('errors.tradeEmpty'); return
   }
-  if (reqCoins > game.displayCoins) { error.value = 'Nicht genug Münzen'; return }
+  if (reqCoins > game.displayCoins) { error.value = tx('errors.notEnoughCoins'); return }
 
   if (isPublicOffer.value && addAnimals.length > 0) {
-    error.value = 'Öffentliche Trades können keine konkreten Tiere vom Annehmer verlangen (nur Münzen).'
+    error.value = tx('errors.publicNoSpecificAnimals')
     return
   }
   busy.value = true
@@ -182,7 +432,7 @@ async function propose() {
       p_note: offer.note || null
     })
     if (e) throw e
-    success.value = isPublicOffer.value ? 'Öffentlicher Trade veröffentlicht!' : 'Trade-Anfrage gesendet!'
+    success.value = isPublicOffer.value ? tx('success.publicPosted') : tx('success.tradeSent')
     resetForm()
     tab.value = isPublicOffer.value ? 'public' : 'out'
     isPublicOffer.value = false
@@ -196,17 +446,17 @@ async function propose() {
 
 async function sendGift() {
   error.value = ''; success.value = ''
-  if (!sendForm.username.trim()) { error.value = 'Empfänger angeben'; return }
-  if (!sendForm.amount || sendForm.amount < 1) { error.value = 'Betrag muss ≥ 1 sein'; return }
+  if (!sendForm.username.trim()) { error.value = tx('errors.recipientRequired'); return }
+  if (!sendForm.amount || sendForm.amount < 1) { error.value = tx('errors.amountMin'); return }
   busy.value = true
   try {
     const name = sendForm.username.trim()
     const escaped = name.replace(/[\\_%]/g, '\\$&')
     const { data: rcpt } = await supabase.from('profiles')
       .select('username').ilike('username', escaped).maybeSingle()
-    if (!rcpt) throw new Error('Empfänger nicht gefunden')
+    if (!rcpt) throw new Error(tx('errors.recipientNotFound'))
     await game.sendCoins(rcpt.username, sendForm.amount)
-    success.value = `${formatCoins(sendForm.amount)} 🪙 gesendet`
+    success.value = tx('success.coinsSent', { amount: formatCoins(sendForm.amount) })
     sendForm.username = ''
     sendForm.amount = 0
   } catch (e) {
@@ -223,9 +473,9 @@ async function act(id, action) {
     await game.persist()
     const { error: e } = await supabase.rpc(action, { p_trade_id: id })
     if (e) throw e
-    success.value = action === 'accept_trade' ? 'Angenommen!'
-      : action === 'decline_trade' ? 'Abgelehnt'
-      : 'Zurückgezogen'
+    success.value = action === 'accept_trade' ? tx('success.accepted')
+      : action === 'decline_trade' ? tx('success.declined')
+      : tx('success.cancelled')
     await Promise.all([loadTrades(), game.load()])
   } catch (e) { error.value = e.message }
   finally { busy.value = false; setTimeout(() => success.value = '', 2500) }
@@ -280,13 +530,13 @@ function togglePubGroup(tradeId, group, remove = false) {
 async function acceptPublic(t) {
   error.value = ''; success.value = ''
   const ids = [...(publicAccept.value[t.id] || [])]
-  if (Number(t.addressee_coins) > game.displayCoins) { error.value = 'Nicht genug Münzen'; return }
+  if (Number(t.addressee_coins) > game.displayCoins) { error.value = tx('errors.notEnoughCoins'); return }
   busy.value = true
   try {
     await game.persist()
     const { error: e } = await supabase.rpc('accept_public_trade', { p_trade_id: t.id, p_my_animals: ids })
     if (e) throw e
-    success.value = 'Trade angenommen!'
+    success.value = tx('success.tradeAccepted')
     publicAccept.value = { ...publicAccept.value, [t.id]: new Set() }
     await Promise.all([loadTrades(), game.load()])
   } catch (e) { error.value = e.message }
@@ -346,21 +596,29 @@ function tierBadge(a) {
 function tierColor(a) {
   return tierInfo(a?.tier || 'normal').color || ''
 }
+
+function statusLabel(status) {
+  if (status === 'accepted') return tx('labels.statusAccepted')
+  if (status === 'declined') return tx('labels.statusDeclined')
+  if (status === 'cancelled') return tx('labels.statusCancelled')
+  if (status === 'expired') return tx('labels.statusExpired')
+  return status
+}
 </script>
 
 <template>
-  <h1 class="title">🔄 Trade &amp; Senden</h1>
+  <h1 class="title">🔄 {{ tx('title') }}</h1>
 
   <div class="tabs">
-    <Button :class="{ active: tab==='new' }" @click="tab='new'">➕ Neu</Button>
+    <Button :class="{ active: tab==='new' }" @click="tab='new'">➕ {{ tx('tabs.new') }}</Button>
     <Button :class="{ active: tab==='in' }" @click="tab='in'">
-      📥 Eingang<span v-if="incoming.length" class="pill">{{ incoming.length }}</span>
+      📥 {{ tx('tabs.incoming') }}<span v-if="incoming.length" class="pill">{{ incoming.length }}</span>
     </Button>
     <Button :class="{ active: tab==='out' }" @click="tab='out'">
-      📤 Ausgang<span v-if="outgoing.length" class="pill">{{ outgoing.length }}</span>
+      📤 {{ tx('tabs.outgoing') }}<span v-if="outgoing.length" class="pill">{{ outgoing.length }}</span>
     </Button>
     <Button :class="{ active: tab==='public' }" @click="tab='public'">
-      🌐 Public<span v-if="visiblePublicTrades.length" class="pill" style="background:var(--accent-2);color:#001a15">{{ visiblePublicTrades.length }}</span>
+      🌐 {{ tx('tabs.public') }}<span v-if="visiblePublicTrades.length" class="pill" style="background:var(--accent-2);color:#001a15">{{ visiblePublicTrades.length }}</span>
     </Button>
     <Button :class="{ active: tab==='hist' }" @click="tab='hist'">🗂️</Button>
   </div>
@@ -371,17 +629,17 @@ function tierColor(a) {
   <!-- NEU -->
   <template v-if="tab === 'new'">
     <div class="tabs small" style="margin-bottom:10px">
-      <Button :class="{ active: mode==='trade' }" @click="mode='trade'">🔄 Tausch</Button>
-      <Button :class="{ active: mode==='send' }" @click="mode='send'">💸 Senden</Button>
+      <Button :class="{ active: mode==='trade' }" @click="mode='trade'">🔄 {{ tx('mode.trade') }}</Button>
+      <Button :class="{ active: mode==='send' }" @click="mode='send'">💸 {{ tx('mode.send') }}</Button>
     </div>
 
     <!-- SENDEN -->
     <div v-if="mode === 'send'" class="card stack">
-      <div class="subtitle" style="margin:0">Einseitige Münz-Überweisung, kein Einverständnis nötig.</div>
-      <InputText v-model="sendForm.username" placeholder="Empfänger-Username" />
-      <CoinInput v-model="sendForm.amount" placeholder="Betrag (z.B. 10M)" />
+      <div class="subtitle" style="margin:0">{{ tx('hints.oneWaySend') }}</div>
+      <InputText v-model="sendForm.username" :placeholder="tx('hints.directSendTitle')" />
+      <CoinInput v-model="sendForm.amount" :placeholder="tx('hints.amountPlaceholder')" />
       <Button class="btn full" :disabled="busy || !sendForm.username || !sendForm.amount" @click="sendGift">
-        {{ busy ? '...' : 'Senden' }}
+        {{ busy ? '...' : tx('actions.send') }}
       </Button>
     </div>
 
@@ -389,26 +647,26 @@ function tierColor(a) {
     <div v-else>
       <div class="card stack">
         <label class="row between" style="margin:0;gap:6px">
-          <span class="row" style="gap:6px;align-items:center"><Checkbox v-model="isPublicOffer" binary /> 🌐 Öffentlich posten</span>
-          <span class="subtitle" style="margin:0">Jeder kann akzeptieren</span>
+          <span class="row" style="gap:6px;align-items:center"><Checkbox v-model="isPublicOffer" binary /> 🌐 {{ tx('hints.publicPost') }}</span>
+          <span class="subtitle" style="margin:0">{{ tx('hints.anyoneCanAccept') }}</span>
         </label>
         <template v-if="!isPublicOffer">
-          <label class="subtitle" style="margin:0">Handelspartner</label>
-          <InputText v-model="partnerUsername" placeholder="Username" autocomplete="off" />
+          <label class="subtitle" style="margin:0">{{ tx('labels.tradePartner') }}</label>
+          <InputText v-model="partnerUsername" :placeholder="tx('hints.partnerUsernamePlaceholder')" autocomplete="off" />
         </template>
-        <div v-else class="subtitle" style="margin:0">Nenne nur Münzen als Gegenleistung (keine konkreten Tier-IDs).</div>
-        <div v-if="!isPublicOffer && partnerSearching" class="subtitle">Suche…</div>
+        <div v-else class="subtitle" style="margin:0">{{ tx('hints.publicCoinsOnly') }}</div>
+        <div v-if="!isPublicOffer && partnerSearching" class="subtitle">{{ tx('hints.searching') }}</div>
         <div v-else-if="!isPublicOffer && partnerError" class="error">{{ partnerError }}</div>
         <div v-else-if="!isPublicOffer && partnerProfile" class="partner-card">
           <div class="partner-avatar">{{ partnerProfile.avatar_emoji || '👤' }}</div>
           <div style="flex:1">
             <div style="font-weight:700">{{ partnerProfile.username }}</div>
-            <div class="subtitle" style="margin:0">🪙 {{ formatCoins(partnerProfile.coins) }} · {{ partnerAnimals.length }} tauschbare Tiere</div>
+            <div class="subtitle" style="margin:0">🪙 {{ formatCoins(partnerProfile.coins) }} · {{ tx('hints.tradableAnimals', { count: partnerAnimals.length }) }}</div>
           </div>
           <router-link
             class="btn secondary small"
             :to="{ name: 'profile', query: { u: partnerProfile.username } }"
-          >Profil</router-link>
+          >{{ tx('labels.profile') }}</router-link>
         </div>
       </div>
 
@@ -424,12 +682,12 @@ function tierColor(a) {
               <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
               <span class="chip-count">×{{ g.selected }}</span>
             </div>
-            <Button class="chip-add" @click="pickerOpen = pickerOpen==='mine'?'':'mine'">＋ Tier</Button>
+            <Button class="chip-add" @click="pickerOpen = pickerOpen==='mine'?'':'mine'">{{ tx('labels.addAnimal') }}</Button>
           </div>
-          <CoinInput v-model="offer.myCoins" placeholder="Münzen (optional)" />
+          <CoinInput v-model="offer.myCoins" :placeholder="tx('labels.coinsOptional')" />
 
           <div v-if="pickerOpen==='mine'" class="picker">
-            <div v-if="!myGroups.length" class="subtitle">Keine tauschbaren Tiere. Rüste sie zuerst ab.</div>
+            <div v-if="!myGroups.length" class="subtitle">{{ tx('hints.noMyTradable') }}</div>
             <div v-else class="picker-grid">
               <div v-for="g in myGroups" :key="g.key"
                    class="pick"
@@ -445,7 +703,7 @@ function tierColor(a) {
               </div>
             </div>
             <div v-if="myGroups.length" class="subtitle" style="margin-top:6px;font-size:11px">
-              Klick = +1 · Rechtsklick/Chip-Klick = −1
+              {{ tx('hints.picker') }}
             </div>
           </div>
         </div>
@@ -456,19 +714,19 @@ function tierColor(a) {
         <div class="side">
           <div class="side-title">
             <span class="arrow">←</span>
-            <span class="who">{{ isPublicOffer ? 'Beliebiger Annehmer' : partnerProfile.username }}</span>
+            <span class="who">{{ isPublicOffer ? tx('labels.anyTaker') : partnerProfile.username }}</span>
           </div>
           <div v-if="!isPublicOffer" class="slots">
             <div v-for="g in theirSelectedGroups" :key="g.key" class="chip-anim" @click="toggleTheirsGroup(g, true)">
               <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
               <span class="chip-count">×{{ g.selected }}</span>
             </div>
-            <Button class="chip-add" @click="pickerOpen = pickerOpen==='theirs'?'':'theirs'">＋ Tier</Button>
+            <Button class="chip-add" @click="pickerOpen = pickerOpen==='theirs'?'':'theirs'">{{ tx('labels.addAnimal') }}</Button>
           </div>
-          <CoinInput v-model="offer.theirCoins" placeholder="Münzen (optional)" />
+          <CoinInput v-model="offer.theirCoins" :placeholder="tx('labels.coinsOptional')" />
 
           <div v-if="pickerOpen==='theirs'" class="picker">
-            <div v-if="!partnerGroups.length" class="subtitle">Dieser Spieler hat keine tauschbaren Tiere.</div>
+            <div v-if="!partnerGroups.length" class="subtitle">{{ tx('hints.noPartnerTradable') }}</div>
             <div v-else class="picker-grid">
               <div v-for="g in partnerGroups" :key="g.key"
                    class="pick"
@@ -488,9 +746,9 @@ function tierColor(a) {
       </div>
 
       <div v-if="isPublicOffer || partnerProfile" class="card stack">
-        <InputText v-model="offer.note" maxlength="200" placeholder="Notiz (optional)" />
+        <InputText v-model="offer.note" maxlength="200" :placeholder="tx('labels.noteOptional')" />
         <Button class="btn full" :disabled="busy" @click="propose">
-          {{ busy ? '...' : (isPublicOffer ? 'Öffentlich posten' : 'Trade-Anfrage senden') }}
+          {{ busy ? '...' : (isPublicOffer ? tx('actions.publishPublic') : tx('actions.sendTrade')) }}
         </Button>
       </div>
     </div>
@@ -498,43 +756,43 @@ function tierColor(a) {
 
   <!-- PUBLIC -->
   <template v-if="tab === 'public'">
-    <p class="subtitle">Öffentliche Angebote — jeder kann annehmen, der die verlangten Münzen/Tiere hat.</p>
-    <div v-if="!visiblePublicTrades.length" class="card subtitle">Keine öffentlichen Trades.</div>
+    <p class="subtitle">{{ tx('hints.publicList') }}</p>
+    <div v-if="!visiblePublicTrades.length" class="card subtitle">{{ tx('hints.noPublic') }}</div>
     <div v-for="t in visiblePublicTrades" :key="t.id" class="trade-row card">
       <div class="row between">
-        <div style="font-weight:700">Von {{ t.requester_username }}</div>
+        <div style="font-weight:700">{{ tx('labels.from') }} {{ t.requester_username }}</div>
         <div class="row" style="gap:6px;align-items:center">
-          <span v-if="t.expires_at" class="badge" title="Läuft in">⏳ {{ fmtExpiry(t) }}</span>
+          <span v-if="t.expires_at" class="badge" :title="tx('labels.expiresIn')">⏳ {{ fmtExpiry(t) }}</span>
           <Button
             v-if="t.requester_id !== auth.user.id"
             class="btn secondary small"
-            title="Ausblenden"
+            :title="tx('labels.hide')"
             @click="hidePublicTrade(t.id)"
           >🙈</Button>
-          <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString('de-DE') }}</span>
+          <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString(currentLocaleTag()) }}</span>
         </div>
       </div>
       <div class="row sides-mini">
         <div class="side-mini">
-          <div class="mini-label">Bietet</div>
+          <div class="mini-label">{{ tx('labels.offer') }}</div>
           <div class="mini-row">
             <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
-            <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">nichts</span>
+            <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">{{ tx('labels.nothing') }}</span>
           </div>
         </div>
         <div class="arrow-mini">⇄</div>
         <div class="side-mini">
-          <div class="mini-label">Verlangt</div>
+          <div class="mini-label">{{ tx('labels.asks') }}</div>
           <div class="mini-row">
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
-            <span v-else class="subtitle">frei (optional Tiere)</span>
+            <span v-else class="subtitle">{{ tx('labels.freeOptionalAnimals') }}</span>
           </div>
         </div>
       </div>
       <div v-if="t.note" class="subtitle" style="margin:4px 0 0">„{{ t.note }}"</div>
       <template v-if="t.requester_id !== auth.user.id">
-        <div class="subtitle" style="margin:6px 0 4px">Optional: Tiere mitgeben</div>
+        <div class="subtitle" style="margin:6px 0 4px">{{ tx('labels.optionalGiveAnimals') }}</div>
         <div class="picker-grid">
           <div v-for="g in myGroups" :key="g.key"
                class="pick"
@@ -550,62 +808,62 @@ function tierColor(a) {
           </div>
         </div>
         <Button class="btn full" style="margin-top:8px" :disabled="busy" @click="acceptPublic(t)">
-          {{ busy ? '...' : 'Annehmen' }}
+          {{ busy ? '...' : tx('labels.accept') }}
         </Button>
       </template>
       <div v-else class="row" style="gap:6px;margin-top:8px">
-        <span class="badge">Dein Angebot</span>
-        <Button class="btn danger small" :disabled="busy" @click="act(t.id, 'cancel_trade')">Zurückziehen</Button>
+        <span class="badge">{{ tx('labels.yourOffer') }}</span>
+        <Button class="btn danger small" :disabled="busy" @click="act(t.id, 'cancel_trade')">{{ tx('labels.cancel') }}</Button>
       </div>
     </div>
   </template>
 
   <!-- EINGANG -->
   <template v-if="tab === 'in'">
-    <div v-if="!incoming.length" class="card subtitle">Keine offenen Anfragen.</div>
+    <div v-if="!incoming.length" class="card subtitle">{{ tx('hints.noIncoming') }}</div>
     <div v-for="t in incoming" :key="t.id" class="trade-row card">
       <div class="row between">
-        <div style="font-weight:700">Von {{ t.requester_username }}</div>
-        <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString('de-DE') }}</span>
+        <div style="font-weight:700">{{ tx('labels.from') }} {{ t.requester_username }}</div>
+        <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString(currentLocaleTag()) }}</span>
       </div>
       <div class="row sides-mini">
         <div class="side-mini">
-          <div class="mini-label">Du bekommst</div>
+          <div class="mini-label">{{ tx('labels.youGet') }}</div>
           <div class="mini-row">
             <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
-            <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">nichts</span>
+            <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">{{ tx('labels.nothing') }}</span>
           </div>
         </div>
         <div class="arrow-mini">⇄</div>
         <div class="side-mini">
-          <div class="mini-label">Du gibst</div>
+          <div class="mini-label">{{ tx('labels.youGive') }}</div>
           <div class="mini-row">
             <span v-for="a in t.addressee_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
-            <span v-if="!t.addressee_animal_details.length && Number(t.addressee_coins) === 0" class="subtitle">nichts</span>
+            <span v-if="!t.addressee_animal_details.length && Number(t.addressee_coins) === 0" class="subtitle">{{ tx('labels.nothing') }}</span>
           </div>
         </div>
       </div>
       <div v-if="t.note" class="subtitle" style="margin:4px 0 0">„{{ t.note }}"</div>
       <div class="row" style="gap:6px;margin-top:8px">
-        <Button class="btn" :disabled="busy" @click="act(t.id, 'accept_trade')">✓ Annehmen</Button>
-        <Button class="btn secondary" :disabled="busy" @click="act(t.id, 'decline_trade')">✗ Ablehnen</Button>
+        <Button class="btn" :disabled="busy" @click="act(t.id, 'accept_trade')">✓ {{ tx('labels.accept') }}</Button>
+        <Button class="btn secondary" :disabled="busy" @click="act(t.id, 'decline_trade')">✗ {{ tx('labels.decline') }}</Button>
       </div>
     </div>
   </template>
 
   <!-- AUSGANG -->
   <template v-if="tab === 'out'">
-    <div v-if="!outgoing.length" class="card subtitle">Keine gesendeten Anfragen offen.</div>
+    <div v-if="!outgoing.length" class="card subtitle">{{ tx('hints.noOutgoing') }}</div>
     <div v-for="t in outgoing" :key="t.id" class="trade-row card">
       <div class="row between">
-        <div style="font-weight:700">An {{ t.addressee_username }}</div>
-        <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString('de-DE') }}</span>
+        <div style="font-weight:700">{{ tx('labels.to') }} {{ t.addressee_username }}</div>
+        <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString(currentLocaleTag()) }}</span>
       </div>
       <div class="row sides-mini">
         <div class="side-mini">
-          <div class="mini-label">Du gibst</div>
+          <div class="mini-label">{{ tx('labels.youGive') }}</div>
           <div class="mini-row">
             <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
@@ -613,28 +871,28 @@ function tierColor(a) {
         </div>
         <div class="arrow-mini">⇄</div>
         <div class="side-mini">
-          <div class="mini-label">Du bekommst</div>
+          <div class="mini-label">{{ tx('labels.youGet') }}</div>
           <div class="mini-row">
             <span v-for="a in t.addressee_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
           </div>
         </div>
       </div>
-      <Button class="btn danger" :disabled="busy" @click="act(t.id, 'cancel_trade')" style="margin-top:8px">Zurückziehen</Button>
+      <Button class="btn danger" :disabled="busy" @click="act(t.id, 'cancel_trade')" style="margin-top:8px">{{ tx('labels.cancel') }}</Button>
     </div>
   </template>
 
   <!-- HISTORIE -->
   <template v-if="tab === 'hist'">
-    <div v-if="!history.length" class="card subtitle">Noch keine abgeschlossenen Trades.</div>
+    <div v-if="!history.length" class="card subtitle">{{ tx('hints.noHistory') }}</div>
     <div v-for="t in history" :key="t.id" class="trade-row card" :class="'status-' + t.status">
       <div class="row between">
         <div style="font-weight:700">
-          <template v-if="t.requester_id === auth.user.id">An {{ t.addressee_username }}</template>
-          <template v-else>Von {{ t.requester_username }}</template>
-          · <span class="badge">{{ t.status }}</span>
+          <template v-if="t.requester_id === auth.user.id">{{ tx('labels.to') }} {{ t.addressee_username }}</template>
+          <template v-else>{{ tx('labels.from') }} {{ t.requester_username }}</template>
+          · <span class="badge">{{ statusLabel(t.status) }}</span>
         </div>
-        <span class="subtitle" style="margin:0">{{ new Date(t.closed_at || t.created_at).toLocaleString('de-DE') }}</span>
+        <span class="subtitle" style="margin:0">{{ new Date(t.closed_at || t.created_at).toLocaleString(currentLocaleTag()) }}</span>
       </div>
       <div class="row sides-mini">
         <div class="side-mini">

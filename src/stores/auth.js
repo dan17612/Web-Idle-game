@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { supabase, AUTH_REDIRECT_URL } from '../supabase'
+import { t } from '../i18n'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -48,7 +49,7 @@ export const useAuthStore = defineStore('auth', {
         this.profile = null
         this.identities = []
         this.session = null
-        throw new Error('Dein Account ist gebannt.')
+        throw new Error(t('storeErrors.accountBanned'))
       }
     },
     async loadIdentities() {
@@ -101,7 +102,7 @@ export const useAuthStore = defineStore('auth', {
     async unlinkGoogleIdentity() {
       await this.loadIdentities()
       const googleIdentity = (this.identities || []).find((i) => i.provider === 'google')
-      if (!googleIdentity) throw new Error('Google ist nicht verknüpft.')
+      if (!googleIdentity) throw new Error(t('storeErrors.googleNotLinked'))
       const { error } = await supabase.auth.unlinkIdentity(googleIdentity)
       if (error) throw error
       await this.loadIdentities()
@@ -138,12 +139,12 @@ export const useAuthStore = defineStore('auth', {
     },
     async changeUsername(newName) {
       const name = String(newName || '').trim()
-      if (name.length < 3) throw new Error('Username mind. 3 Zeichen')
+      if (name.length < 3) throw new Error(t('storeErrors.usernameMin'))
       const escaped = name.replace(/[\\_%]/g, '\\$&')
       const { data: existing } = await supabase.from('profiles')
         .select('id, username').ilike('username', escaped).maybeSingle()
       if (existing && existing.id !== this.user?.id) {
-        throw new Error('Username ist bereits vergeben (Groß-/Kleinschreibung wird ignoriert).')
+        throw new Error(t('storeErrors.usernameTaken'))
       }
       const { data, error } = await supabase.rpc('change_username', { p_new: name })
       if (error) throw error

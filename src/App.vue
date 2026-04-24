@@ -7,6 +7,7 @@ import { SpeedInsights } from "@vercel/speed-insights/vue";
 import { supabase } from "./supabase";
 import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
+import { t } from "./i18n";
 
 const adminOpen = ref(false);
 
@@ -145,23 +146,27 @@ async function hardReload() {
           <span class="coin">🪙</span>
           <span class="amount">{{ formatCoins(game.displayCoins) }}</span>
         </div>
+        <router-link to="/tickets" class="balance tickets-balance" :title="t('app.nav.tickets')">
+          <span class="coin">🎟️</span>
+          <span class="amount">{{ formatCoins(game.tickets) }}</span>
+        </router-link>
         <Button
           type="button"
           class="settings-link refresh-btn"
-          title="Daten aktualisieren"
+          :title="t('app.refreshData')"
           :disabled="reloading"
           @click="softRefresh"
         >
           <i :class="['pi', 'pi-refresh', { 'pi-spin': reloading }]" />
         </Button>
-        <router-link to="/settings" class="settings-link" title="Einstellungen"
+        <router-link to="/settings" class="settings-link" :title="t('app.settings')"
           >⚙️</router-link
         >
       </div>
     </header>
 
     <main class="content" :class="{ 'no-nav': !showNav }">
-      <div v-if="auth.loading" class="loader">Lädt…</div>
+      <div v-if="auth.loading" class="loader">{{ t('common.loading') }}</div>
       <router-view v-else />
     </main>
 
@@ -179,8 +184,8 @@ async function hardReload() {
     >
       <div class="gift-dialog">
         <div class="gift-burst">🎁</div>
-        <div class="gift-title">Geschenk erhalten!</div>
-        <div class="gift-sub">Ein Admin hat dir etwas geschickt.</div>
+        <div class="gift-title">{{ t('app.giftReceivedTitle') }}</div>
+        <div class="gift-sub">{{ t('app.giftReceivedSub') }}</div>
         <div class="gift-list">
           <div v-for="g in game.pendingGiftToast" :key="g.id" class="gift-item">
             <div class="gift-line">
@@ -195,23 +200,23 @@ async function hardReload() {
             <div v-if="g.note" class="gift-note">„{{ g.note }}"</div>
           </div>
         </div>
-        <Button class="btn full" @click="game.pendingGiftToast = null">Danke!</Button>
+        <Button class="btn full" @click="game.pendingGiftToast = null">{{ t('app.giftThanks') }}</Button>
       </div>
     </div>
 
     <nav v-if="showNav" class="bottom-nav">
       <router-link to="/shop" class="nav-item">
-        <span class="ico">🛒</span><span>Shop</span>
+        <span class="ico">🛒</span><span>{{ t('app.nav.shop') }}</span>
       </router-link>
       <router-link to="/trade" class="nav-item">
-        <span class="ico">🔄</span><span>Trade</span>
+        <span class="ico">🔄</span><span>{{ t('app.nav.trade') }}</span>
       </router-link>
-      <router-link to="/" class="nav-fab" title="Farm">🏡</router-link>
+      <router-link to="/" class="nav-fab" :title="t('app.nav.home')">🏡</router-link>
       <router-link to="/friends" class="nav-item">
-        <span class="ico">🤝</span><span>Freunde</span>
+        <span class="ico">🤝</span><span>{{ t('app.nav.friends') }}</span>
       </router-link>
       <router-link to="/leaderboard" class="nav-item">
-        <span class="ico">🏆</span><span>Rang</span>
+        <span class="ico">🏆</span><span>{{ t('app.nav.rank') }}</span>
       </router-link>
     </nav>
 
@@ -219,7 +224,7 @@ async function hardReload() {
       v-if="showNav && auth.profile?.is_admin"
       class="admin-fab"
       @click="adminOpen = true"
-      title="Admin"
+      :title="t('app.admin')"
     >
       🛠️
     </Button>
@@ -301,6 +306,12 @@ async function hardReload() {
   filter: drop-shadow(0 0 20px rgba(255, 209, 102, 0.6));
   margin-bottom: 6px;
 }
+.tickets-balance {
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s;
+}
+.tickets-balance:hover { transform: scale(1.05); }
 .gift-title { font-weight: 800; font-size: 22px; color: var(--accent); }
 .gift-sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
 .gift-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }

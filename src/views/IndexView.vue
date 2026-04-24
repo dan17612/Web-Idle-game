@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { SPECIES, loadCatalog, tierInfo } from '../animals'
+import { t } from '../i18n'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -12,49 +13,51 @@ const entries = ref([])
 const profile = ref(null)
 const loading = ref(false)
 const error = ref('')
-const filter = ref('all') // all | normal | gold | diamond | epic | rainbow
+const filter = ref('all')
 
-const tierOrder = ['normal', 'gold', 'diamond', 'epic', 'rainbow']
 const tierRank = { normal: 0, gold: 1, diamond: 2, epic: 3, rainbow: 4 }
 
 const username = computed(() => String(route.query.u || auth.profile?.username || ''))
-const isSelf = computed(() => auth.profile?.username === username.value)
 
 async function load() {
   if (!username.value) return
-  loading.value = true; error.value = ''
+  loading.value = true
+  error.value = ''
   try {
     if (!Object.keys(SPECIES).length) await loadCatalog()
     const { data: p, error: pe } = await supabase.from('profiles')
       .select('id, username, avatar_emoji').eq('username', username.value).maybeSingle()
     if (pe) throw pe
-    if (!p) { error.value = 'Spieler nicht gefunden'; return }
+    if (!p) {
+      error.value = t('index.playerNotFound')
+      return
+    }
     profile.value = p
     const { data: rows } = await supabase.from('species_index')
       .select('species, tier, count, first_at')
       .eq('user_id', p.id)
       .order('first_at')
     entries.value = rows || []
-  } catch (e) { error.value = e.message }
-  finally { loading.value = false }
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    loading.value = false
+  }
 }
 onMounted(load)
 watch(() => route.query.u, load)
 
-// Stats pro Tier (global)
 const tierCounts = computed(() => {
   const c = { all: entries.value.length, normal: 0, gold: 0, diamond: 0, epic: 0, rainbow: 0 }
   for (const e of entries.value) c[e.tier] = (c[e.tier] || 0) + 1
   return c
 })
 
-// Gefilterte Ansicht: gruppiert nach Spezies
 const speciesIndex = computed(() => {
   const filtered = filter.value === 'all'
     ? entries.value
     : entries.value.filter(e => e.tier === filter.value)
 
-  // Gruppieren je Spezies → Map: species → { tiers: [{tier, count, first_at}], best }
   const map = {}
   for (const e of filtered) {
     if (!map[e.species]) map[e.species] = { tiers: [], best: 'normal' }
@@ -62,7 +65,6 @@ const speciesIndex = computed(() => {
     if (tierRank[e.tier] > tierRank[map[e.species].best]) map[e.species].best = e.tier
   }
 
-  // Alle bekannten Spezies durchgehen, damit auch nicht-besessene fehlen
   return Object.values(SPECIES)
     .filter(s => s.enabled !== false)
     .sort((a, b) => a.cost - b.cost)
@@ -73,7 +75,7 @@ const speciesIndex = computed(() => {
         info: s,
         owned: !!d,
         tiers: d ? d.tiers.sort((a, b) => tierRank[b.tier] - tierRank[a.tier]) : [],
-        best: d?.best || null,
+        best: d?.best || null
       }
     })
 })
@@ -81,19 +83,19 @@ const speciesIndex = computed(() => {
 const ownedCount = computed(() => speciesIndex.value.filter(x => x.owned).length)
 const totalSpecies = computed(() => speciesIndex.value.length)
 
-const filters = [
-  { k: 'all', label: 'Alle', badge: '📚' },
-  { k: 'rainbow', label: 'Rainbow', badge: '🌈' },
-  { k: 'epic', label: 'Episch', badge: '🟣' },
-  { k: 'diamond', label: 'Diamant', badge: '💎' },
-  { k: 'gold', label: 'Gold', badge: '🥇' },
-  { k: 'normal', label: 'Normal', badge: '⚪' },
-]
+const filters = computed(() => [
+  { k: 'all', label: t('index.filters.all'), badge: '📚' },
+  { k: 'rainbow', label: t('index.filters.rainbow'), badge: '🌈' },
+  { k: 'epic', label: t('index.filters.epic'), badge: '🟣' },
+  { k: 'diamond', label: t('index.filters.diamond'), badge: '💎' },
+  { k: 'gold', label: t('index.filters.gold'), badge: '🥇' },
+  { k: 'normal', label: t('index.filters.normal'), badge: '⚪' }
+])
 </script>
 
 <template>
-  <h1 class="title">🏆 Spezies-Index</h1>
-  <div v-if="loading" class="card subtitle">Lädt…</div>
+  <h1 class="title">🏆 {{ t('index.title') }}</h1>
+  <div v-if="loading" class="card subtitle">{{ t('common.loading') }}</div>
   <p v-else-if="error" class="error">{{ error }}</p>
 
   <template v-else-if="profile">
@@ -102,10 +104,10 @@ const filters = [
       <div style="flex:1">
         <div style="font-weight:800">{{ profile.username }}</div>
         <div class="subtitle" style="margin:0">
-          {{ ownedCount }} / {{ totalSpecies }} Spezies · {{ entries.length }} Einträge
+          {{ t('index.speciesProgress', { owned: ownedCount, total: totalSpecies, entries: entries.length }) }}
         </div>
       </div>
-      <span class="hint">Einträge bleiben dauerhaft — auch nach Verkauf/Trade.</span>
+      <span class="hint">{{ t('index.permanentHint') }}</span>
     </div>
 
     <div class="card filter-card">
@@ -143,17 +145,17 @@ const filters = [
           <div class="idx-name">{{ c.info.name }}</div>
           <div v-if="c.owned" class="tier-chips">
             <span
-              v-for="t in c.tiers"
-              :key="t.tier"
+              v-for="tt in c.tiers"
+              :key="tt.tier"
               class="tc"
-              :style="{ '--t': tierInfo(t.tier).color }"
-              :title="`${t.tier} · ×${t.count}`"
+              :style="{ '--t': tierInfo(tt.tier).color }"
+              :title="`${tt.tier} · ×${tt.count}`"
             >
-              {{ tierInfo(t.tier).badge || '⚪' }}
-              <span class="tc-n">{{ t.count }}</span>
+              {{ tierInfo(tt.tier).badge || '⚪' }}
+              <span class="tc-n">{{ tt.count }}</span>
             </span>
           </div>
-          <div v-else class="idx-missing">noch nicht besessen</div>
+          <div v-else class="idx-missing">{{ t('index.notOwnedYet') }}</div>
         </div>
       </div>
     </div>

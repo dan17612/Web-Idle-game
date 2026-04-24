@@ -2,6 +2,7 @@
 import { reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
+import { t } from "../i18n";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -32,18 +33,18 @@ async function signInOrSignUpWithPassword() {
   const password = form.password;
 
   if (!email) {
-    error.value = "Bitte E-Mail eingeben.";
+    error.value = t("auth.errors.enterEmail");
     return;
   }
   if (!password || password.length < 6) {
-    error.value = "Bitte Passwort mit mindestens 6 Zeichen eingeben.";
+    error.value = t("auth.errors.enterPasswordMin");
     return;
   }
 
   busy.value = true;
   try {
     await auth.signInWithPassword(email, password);
-    info.value = "Angemeldet.";
+    info.value = t("auth.infoSignedIn");
     return;
   } catch (e) {
     const msg = cleanMessage(e?.message || String(e));
@@ -60,8 +61,7 @@ async function signInOrSignUpWithPassword() {
 
   try {
     await auth.signUpWithPassword(email, password);
-    info.value =
-      "Neues Konto erstellt. Falls noetig, bitte E-Mail bestaetigen.";
+    info.value = t("auth.infoAccountCreated");
   } catch (e) {
     const msg = cleanMessage(e?.message || String(e));
     if (
@@ -69,7 +69,7 @@ async function signInOrSignUpWithPassword() {
       msg.includes("already been registered")
     ) {
       error.value =
-        "Diese E-Mail existiert bereits. Bitte Passwort pruefen oder Einmal-Link nutzen.";
+        t("auth.errors.emailExists");
       return;
     }
     throw e;
@@ -84,14 +84,14 @@ async function signInWithMagicLink() {
 
   const email = form.email.trim();
   if (!email) {
-    error.value = "Bitte erst eine E-Mail eingeben.";
+    error.value = t("auth.errors.enterEmailFirst");
     return;
   }
 
   busy.value = true;
   try {
     await auth.sendMagicLink(email);
-    info.value = "Einmal-Link gesendet. Bitte Postfach pruefen.";
+    info.value = t("auth.infoMagicSent");
   } catch (e) {
     error.value = e?.message || String(e);
   } finally {
@@ -120,12 +120,12 @@ async function signInGoogle() {
         <div class="hero-mark">🐾</div>
         <div class="hero">Zoo Empire</div>
         <p class="hero-subtitle">
-          Sammle Tiere, verdiene Muenzen, tausche mit Freunden.
+          {{ t("auth.subtitle") }}
         </p>
       </header>
 
       <div class="card stack auth-card">
-        <h1 class="auth-title">Anmelden oder registrieren</h1>
+        <h1 class="auth-title">{{ t("auth.title") }}</h1>
         <Button
           type="button"
           class="oauth-google"
@@ -160,12 +160,12 @@ async function signInGoogle() {
               fill="#4285f4"
             />
           </svg>
-          <span>Mit Google anmelden</span>
+          <span>{{ t("auth.signInWithGoogle") }}</span>
         </Button>
 
         <div class="sep">
           <span></span>
-          <p>oder</p>
+          <p>{{ t("auth.or") }}</p>
           <span></span>
         </div>
 
@@ -176,20 +176,20 @@ async function signInGoogle() {
           :disabled="busy"
           @click="step = 'email'"
         >
-          E-Mail
+          {{ t("auth.email") }}
         </Button>
 
         <template v-if="step === 'email'">
           <InputText
             v-model="form.email"
             type="email"
-            placeholder="E-Mail"
+            :placeholder="t('auth.email')"
             autocomplete="email"
             :disabled="busy" />
           <InputText
             v-model="form.password"
             type="password"
-            placeholder="Passwort"
+            :placeholder="t('auth.password')"
             autocomplete="current-password"
             :disabled="busy" />
 
@@ -198,7 +198,7 @@ async function signInGoogle() {
             :disabled="busy"
             @click="signInOrSignUpWithPassword"
           >
-            {{ busy ? "..." : "Weiter mit E-Mail" }}
+            {{ busy ? t("common.loadingShort") : t("auth.continueWithEmail") }}
           </Button>
 
           <Button
@@ -207,7 +207,7 @@ async function signInGoogle() {
             :disabled="busy"
             @click="signInWithMagicLink"
           >
-            Einmal mit Link anmelden
+            {{ t("auth.magicLink") }}
           </Button>
 
           <Button
@@ -216,16 +216,16 @@ async function signInGoogle() {
             :disabled="busy"
             @click="step = 'choice'"
           >
-            Zurueck
+            {{ t("common.back") }}
           </Button>
         </template>
 
         <p class="legal">
-          Mit der Nutzung dieses Dienstes erklaerst du dich mit unserer
+          {{ t("auth.legalPrefix") }}
           <router-link :to="{ name: 'privacy' }"
-            >Datenschutzerklaerung</router-link
+            >{{ t("auth.privacy") }}</router-link
           >
-          einverstanden.
+          {{ t("auth.legalSuffix") }}
         </p>
 
         <p v-if="info" class="info">{{ info }}</p>

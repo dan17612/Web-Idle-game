@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { supabase } from '../supabase'
 import { SPECIES, loadCatalog, animalRate, isUpgrading, tierInfo } from '../animals'
 import { useAuthStore } from './auth'
+import { t } from '../i18n'
 
 const TAP_MAX = 10
 const TAP_MUL_MAX_LEVEL = 25
@@ -10,6 +11,7 @@ const TAP_CAP_MAX_LEVEL = 20
 export const useGameStore = defineStore('game', {
   state: () => ({
     coins: 0,
+    tickets: 0,
     animals: [],
     equipSlots: 1,
     favoriteAnimalId: null,
@@ -125,11 +127,12 @@ export const useGameStore = defineStore('game', {
       this.loading = true
       await this.ensureCatalog()
       const [{ data: p }, { data: animals }, tapStatus] = await Promise.all([
-        supabase.from('profiles').select('coins, last_collected_at, equip_slots, favorite_animal_id, tap_level, tap_cap_level, offline_level').eq('id', auth.user.id).maybeSingle(),
+        supabase.from('profiles').select('coins, tickets, last_collected_at, equip_slots, favorite_animal_id, tap_level, tap_cap_level, offline_level').eq('id', auth.user.id).maybeSingle(),
         supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at'),
         supabase.rpc('get_tap_status', { p_max: TAP_MAX })
       ])
       this.coins = Number(p?.coins ?? 0)
+      this.tickets = Number(p?.tickets ?? 0)
       this.equipSlots = Number(p?.equip_slots ?? 1)
       this.favoriteAnimalId = p?.favorite_animal_id || null
       this.tapLevel = Number(p?.tap_level ?? 1)
@@ -207,7 +210,7 @@ export const useGameStore = defineStore('game', {
     async tapEarn() {
       const normalMax = 10 + (this.tapCapLevel - 1) * 5
       const usingBonus = this.tapsUsed >= normalMax && this.bonusTaps > 0
-      if (this.tapsUsed >= normalMax && !usingBonus) throw new Error('Tap-Limit erreicht')
+      if (this.tapsUsed >= normalMax && !usingBonus) throw new Error(t('storeErrors.tapLimit'))
       this.tapsUsed += 1
       const effectiveMax = usingBonus
         ? Math.max(this.tapsUsed + 1, normalMax + this.bonusTaps)
@@ -234,12 +237,12 @@ export const useGameStore = defineStore('game', {
     },
     async claimNewbieGift() {
       const auth = useAuthStore()
-      if (!auth.user) throw new Error('not authenticated')
+      if (!auth.user) throw new Error(t('storeErrors.notAuthenticated'))
       const { data, error } = await supabase.rpc('claim_newbie_gift')
       if (error) {
         const msg = error.message || String(error)
         if (/not[_\s]?found|does not exist|schema cache|function.*claim_newbie_gift/i.test(msg)) {
-          throw new Error('Geschenk-Funktion ist auf dem Server nicht verfügbar. Bitte später erneut versuchen.')
+          throw new Error(t('storeErrors.giftFunctionUnavailable'))
         }
         throw error
       }
@@ -269,8 +272,8 @@ export const useGameStore = defineStore('game', {
     async upgradeOffline() {
       await this.persist()
       const cost = this.nextOfflineCost
-      if (this.displayCoins < cost) throw new Error('Nicht genug Münzen')
-      if (this.maxOfflineHours >= 8) throw new Error('Maximales Offline-Limit erreicht')
+      if (this.displayCoins < cost) throw new Error(t('storeErrors.notEnoughCoins'))
+      if (this.maxOfflineHours >= 8) throw new Error(t('storeErrors.offlineLimitMax'))
       const { data, error } = await supabase.rpc('upgrade_offline')
       if (error) throw error
       if (data?.coins != null) this.coins = Number(data.coins)
@@ -285,7 +288,7 @@ export const useGameStore = defineStore('game', {
       return data
     },
     async feedPet(foodKey) {
-      if (this.boostActive) throw new Error('Boost ist bereits aktiv')
+      if (this.boostActive) throw new Error(t('storeErrors.boostAlreadyActive'))
       await this.persist()
       const { data, error } = await supabase.rpc('feed_pet', { p_food: foodKey })
       if (error) throw error
@@ -297,9 +300,9 @@ export const useGameStore = defineStore('game', {
     },
     async buyAnimal(speciesKey) {
       const info = SPECIES[speciesKey]
-      if (!info) throw new Error('Unbekannte Spezies')
+      if (!info) throw new Error(t('storeErrors.unknownSpecies'))
       await this.persist()
-      if (this.displayCoins < info.cost) throw new Error('Nicht genug Münzen')
+      if (this.displayCoins < info.cost) throw new Error(t('storeErrors.notEnoughCoins'))
       const { data, error } = await supabase.rpc('buy_animal', { p_species: speciesKey, p_cost: info.cost })
       if (error) throw error
       this.coins = Number(data?.coins ?? this.coins - info.cost)
@@ -358,6 +361,54 @@ export const useGameStore = defineStore('game', {
     async craftAnimal(recipeId) {
       const { data, error } = await supabase.rpc('craft_animal', { p_recipe_id: recipeId })
       if (error) throw error
+      await this.load()
+      return data
+    },
+    async releaseAnimal(animalId) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('release_animal', { p_animal_id: animalId })
+      if (error) throw error
+      this.tickets = Number(data?.tickets ?? this.tickets)
+      this.animals = this.animals.filter(a => a.id !== animalId)
+      if (this.favoriteAnimalId === animalId) {
+        const next = this.animals.find(a => a.equipped) || this.animals[0]
+        this.favoriteAnimalId = next ? next.id : null
+      }
+      return data
+    },
+    async releaseAnimalsBulk(species, tier, qty) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('release_animals', {
+        p_species: species,
+        p_tier: tier || 'normal',
+        p_qty: Math.max(1, Math.floor(qty || 1))
+      })
+      if (error) throw error
+      this.tickets = Number(data?.tickets ?? this.tickets)
+      await this.load()
+      return data
+    },
+    async getTicketShop() {
+      const { data, error } = await supabase.rpc('get_ticket_shop')
+      if (error) throw error
+      if (data?.tickets != null) this.tickets = Number(data.tickets)
+      return data
+    },
+    async buyTicketShop(speciesKey) {
+      const { data, error } = await supabase.rpc('ticket_shop_buy', { p_species: speciesKey })
+      if (error) throw error
+      this.tickets = Number(data?.tickets ?? this.tickets)
+      if (data?.animal) {
+        this.animals.push(data.animal)
+        if (!this.favoriteAnimalId) this.favoriteAnimalId = data.animal.id
+      }
+      return data
+    },
+    async openTicketChest(qty = 1) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('ticket_chest_open', { p_qty: qty })
+      if (error) throw error
+      this.tickets = Number(data?.tickets ?? this.tickets)
       await this.load()
       return data
     }
