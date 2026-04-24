@@ -55,7 +55,7 @@ const collection = computed(() => {
     if (tierRank[t] > tierRank[s.best]) s.best = t
   }
   return Object.values(SPECIES)
-    .filter(s => s.enabled !== false)
+    .filter(s => s.enabled !== false || !!bySpecies[s.key])
     .sort((a, b) => a.cost - b.cost)
     .map(s => {
       const d = bySpecies[s.key]
