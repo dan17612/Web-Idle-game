@@ -126,7 +126,7 @@ export const useGameStore = defineStore('game', {
       await this.ensureCatalog()
       const [{ data: p }, { data: animals }, tapStatus] = await Promise.all([
         supabase.from('profiles').select('coins, last_collected_at, equip_slots, favorite_animal_id, tap_level, tap_cap_level, offline_level').eq('id', auth.user.id).maybeSingle(),
-        supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at'),
+        supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at').limit(10000),
         supabase.rpc('get_tap_status', { p_max: TAP_MAX })
       ])
       this.coins = Number(p?.coins ?? 0)
@@ -166,7 +166,7 @@ export const useGameStore = defineStore('game', {
       const gifts = Array.isArray(data?.gifts) ? data.gifts : []
       if (gifts.length === 0) return data
       if (Number(data?.coins) > 0) this.coins += Number(data.coins)
-      const { data: animals } = await supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at')
+      const { data: animals } = await supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at').limit(10000)
       this.animals = animals || this.animals
       this.pendingGiftToast = gifts
       return data
