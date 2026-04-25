@@ -32,7 +32,8 @@ export const useGameStore = defineStore('game', {
     bonusTaps: 0,
     newbieGiftClaimed: false,
     pendingGiftToast: null,
-    tutorialStep: 4
+    pendingOfflineEarnings: null,
+    tutorialStep: 5
   }),
   getters: {
     favoriteAnimal(state) {
@@ -153,14 +154,14 @@ export const useGameStore = defineStore('game', {
       this.lastCollected = p?.last_collected_at ? new Date(p.last_collected_at) : new Date()
       this.animals = animals || []
       try {
-        const stored = localStorage.getItem('tutorialStep:' + auth.user.id)
+        const stored = localStorage.getItem('tutorialStep2:' + auth.user.id)
         if (stored != null) {
           this.tutorialStep = Number(stored)
         } else {
-          this.tutorialStep = (this.newbieGiftClaimed || this.animals.length > 0) ? 4 : 0
-          localStorage.setItem('tutorialStep:' + auth.user.id, String(this.tutorialStep))
+          this.tutorialStep = (this.newbieGiftClaimed || this.animals.length > 0) ? 5 : 0
+          localStorage.setItem('tutorialStep2:' + auth.user.id, String(this.tutorialStep))
         }
-      } catch { this.tutorialStep = 4 }
+      } catch { this.tutorialStep = 5 }
       if (!this.favoriteAnimalId && this.animals.length > 0) {
         const first = this.animals.find(a => a.equipped) || this.animals[0]
         if (first) this.setFavoriteAnimal(first.id).catch(() => {})
@@ -195,9 +196,32 @@ export const useGameStore = defineStore('game', {
     applyOffline() {
       if (!this.lastCollected) return
       const capSec = this.maxOfflineHours * 3600
-      const elapsed = Math.min((Date.now() - this.lastCollected.getTime()) / 1000, capSec)
-      const earned = Math.floor(this.baseRate * Math.max(elapsed, 0))
-      if (earned > 0) this.tickCoins += earned
+      const rawElapsed = Math.max(0, (Date.now() - this.lastCollected.getTime()) / 1000)
+      const elapsed = Math.min(rawElapsed, capSec)
+      const rate = this.baseRate
+      const earned = Math.floor(rate * elapsed)
+      const dialogThreshold = 120
+      if (earned <= 0) return
+      if (rawElapsed < dialogThreshold) {
+        this.tickCoins += earned
+        this.lastCollected = new Date()
+        return
+      }
+      this.pendingOfflineEarnings = {
+        coins: earned,
+        rate,
+        elapsedSec: Math.floor(elapsed),
+        capSec,
+        capped: rawElapsed >= capSec
+      }
+    },
+    claimOfflineEarnings() {
+      const p = this.pendingOfflineEarnings
+      if (!p) return
+      if (p.coins > 0) this.tickCoins += p.coins
+      this.lastCollected = new Date()
+      this.pendingOfflineEarnings = null
+      this.persist().catch(() => {})
     },
     tick(dt) {
       this.tickCoins += this.ratePerSec * dt
@@ -273,7 +297,7 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       this.tutorialStep = step
       if (auth.user) {
-        try { localStorage.setItem('tutorialStep:' + auth.user.id, String(step)) } catch {}
+        try { localStorage.setItem('tutorialStep2:' + auth.user.id, String(step)) } catch {}
       }
     },
     async refreshTapStatus() {

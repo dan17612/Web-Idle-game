@@ -32,6 +32,11 @@ const messages = {
       giftReceivedTitle: 'Geschenk erhalten!',
       giftReceivedSub: 'Ein Admin hat dir etwas geschickt.',
       giftThanks: 'Danke!',
+      welcomeBack: 'Willkommen zurück!',
+      youEarnedOffline: 'Du hast offline verdient:',
+      offlineAt: 'mit',
+      offlineCappedAt: 'gedeckelt bei {hours}h',
+      collect: 'Einsammeln',
       nav: {
         shop: 'Shop',
         trade: 'Trade',
@@ -44,6 +49,7 @@ const messages = {
     },
     tutorial: {
       tap: 'Tippe das Tier!',
+      equipBest: 'Rüste deinen Hasen aus!',
       shop: 'Geh in den Shop!',
       chest: 'Kauf eine Truhe!'
     },
@@ -184,6 +190,10 @@ const messages = {
     leaderboard: {
       title: 'Bestenliste',
       subtitle: 'Die reichsten Zoo-Besitzer weltweit.',
+      subtitleRate: 'Wer verdient am meisten pro Sekunde.',
+      byCoins: 'Münzen',
+      byRate: 'Pro Sekunde',
+      you: 'Du',
       retry: 'Erneut versuchen',
       empty: 'Noch leer.',
       loadFailed: 'Laden fehlgeschlagen'
@@ -317,6 +327,11 @@ const messages = {
     app: {
       refreshData: 'Refresh data',
       settings: 'Settings',
+      welcomeBack: 'Welcome back!',
+      youEarnedOffline: 'you earned offline:',
+      offlineAt: 'at',
+      offlineCappedAt: 'capped {hours}h',
+      collect: 'collect',
       giftReceivedTitle: 'Gift received!',
       giftReceivedSub: 'An admin sent you something.',
       giftThanks: 'Thanks!',
@@ -332,6 +347,7 @@ const messages = {
     },
     tutorial: {
       tap: 'Tap the animal!',
+      equipBest: 'Equip your bunny!',
       shop: 'Go to the shop!',
       chest: 'Buy a chest!'
     },
@@ -472,6 +488,10 @@ const messages = {
     leaderboard: {
       title: 'Leaderboard',
       subtitle: 'The richest zoo owners worldwide.',
+      subtitleRate: 'Who earns the most per second.',
+      byCoins: 'Coins',
+      byRate: 'Per second',
+      you: 'You',
       retry: 'Try again',
       empty: 'Still empty.',
       loadFailed: 'Loading failed'
@@ -605,6 +625,11 @@ const messages = {
     app: {
       refreshData: 'Обновить данные',
       settings: 'Настройки',
+      welcomeBack: 'C возвращением!',
+      youEarnedOffline: 'офлайн заработано:',
+      offlineAt: 'по',
+      offlineCappedAt: 'лимит {hours}ч',
+      collect: 'забрать',
       giftReceivedTitle: 'Подарок получен!',
       giftReceivedSub: 'Администратор отправил вам подарок.',
       giftThanks: 'Спасибо!',
@@ -620,6 +645,7 @@ const messages = {
     },
     tutorial: {
       tap: 'Нажми на животное!',
+      equipBest: 'Экипируй своего зайца!',
       shop: 'Иди в магазин!',
       chest: 'Купи сундук!'
     },
@@ -760,6 +786,10 @@ const messages = {
     leaderboard: {
       title: 'Таблица лидеров',
       subtitle: 'Самые богатые владельцы зоопарков в мире.',
+      subtitleRate: 'Кто зарабатывает больше всех в секунду.',
+      byCoins: 'Монеты',
+      byRate: 'В секунду',
+      you: 'Ты',
       retry: 'Попробовать снова',
       empty: 'Пока пусто.',
       loadFailed: 'Ошибка загрузки'
