@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import { useGameStore } from "../stores/game";
 import { useAuthStore } from "../stores/auth";
 import { supabase } from "../supabase";
 import { SPECIES, speciesInfo, formatCoins } from "../animals";
 import { t } from "../i18n";
+import TutorialBubble from "../components/TutorialBubble.vue";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -20,6 +21,17 @@ watch(
 );
 
 const chestStatus = ref({ price: 0, slot_limit: 5, bought_slot: 0 });
+const chestCard = ref(null);
+watch(
+  () => game.tutorialStep,
+  (s) => {
+    if (s === 4) {
+      nextTick(() => {
+        chestCard.value?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+  },
+);
 const chestQty = ref(1);
 const chestAnim = ref(null); // { phase: 'shake'|'open'|'reveal'|'done', species: [...] }
 
@@ -43,6 +55,7 @@ async function buyChest() {
     chestAnim.value = { phase: "open", species: data.species };
     await new Promise(r => setTimeout(r, 500));
     chestAnim.value = { phase: "reveal", species: data.species };
+    if (game.tutorialStep === 4) game.setTutorialStep(5);
   } catch (e) {
     error.value = e.message;
     chestAnim.value = null;
@@ -151,7 +164,13 @@ async function saveWeight(species) {
 }
 
 onMounted(async () => {
+  if (game.tutorialStep === 3) game.setTutorialStep(4);
   await Promise.all([loadShop(), loadAdminData(), loadFoods(), loadChestStatus()]);
+  if (game.tutorialStep === 4) {
+    nextTick(() => {
+      chestCard.value?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
   timer = setInterval(() => {
     now.value = Date.now();
     if (rotatesAt.value && serverNow() >= rotatesAt.value + 500)
@@ -440,7 +459,13 @@ function adminRestock(species) {
       </div>
     </div>
 
-    <div class="card chest-card">
+    <div class="card chest-card" ref="chestCard" :class="{ 'tut-highlight': game.tutorialStep === 4 }">
+      <TutorialBubble
+        v-if="game.tutorialStep === 4"
+        class="chest-tutorial"
+        :text="t('tutorial.chest')"
+        finger="👇"
+      />
       <div class="row between" style="align-items:flex-start">
         <div>
           <div style="font-weight:800;font-size:18px">🎁 {{ t("shop.chestTitle") }}</div>
@@ -691,9 +716,16 @@ function adminRestock(species) {
 }
 
 .chest-card {
+  position: relative;
   background: linear-gradient(135deg, #3a1d5c, #1d3a5c);
   border-color: var(--accent);
   margin-bottom: 10px;
+}
+.chest-tutorial {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .qty-pick.active {
   border-color: var(--accent);

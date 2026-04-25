@@ -31,7 +31,9 @@ export const useGameStore = defineStore('game', {
     catalogLoaded: false,
     bonusTaps: 0,
     newbieGiftClaimed: false,
-    pendingGiftToast: null
+    pendingGiftToast: null,
+    pendingOfflineEarnings: null,
+    tutorialStep: 5
   }),
   getters: {
     favoriteAnimal(state) {
@@ -151,6 +153,15 @@ export const useGameStore = defineStore('game', {
       } catch { this.bonusTaps = 0 }
       this.lastCollected = p?.last_collected_at ? new Date(p.last_collected_at) : new Date()
       this.animals = animals || []
+      try {
+        const stored = localStorage.getItem('tutorialStep2:' + auth.user.id)
+        if (stored != null) {
+          this.tutorialStep = Number(stored)
+        } else {
+          this.tutorialStep = (this.newbieGiftClaimed || this.animals.length > 0) ? 5 : 0
+          localStorage.setItem('tutorialStep2:' + auth.user.id, String(this.tutorialStep))
+        }
+      } catch { this.tutorialStep = 5 }
       if (!this.favoriteAnimalId && this.animals.length > 0) {
         const first = this.animals.find(a => a.equipped) || this.animals[0]
         if (first) this.setFavoriteAnimal(first.id).catch(() => {})
@@ -185,9 +196,32 @@ export const useGameStore = defineStore('game', {
     applyOffline() {
       if (!this.lastCollected) return
       const capSec = this.maxOfflineHours * 3600
-      const elapsed = Math.min((Date.now() - this.lastCollected.getTime()) / 1000, capSec)
-      const earned = Math.floor(this.baseRate * Math.max(elapsed, 0))
-      if (earned > 0) this.tickCoins += earned
+      const rawElapsed = Math.max(0, (Date.now() - this.lastCollected.getTime()) / 1000)
+      const elapsed = Math.min(rawElapsed, capSec)
+      const rate = this.baseRate
+      const earned = Math.floor(rate * elapsed)
+      const dialogThreshold = 120
+      if (earned <= 0) return
+      if (rawElapsed < dialogThreshold) {
+        this.tickCoins += earned
+        this.lastCollected = new Date()
+        return
+      }
+      this.pendingOfflineEarnings = {
+        coins: earned,
+        rate,
+        elapsedSec: Math.floor(elapsed),
+        capSec,
+        capped: rawElapsed >= capSec
+      }
+    },
+    claimOfflineEarnings() {
+      const p = this.pendingOfflineEarnings
+      if (!p) return
+      if (p.coins > 0) this.tickCoins += p.coins
+      this.lastCollected = new Date()
+      this.pendingOfflineEarnings = null
+      this.persist().catch(() => {})
     },
     tick(dt) {
       this.tickCoins += this.ratePerSec * dt
@@ -249,12 +283,22 @@ export const useGameStore = defineStore('game', {
       const bonus = Number(data?.bonus_taps ?? 50)
       this.bonusTaps = (this.bonusTaps || 0) + bonus
       this.newbieGiftClaimed = true
+      if (data?.coins != null) this.coins = Number(data.coins)
+      else if (data?.coins_added) this.coins += Number(data.coins_added)
+      this.setTutorialStep(2)
       try {
         localStorage.setItem('bonusTaps:' + auth.user.id, String(this.bonusTaps))
         localStorage.setItem('newbieGiftClaimed:' + auth.user.id, '1')
       } catch {}
       await this.load()
       return data
+    },
+    setTutorialStep(step) {
+      const auth = useAuthStore()
+      this.tutorialStep = step
+      if (auth.user) {
+        try { localStorage.setItem('tutorialStep2:' + auth.user.id, String(step)) } catch {}
+      }
     },
     async refreshTapStatus() {
       const { data } = await supabase.rpc('get_tap_status', { p_max: TAP_MAX })

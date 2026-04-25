@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useGameStore } from "../stores/game";
 import { useAuthStore } from "../stores/auth";
@@ -11,7 +11,8 @@ import {
   isUpgrading,
   compareAnimalsByRate,
 } from "../animals";
-import { locale } from "../i18n";
+import { locale, t as tGlobal } from "../i18n";
+import TutorialBubble from "../components/TutorialBubble.vue";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -394,6 +395,7 @@ async function openGift() {
       emoji: info.emoji,
       name: info.name,
       bonusTaps: data.bonus_taps || 50,
+      coinsAdded: Number(data.coins_added || 0),
     };
   } catch (e) {
     giftError.value = e.message || tx("gift.openFailed");
@@ -406,6 +408,19 @@ function closeGiftDialog() {
   giftClaimed.value = null;
   giftError.value = "";
 }
+
+const equipBestWrap = ref(null);
+watch(
+  () => game.tutorialStep,
+  (s) => {
+    if (s === 2) {
+      nextTick(() => {
+        equipBestWrap.value?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+  },
+  { immediate: true },
+);
 
 const floats = ref([]);
 let floatId = 0;
@@ -498,6 +513,7 @@ async function equipBest() {
   error.value = "";
   try {
     await game.equipBestAnimals();
+    if (game.tutorialStep === 2) game.setTutorialStep(3);
   } catch (err) {
     error.value = err.message;
     setTimeout(() => (error.value = ""), 2500);
@@ -742,6 +758,9 @@ async function doSplit(animalId) {
           <p style="margin: 0 0 4px; font-weight: 700">
             1× {{ giftClaimed.name }}
           </p>
+          <p v-if="giftClaimed.coinsAdded > 0" style="margin: 0 0 4px; font-weight: 700; color: var(--accent)">
+            🪙 +{{ formatCoins(giftClaimed.coinsAdded) }}
+          </p>
           <p style="margin: 0 0 14px">
             {{ tx("gift.bonusTaps", { count: giftClaimed.bonusTaps }) }}
           </p>
@@ -801,12 +820,19 @@ async function doSplit(animalId) {
       </div>
 
       <div class="tap-wrap">
+        <TutorialBubble
+          v-if="game.tutorialStep === 0 && !shouldShowGiftDialog"
+          class="tap-tutorial"
+          :text="tGlobal('tutorial.tap')"
+          finger="👇"
+        />
         <div
           class="tap-zone"
           :class="{
             disabled: tapLimitReached,
             boosted: game.favoriteBoostActive,
             empty: !favAnimal,
+            'tut-highlight': game.tutorialStep === 0 && !shouldShowGiftDialog,
           }"
           @pointerdown="tap"
         >
@@ -1018,13 +1044,22 @@ async function doSplit(animalId) {
           <router-link to="/inventory" class="btn inventory-btn">
             {{ tx("equipped.manage") }}
           </router-link>
-          <Button
-            class="btn inventory-btn"
-            :disabled="equipBestBusy || !ownedAnimals.length"
-            @click="equipBest"
-          >
-            {{ equipBestBusy ? tx("common.loadingShort") : tx("equipped.equipBest") }}
-          </Button>
+          <div class="equip-best-wrap" ref="equipBestWrap">
+            <TutorialBubble
+              v-if="game.tutorialStep === 2"
+              class="equip-best-tutorial"
+              :text="tGlobal('tutorial.equipBest')"
+              finger="👇"
+            />
+            <Button
+              class="btn inventory-btn equip-best-btn"
+              :class="{ 'tut-highlight': game.tutorialStep === 2 }"
+              :disabled="equipBestBusy || !ownedAnimals.length"
+              @click="equipBest"
+            >
+              {{ equipBestBusy ? tx("common.loadingShort") : tx("equipped.equipBest") }}
+            </Button>
+          </div>
         </div>
       </div>
       <div class="farm-grid">
@@ -1541,6 +1576,23 @@ async function doSplit(animalId) {
   position: relative;
   display: flex;
   justify-content: center;
+}
+.tap-tutorial {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.equip-best-wrap {
+  position: relative;
+  display: inline-block;
+}
+.equip-best-tutorial {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
 }
 .tap-zone {
   position: relative;
