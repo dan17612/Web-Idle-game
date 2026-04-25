@@ -7,6 +7,7 @@ import { SpeedInsights } from "@vercel/speed-insights/vue";
 import { supabase } from "./supabase";
 import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
+import TutorialBubble from "./components/TutorialBubble.vue";
 import { t } from "./i18n";
 
 const adminOpen = ref(false);
@@ -205,7 +206,13 @@ async function hardReload() {
     </div>
 
     <nav v-if="showNav" class="bottom-nav">
-      <router-link to="/shop" class="nav-item">
+      <router-link to="/shop" class="nav-item nav-shop">
+        <TutorialBubble
+          v-if="game.tutorialStep === 2 && route.path !== '/shop'"
+          class="shop-tutorial"
+          :text="t('tutorial.shop')"
+          finger="👇"
+        />
         <span class="ico">🛒</span><span>{{ t('app.nav.shop') }}</span>
       </router-link>
       <router-link to="/trade" class="nav-item">
@@ -304,6 +311,14 @@ async function hardReload() {
   font-size: 72px;
   animation: gift-bounce 1.2s ease-in-out infinite;
   filter: drop-shadow(0 0 20px rgba(255, 209, 102, 0.6));
+  margin-bottom: 6px;
+}
+.nav-shop { position: relative; }
+.shop-tutorial {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
   margin-bottom: 6px;
 }
 .tickets-balance {

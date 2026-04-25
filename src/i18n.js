@@ -42,6 +42,11 @@ const messages = {
       },
       admin: 'Admin'
     },
+    tutorial: {
+      tap: 'Tippe das Tier!',
+      shop: 'Geh in den Shop!',
+      chest: 'Kauf eine Truhe!'
+    },
     auth: {
       subtitle: 'Sammle Tiere, verdiene Münzen, tausche mit Freunden.',
       title: 'Anmelden oder registrieren',
@@ -325,6 +330,11 @@ const messages = {
       },
       admin: 'Admin'
     },
+    tutorial: {
+      tap: 'Tap the animal!',
+      shop: 'Go to the shop!',
+      chest: 'Buy a chest!'
+    },
     auth: {
       subtitle: 'Collect animals, earn coins, trade with friends.',
       title: 'Sign in or register',
@@ -607,6 +617,11 @@ const messages = {
         tickets: 'Тикеты'
       },
       admin: 'Admin'
+    },
+    tutorial: {
+      tap: 'Нажми на животное!',
+      shop: 'Иди в магазин!',
+      chest: 'Купи сундук!'
     },
     auth: {
       subtitle: 'Собирай животных, зарабатывай монеты, обменивайся с друзьями.',

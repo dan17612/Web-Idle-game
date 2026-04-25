@@ -11,7 +11,8 @@ import {
   isUpgrading,
   compareAnimalsByRate,
 } from "../animals";
-import { locale } from "../i18n";
+import { locale, t as tGlobal } from "../i18n";
+import TutorialBubble from "../components/TutorialBubble.vue";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -394,6 +395,7 @@ async function openGift() {
       emoji: info.emoji,
       name: info.name,
       bonusTaps: data.bonus_taps || 50,
+      coinsAdded: Number(data.coins_added || 0),
     };
   } catch (e) {
     giftError.value = e.message || tx("gift.openFailed");
@@ -742,6 +744,9 @@ async function doSplit(animalId) {
           <p style="margin: 0 0 4px; font-weight: 700">
             1× {{ giftClaimed.name }}
           </p>
+          <p v-if="giftClaimed.coinsAdded > 0" style="margin: 0 0 4px; font-weight: 700; color: var(--accent)">
+            🪙 +{{ formatCoins(giftClaimed.coinsAdded) }}
+          </p>
           <p style="margin: 0 0 14px">
             {{ tx("gift.bonusTaps", { count: giftClaimed.bonusTaps }) }}
           </p>
@@ -801,6 +806,12 @@ async function doSplit(animalId) {
       </div>
 
       <div class="tap-wrap">
+        <TutorialBubble
+          v-if="game.tutorialStep === 0 && !shouldShowGiftDialog"
+          class="tap-tutorial"
+          :text="tGlobal('tutorial.tap')"
+          finger="👇"
+        />
         <div
           class="tap-zone"
           :class="{
@@ -1541,6 +1552,12 @@ async function doSplit(animalId) {
   position: relative;
   display: flex;
   justify-content: center;
+}
+.tap-tutorial {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .tap-zone {
   position: relative;
