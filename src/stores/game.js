@@ -287,6 +287,13 @@ export const useGameStore = defineStore('game', {
       await this.load()
       return data
     },
+    async startTierDowngrade(animalId) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('start_tier_downgrade', { p_animal_id: animalId })
+      if (error) throw error
+      await this.load()
+      return data
+    },
     async feedPet(foodKey) {
       if (this.boostActive) throw new Error(t('storeErrors.boostAlreadyActive'))
       await this.persist()

@@ -9,8 +9,32 @@ const emit = defineEmits(['close'])
 const I18N = {
   de: {
     title: 'Admin',
-    tabs: { broadcast: 'Broadcast', shop: 'Shop', gift: 'Gift', users: 'Users' },
+    tabs: { broadcast: 'Broadcast', shop: 'Shop', gift: 'Gift', users: 'Users', tickets: 'Tickets' },
     tiers: { normal: 'Normal', gold: 'Gold', diamond: 'Diamant', epic: 'Episch', rainbow: 'Rainbow' },
+    tickets: {
+      subtitle: 'Support-Tickets der Spieler. Antworten gehen per E-Mail an den Spieler.',
+      filterAll: 'Alle',
+      filterOpen: 'Offen',
+      filterReplied: 'Beantwortet',
+      filterClosed: 'Geschlossen',
+      reload: 'Neu laden',
+      empty: 'Keine Tickets vorhanden.',
+      from: 'Von',
+      created: 'Erstellt',
+      replied: 'Beantwortet',
+      replyPlaceholder: 'Antwort an den Spieler …',
+      sendReply: 'Antworten',
+      sendReplyAndClose: 'Antworten & schließen',
+      reopen: 'Wieder öffnen',
+      close: 'Schließen',
+      replied_at: 'Antwort vom {time}',
+      previousReply: 'Letzte Admin-Antwort',
+      replied_ok: 'Antwort gesendet.',
+      status_open: 'Offen',
+      status_replied: 'Beantwortet',
+      status_closed: 'Geschlossen',
+      enterReply: 'Antwort eingeben.'
+    },
     flash: {
       enterMessage: 'Nachricht eingeben',
       broadcastSent: 'Nachricht an alle gesendet',
@@ -71,8 +95,32 @@ const I18N = {
   },
   en: {
     title: 'Admin',
-    tabs: { broadcast: 'Broadcast', shop: 'Shop', gift: 'Gift', users: 'Users' },
+    tabs: { broadcast: 'Broadcast', shop: 'Shop', gift: 'Gift', users: 'Users', tickets: 'Tickets' },
     tiers: { normal: 'Normal', gold: 'Gold', diamond: 'Diamond', epic: 'Epic', rainbow: 'Rainbow' },
+    tickets: {
+      subtitle: 'Player support tickets. Replies are emailed to the player.',
+      filterAll: 'All',
+      filterOpen: 'Open',
+      filterReplied: 'Replied',
+      filterClosed: 'Closed',
+      reload: 'Reload',
+      empty: 'No tickets.',
+      from: 'From',
+      created: 'Created',
+      replied: 'Replied',
+      replyPlaceholder: 'Reply to the player …',
+      sendReply: 'Send reply',
+      sendReplyAndClose: 'Reply & close',
+      reopen: 'Reopen',
+      close: 'Close',
+      replied_at: 'Replied {time}',
+      previousReply: 'Last admin reply',
+      replied_ok: 'Reply sent.',
+      status_open: 'Open',
+      status_replied: 'Replied',
+      status_closed: 'Closed',
+      enterReply: 'Please enter a reply.'
+    },
     flash: {
       enterMessage: 'Enter a message',
       broadcastSent: 'Message sent to everyone',
@@ -133,8 +181,32 @@ const I18N = {
   },
   ru: {
     title: 'Админ',
-    tabs: { broadcast: 'Рассылка', shop: 'Магазин', gift: 'Подарок', users: 'Пользователи' },
+    tabs: { broadcast: 'Рассылка', shop: 'Магазин', gift: 'Подарок', users: 'Пользователи', tickets: 'Тикеты' },
     tiers: { normal: 'Обычный', gold: 'Золотой', diamond: 'Алмазный', epic: 'Эпический', rainbow: 'Радужный' },
+    tickets: {
+      subtitle: 'Тикеты поддержки от игроков. Ответы отправляются игроку по email.',
+      filterAll: 'Все',
+      filterOpen: 'Открытые',
+      filterReplied: 'Отвеченные',
+      filterClosed: 'Закрытые',
+      reload: 'Обновить',
+      empty: 'Тикетов нет.',
+      from: 'От',
+      created: 'Создан',
+      replied: 'Отвечен',
+      replyPlaceholder: 'Ответ игроку …',
+      sendReply: 'Ответить',
+      sendReplyAndClose: 'Ответить и закрыть',
+      reopen: 'Открыть снова',
+      close: 'Закрыть',
+      replied_at: 'Ответ от {time}',
+      previousReply: 'Последний ответ админа',
+      replied_ok: 'Ответ отправлен.',
+      status_open: 'Открыт',
+      status_replied: 'Отвечен',
+      status_closed: 'Закрыт',
+      enterReply: 'Введите ответ.'
+    },
     flash: {
       enterMessage: 'Введите сообщение',
       broadcastSent: 'Сообщение отправлено всем',
@@ -218,6 +290,21 @@ const weightDraft = ref({})
 const speciesRows = ref([])
 const userSearch = ref('')
 const users = ref([])
+
+const tickets = ref([])
+const ticketFilter = ref('open')
+const ticketReply = ref({})
+const ticketStatusOptions = computed(() => [
+  { label: tx('tickets.filterAll'), value: '' },
+  { label: tx('tickets.filterOpen'), value: 'open' },
+  { label: tx('tickets.filterReplied'), value: 'replied' },
+  { label: tx('tickets.filterClosed'), value: 'closed' }
+])
+
+function fmtDateTime(s) {
+  if (!s) return ''
+  try { return new Date(s).toLocaleString() } catch { return String(s) }
+}
 
 const giftForm = ref({ username: '', coins: 0, species: '', tier: 'normal', qty: 1, note: '' })
 const TIERS = ['normal', 'gold', 'diamond', 'epic', 'rainbow']
@@ -372,6 +459,61 @@ async function setBan(u, banned) {
   }
 }
 
+async function loadTickets() {
+  busy.value = 'tickets'
+  try {
+    const { data, error: e } = await supabase.rpc('admin_list_support_tickets', {
+      p_status: ticketFilter.value || null,
+      p_limit: 100,
+      p_offset: 0
+    })
+    if (e) throw e
+    tickets.value = data || []
+  } catch (e) {
+    flash(e.message, true)
+  } finally {
+    if (busy.value === 'tickets') busy.value = ''
+  }
+}
+
+async function replyTicket(t, close) {
+  const reply = (ticketReply.value[t.id] || '').trim()
+  if (!reply) return flash(tx('tickets.enterReply'), true)
+  busy.value = `treply-${t.id}`
+  try {
+    const { error: e } = await supabase.rpc('admin_reply_support_ticket', {
+      p_ticket_id: t.id,
+      p_reply: reply,
+      p_close: !!close
+    })
+    if (e) throw e
+    ticketReply.value[t.id] = ''
+    await loadTickets()
+    flash(tx('tickets.replied_ok'))
+  } catch (e) {
+    flash(e.message, true)
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function setTicketStatus(t, status) {
+  busy.value = `tstatus-${t.id}`
+  try {
+    const { error: e } = await supabase.rpc('admin_set_support_ticket_status', {
+      p_ticket_id: t.id,
+      p_status: status
+    })
+    if (e) throw e
+    await loadTickets()
+    flash(tx('flash.ok'))
+  } catch (e) {
+    flash(e.message, true)
+  } finally {
+    busy.value = ''
+  }
+}
+
 async function deleteUser(u) {
   if (u.is_admin) return flash(tx('flash.cannotDeleteAdmins'), true)
   if (!confirm(tx('confirm.deleteAccount', { username: u.username }))) return
@@ -402,6 +544,7 @@ async function deleteUser(u) {
         <Button :class="{ active: tab==='shop' }" @click="tab='shop'">{{ tx('tabs.shop') }}</Button>
         <Button :class="{ active: tab==='gift' }" @click="tab='gift'">{{ tx('tabs.gift') }}</Button>
         <Button :class="{ active: tab==='users' }" @click="tab='users'">{{ tx('tabs.users') }}</Button>
+        <Button :class="{ active: tab==='tickets' }" @click="tab='tickets'; loadTickets()">{{ tx('tabs.tickets') }}</Button>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
@@ -547,6 +690,85 @@ async function deleteUser(u) {
           </div>
         </div>
       </template>
+
+      <template v-if="tab === 'tickets'">
+        <p class="subtitle">{{ tx('tickets.subtitle') }}</p>
+        <div class="row" style="gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+          <Select
+            v-model="ticketFilter"
+            :options="ticketStatusOptions"
+            optionLabel="label"
+            optionValue="value"
+            style="min-width:160px"
+            @update:modelValue="loadTickets"
+          />
+          <Button class="btn secondary small" :disabled="busy==='tickets'" @click="loadTickets">
+            {{ busy==='tickets' ? '...' : tx('tickets.reload') }}
+          </Button>
+        </div>
+        <div v-if="!tickets.length" class="subtitle" style="text-align:center;padding:12px">
+          {{ tx('tickets.empty') }}
+        </div>
+        <div v-for="t in tickets" :key="t.id" class="ticket-card">
+          <div class="row between" style="gap:8px;flex-wrap:wrap">
+            <div style="font-weight:700">
+              <span class="ticket-num">{{ t.ticket_number }}</span>
+              · {{ t.subject }}
+            </div>
+            <span class="pill" :class="`status-${t.status}`">{{ tx(`tickets.status_${t.status}`) }}</span>
+          </div>
+          <div class="subtitle" style="margin:4px 0">
+            {{ tx('tickets.from') }}: <b>{{ t.username || '?' }}</b>
+            &lt;{{ t.user_email || '?' }}&gt; · {{ tx('tickets.created') }}: {{ fmtDateTime(t.created_at) }}
+          </div>
+          <pre class="ticket-msg">{{ t.message }}</pre>
+          <div v-if="t.admin_reply" class="ticket-prev-reply">
+            <div class="subtitle" style="margin:0 0 4px">
+              {{ tx('tickets.previousReply') }} · {{ fmtDateTime(t.replied_at) }}
+            </div>
+            <pre class="ticket-msg" style="background:rgba(120,200,160,0.08)">{{ t.admin_reply }}</pre>
+          </div>
+          <Textarea
+            v-model="ticketReply[t.id]"
+            rows="3"
+            maxlength="5000"
+            :placeholder="tx('tickets.replyPlaceholder')"
+            style="width:100%;margin-top:8px"
+          />
+          <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap;justify-content:flex-end">
+            <Button
+              class="btn small"
+              :disabled="busy===`treply-${t.id}`"
+              @click="replyTicket(t, false)"
+            >
+              {{ busy===`treply-${t.id}` ? '...' : tx('tickets.sendReply') }}
+            </Button>
+            <Button
+              class="btn small"
+              :disabled="busy===`treply-${t.id}`"
+              @click="replyTicket(t, true)"
+            >
+              {{ tx('tickets.sendReplyAndClose') }}
+            </Button>
+            <Button
+              v-if="t.status !== 'closed'"
+              class="btn secondary small"
+              :disabled="busy===`tstatus-${t.id}`"
+              @click="setTicketStatus(t, 'closed')"
+            >
+              {{ tx('tickets.close') }}
+            </Button>
+            <Button
+              v-else
+              class="btn secondary small"
+              :disabled="busy===`tstatus-${t.id}`"
+              @click="setTicketStatus(t, 'open')"
+            >
+              {{ tx('tickets.reopen') }}
+            </Button>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -579,4 +801,32 @@ async function deleteUser(u) {
   border-color: #ff6b6b;
   color: #ff8a8a;
 }
+.pill.status-open { border-color: #ffb86b; color: #ffb86b; }
+.pill.status-replied { border-color: #6bd4ff; color: #6bd4ff; }
+.pill.status-closed { border-color: #888; color: #aaa; }
+.ticket-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.ticket-num {
+  font-family: ui-monospace, monospace;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.ticket-msg {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.ticket-prev-reply { margin-top: 8px; }
 </style>

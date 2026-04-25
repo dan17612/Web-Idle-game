@@ -108,7 +108,14 @@ const I18N = {
       species: "Spezies",
       targetTier: "Ziel-Stufe",
       start: "🏭 Fusion starten",
-      busySingle: "Maschine belegt - nur ein Pet gleichzeitig."
+      busySingle: "Maschine belegt - nur ein Pet gleichzeitig.",
+      modeFuse: "🧬 Fusion",
+      modeSplit: "✂️ Trennen",
+      splitHint: "Höherwertige Tiere (Gold, Diamant, Episch, Rainbow) zurück in normale Tiere derselben Spezies aufspalten. Dauert 1 Minute.",
+      pickAnimalToSplit: "Wähle ein Tier zum Trennen",
+      splitNone: "Keine höherwertigen, nicht ausgerüsteten Tiere vorhanden.",
+      splitOutput: "{count}x Normal",
+      startSplit: "✂️ Trennen starten"
     },
     common: {
       loadingShort: "…"
@@ -204,7 +211,14 @@ const I18N = {
       species: "Species",
       targetTier: "Target tier",
       start: "🏭 Start fusion",
-      busySingle: "Machine busy - only one pet at a time."
+      busySingle: "Machine busy - only one pet at a time.",
+      modeFuse: "🧬 Fuse",
+      modeSplit: "✂️ Split",
+      splitHint: "Split higher-tier animals (Gold, Diamond, Epic, Rainbow) back into normal animals of the same species. Takes 1 minute.",
+      pickAnimalToSplit: "Pick an animal to split",
+      splitNone: "No higher-tier unequipped animals available.",
+      splitOutput: "{count}x Normal",
+      startSplit: "✂️ Start split"
     },
     common: {
       loadingShort: "…"
@@ -300,7 +314,14 @@ const I18N = {
       species: "Вид",
       targetTier: "Целевой тир",
       start: "🏭 Начать слияние",
-      busySingle: "Машина занята - только один питомец одновременно."
+      busySingle: "Машина занята - только один питомец одновременно.",
+      modeFuse: "🧬 Слияние",
+      modeSplit: "✂️ Разделить",
+      splitHint: "Разложи высокоуровневых животных (Золото, Алмаз, Эпик, Радужный) обратно в обычных того же вида. Занимает 1 минуту.",
+      pickAnimalToSplit: "Выбери животное для разделения",
+      splitNone: "Нет высокоуровневых неэкипированных животных.",
+      splitOutput: "{count}x Обычный",
+      startSplit: "✂️ Начать разделение"
     },
     common: {
       loadingShort: "…"
@@ -637,6 +658,54 @@ async function doFusion(species, tier) {
   } finally {
     fusionBusy.value = false;
     fusionTarget.value = null;
+  }
+}
+
+// === Split (Defusion) ===
+const fusionMode = ref("fuse"); // 'fuse' | 'split'
+const splitAnimalId = ref("");
+
+const splitAnimals = computed(() =>
+  game.animals
+    .filter(
+      (a) =>
+        !a.equipped &&
+        (a.tier || "normal") !== "normal" &&
+        !isUpgrading(a),
+    )
+    .map((a) => ({
+      ...a,
+      info: speciesInfo(a.species),
+      td: tierInfo(a.tier),
+    })),
+);
+
+const splitSelected = computed(
+  () => splitAnimals.value.find((a) => a.id === splitAnimalId.value) || null,
+);
+
+const splitOutputCount = computed(() => {
+  const s = splitSelected.value;
+  if (!s) return 0;
+  return TIERS[s.tier]?.required_qty || 0;
+});
+
+async function doSplit(animalId) {
+  if (!animalId) return;
+  if (fusionLocked.value) {
+    error.value = tx("fusion.busySingle");
+    setTimeout(() => (error.value = ""), 2500);
+    return;
+  }
+  fusionBusy.value = true;
+  try {
+    await game.startTierDowngrade(animalId);
+    splitAnimalId.value = "";
+  } catch (e) {
+    error.value = e.message;
+    setTimeout(() => (error.value = ""), 2500);
+  } finally {
+    fusionBusy.value = false;
   }
 }
 
@@ -1150,6 +1219,24 @@ async function doFusion(species, tier) {
       </div>
 
       <div v-if="fusionOpen" class="fusion-body">
+        <div class="fm-mode-toggle">
+          <Button
+            class="fm-mode-btn"
+            :class="{ active: fusionMode === 'fuse' }"
+            @click="fusionMode = 'fuse'"
+          >
+            {{ tx("fusion.modeFuse") }}
+          </Button>
+          <Button
+            class="fm-mode-btn"
+            :class="{ active: fusionMode === 'split' }"
+            @click="fusionMode = 'split'"
+          >
+            {{ tx("fusion.modeSplit") }}
+          </Button>
+        </div>
+
+        <template v-if="fusionMode === 'fuse'">
         <div
           v-if="fusionGroups.length === 0 && !fusionLocked"
           class="hint"
@@ -1263,6 +1350,102 @@ async function doFusion(species, tier) {
             {{ fusionBusy ? tx("common.loadingShort") : tx("fusion.start") }}
           </Button>
         </div>
+        </template>
+
+        <template v-if="fusionMode === 'split'">
+          <p class="hint" style="margin: 0 0 8px">{{ tx("fusion.splitHint") }}</p>
+
+          <div
+            v-if="fusionLocked"
+            class="fusion-locked hint"
+            style="text-align: center"
+          >
+            {{ tx("fusion.locked") }}
+          </div>
+
+          <div
+            v-else-if="splitAnimals.length === 0"
+            class="hint"
+            style="text-align: center; padding: 12px"
+          >
+            {{ tx("fusion.splitNone") }}
+          </div>
+
+          <template v-else>
+            <div class="fusion-machine">
+              <div class="fm-slot fm-left">
+                <div class="fm-slot-title">{{ tx("fusion.input") }}</div>
+                <div class="fm-slot-body">
+                  <template v-if="splitSelected">
+                    <span
+                      class="fm-chip big"
+                      :style="{ '--tier-color': splitSelected.td.color }"
+                      >{{ splitSelected.info.emoji
+                      }}<sup class="tb">{{ splitSelected.td.badge }}</sup></span
+                    >
+                  </template>
+                  <div v-else class="hint" style="margin: 0">
+                    {{ tx("fusion.pickAnimalToSplit") }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="fm-core">
+                <div class="fm-factory">✂️</div>
+                <div v-if="fusionBusy" class="hint">
+                  {{ tx("common.loadingShort") }}
+                </div>
+              </div>
+
+              <div class="fm-slot fm-right">
+                <div class="fm-slot-title">{{ tx("fusion.output") }}</div>
+                <div class="fm-slot-body">
+                  <template v-if="splitSelected">
+                    <span
+                      v-for="i in splitOutputCount"
+                      :key="i"
+                      class="fm-chip"
+                      >{{ splitSelected.info.emoji }}</span
+                    >
+                  </template>
+                  <div v-else class="hint" style="margin: 0">?</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="fm-controls">
+              <div class="fm-row">
+                <label class="hint" style="margin: 0">
+                  {{ tx("fusion.pickAnimalToSplit") }}
+                </label>
+                <div class="fm-species-grid">
+                  <Button
+                    v-for="a in splitAnimals"
+                    :key="a.id"
+                    class="fm-sp-btn"
+                    :class="{ active: splitAnimalId === a.id }"
+                    :style="{ '--tier-color': a.td.color }"
+                    @click="splitAnimalId = a.id"
+                  >
+                    <span class="fm-sp-emoji"
+                      >{{ a.info.emoji
+                      }}<sup class="tb">{{ a.td.badge }}</sup></span
+                    >
+                    <span class="fm-sp-count">{{ a.td.tier || a.tier }}</span>
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                class="btn full"
+                :disabled="!splitSelected || fusionBusy"
+                @click="doSplit(splitAnimalId)"
+              >
+                {{ fusionBusy ? tx("common.loadingShort") : tx("fusion.startSplit") }}
+              </Button>
+            </div>
+          </template>
+        </template>
       </div>
     </div>
   </div>
@@ -1926,6 +2109,28 @@ async function doFusion(species, tier) {
   flex-direction: column;
   gap: 14px;
   margin-top: 8px;
+}
+.fm-mode-toggle {
+  display: flex;
+  gap: 6px;
+  background: #0f1736;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+}
+.fm-mode-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: inherit;
+  cursor: pointer;
+  font-weight: 600;
+}
+.fm-mode-btn.active {
+  background: var(--surface, #1a2350);
+  border-color: var(--border);
 }
 .fusion-row {
   background: #0f1736;

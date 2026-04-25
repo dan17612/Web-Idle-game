@@ -1,0 +1,2 @@
+[functions.support-mailer]
+verify_jwt = false

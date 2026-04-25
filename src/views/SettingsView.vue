@@ -17,6 +17,10 @@ const busy = ref('')
 const error = ref('')
 const info = ref('')
 
+const supportSubject = ref('')
+const supportMessage = ref('')
+const supportNotifyCopy = ref(false)
+
 const AVATAR_CHOICES = ['🐶','🐱','🐼','🦊','🐵','🐯','🦁','🐸','🐷','🐮','🦄','🐲','🦖','🐙','🐳','🦉','🦅','🐝','🐞','🌟','👑','🧙','🧛','🧑‍🚀','🤖','👾','🎮','🍕','🌈','🔥']
 
 const currentEmail = computed(() => auth.user?.email || '')
@@ -179,6 +183,27 @@ async function deleteAccount() {
   }
 }
 
+async function submitSupport() {
+  const subject = supportSubject.value.trim()
+  const message = supportMessage.value.trim()
+  if (!subject) return flash(t('settings.supportEnterSubject'), true)
+  if (!message) return flash(t('settings.supportEnterMessage'), true)
+  busy.value = 'support'
+  try {
+    const res = await auth.submitSupportTicket(subject, message, supportNotifyCopy.value)
+    const number = res?.ticket_number || '?'
+    const key = res?.notified_user ? 'settings.supportSentWithMail' : 'settings.supportSent'
+    flash(t(key, { number }))
+    supportSubject.value = ''
+    supportMessage.value = ''
+    supportNotifyCopy.value = false
+  } catch (e) {
+    flash(e.message || String(e), true)
+  } finally {
+    busy.value = ''
+  }
+}
+
 async function logout() {
   await auth.signOut()
   router.replace({ name: 'login' })
@@ -281,6 +306,31 @@ async function logout() {
         </Button>
       </div>
       <p class="hint">{{ t('settings.unlinkHint') }}</p>
+    </section>
+
+    <section class="card stack">
+      <h2 style="margin:0">{{ t('settings.supportTitle') }}</h2>
+      <p class="hint">{{ t('settings.supportHint') }}</p>
+      <InputText
+        v-model="supportSubject"
+        type="text"
+        :placeholder="t('settings.supportSubjectPlaceholder')"
+        maxlength="200"
+      />
+      <Textarea
+        v-model="supportMessage"
+        :placeholder="t('settings.supportMessagePlaceholder')"
+        rows="5"
+        maxlength="5000"
+        autoResize
+      />
+      <label class="row" style="gap:8px; justify-content:flex-start; align-items:center">
+        <Checkbox v-model="supportNotifyCopy" :binary="true" inputId="support-notify-copy" />
+        <span style="font-size:13px">{{ t('settings.supportNotifyCopy') }}</span>
+      </label>
+      <Button class="btn" :disabled="busy==='support'" @click="submitSupport">
+        {{ busy==='support' ? t('common.loadingShort') : t('settings.supportSubmit') }}
+      </Button>
     </section>
 
     <section class="card stack">
