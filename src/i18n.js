@@ -104,7 +104,19 @@ const messages = {
       deleteTitle: 'Account löschen',
       deleteHint: 'Diese Aktion ist endgültig. Gib zur Bestätigung LÖSCHEN ein.',
       deleteAction: 'Account endgültig löschen',
-      logout: 'Abmelden'
+      logout: 'Abmelden',
+      supportTitle: 'Support kontaktieren',
+      supportHint: 'Schick uns eine Nachricht. Wir antworten so bald wie möglich.',
+      supportSubject: 'Betreff',
+      supportSubjectPlaceholder: 'z. B. Problem mit Fusions-Maschine',
+      supportMessage: 'Nachricht',
+      supportMessagePlaceholder: 'Beschreibe dein Anliegen möglichst genau …',
+      supportNotifyCopy: 'Bestätigungs-E-Mail mit Ticketnummer an mich senden',
+      supportSubmit: 'Ticket absenden',
+      supportSent: 'Ticket {number} gesendet. Wir melden uns!',
+      supportSentWithMail: 'Ticket {number} gesendet. Bestätigung wurde an deine E-Mail geschickt.',
+      supportEnterSubject: 'Bitte einen Betreff eingeben.',
+      supportEnterMessage: 'Bitte eine Nachricht eingeben.'
     },
     storeErrors: {
       accountBanned: 'Dein Account ist gebannt.',
@@ -375,7 +387,19 @@ const messages = {
       deleteTitle: 'Delete account',
       deleteHint: 'This action is final. Type LOESCHEN to confirm.',
       deleteAction: 'Permanently delete account',
-      logout: 'Sign out'
+      logout: 'Sign out',
+      supportTitle: 'Contact support',
+      supportHint: 'Send us a message. We will reply as soon as possible.',
+      supportSubject: 'Subject',
+      supportSubjectPlaceholder: 'e.g. Problem with the fusion machine',
+      supportMessage: 'Message',
+      supportMessagePlaceholder: 'Describe your issue as clearly as possible …',
+      supportNotifyCopy: 'Send me a confirmation email with the ticket number',
+      supportSubmit: 'Send ticket',
+      supportSent: 'Ticket {number} sent. We will get back to you!',
+      supportSentWithMail: 'Ticket {number} sent. Confirmation has been emailed to you.',
+      supportEnterSubject: 'Please enter a subject.',
+      supportEnterMessage: 'Please enter a message.'
     },
     storeErrors: {
       accountBanned: 'Your account is banned.',
@@ -646,7 +670,19 @@ const messages = {
       deleteTitle: 'Удалить аккаунт',
       deleteHint: 'Это действие необратимо. Для подтверждения введите LOESCHEN.',
       deleteAction: 'Удалить аккаунт навсегда',
-      logout: 'Выйти'
+      logout: 'Выйти',
+      supportTitle: 'Связаться с поддержкой',
+      supportHint: 'Отправьте нам сообщение. Мы ответим как можно скорее.',
+      supportSubject: 'Тема',
+      supportSubjectPlaceholder: 'например, проблема с машиной слияния',
+      supportMessage: 'Сообщение',
+      supportMessagePlaceholder: 'Опишите проблему как можно подробнее …',
+      supportNotifyCopy: 'Прислать мне подтверждение по email с номером тикета',
+      supportSubmit: 'Отправить тикет',
+      supportSent: 'Тикет {number} отправлен. Мы свяжемся с вами!',
+      supportSentWithMail: 'Тикет {number} отправлен. Подтверждение отправлено вам на email.',
+      supportEnterSubject: 'Введите тему.',
+      supportEnterMessage: 'Введите сообщение.'
     },
     storeErrors: {
       accountBanned: 'Ваш аккаунт заблокирован.',

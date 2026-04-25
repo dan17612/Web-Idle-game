@@ -151,6 +151,15 @@ export const useAuthStore = defineStore('auth', {
       if (this.profile) this.profile.username = data?.username || name
       return data
     },
+    async submitSupportTicket(subject, message, notifyCopy) {
+      const { data, error } = await supabase.rpc('submit_support_ticket', {
+        p_subject: subject,
+        p_message: message,
+        p_notify_copy: !!notifyCopy
+      })
+      if (error) throw error
+      return data
+    },
     async sendBroadcast(message) {
       const { data, error } = await supabase.rpc('admin_broadcast', { p_message: message })
       if (error) throw error
