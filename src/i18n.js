@@ -306,7 +306,18 @@ const messages = {
       adminActive: 'aktiv',
       adminInactive: 'aus',
       adminRestockAmount: 'Menge zum Restocken',
-      adminStop: 'Stop'
+      adminStop: 'Stop',
+      promoTitle: 'Promo-Code einlösen',
+      promoSub: 'Code eingeben und Belohnung kassieren.',
+      promoPlaceholder: 'CODE',
+      promoRedeem: 'Einlösen',
+      promoRedeeming: 'Wird eingelöst...',
+      promoSuccess: 'Belohnung erhalten!',
+      promoRewardCoins: '{coins} Münzen',
+      promoRewardTickets: '{tickets} Tickets',
+      promoRewardSpecies: '{qty}× {emoji} ({tier})',
+      promoRewardBoost: '×{mult} Boost für {minutes} Min',
+      promoRewardTaps: '+{taps} Bonus-Taps'
     }
   },
   en: {
@@ -604,7 +615,18 @@ const messages = {
       adminActive: 'active',
       adminInactive: 'off',
       adminRestockAmount: 'Restock amount',
-      adminStop: 'Stop'
+      adminStop: 'Stop',
+      promoTitle: 'Redeem promo code',
+      promoSub: 'Enter a code and claim your reward.',
+      promoPlaceholder: 'CODE',
+      promoRedeem: 'Redeem',
+      promoRedeeming: 'Redeeming...',
+      promoSuccess: 'Reward claimed!',
+      promoRewardCoins: '{coins} coins',
+      promoRewardTickets: '{tickets} tickets',
+      promoRewardSpecies: '{qty}× {emoji} ({tier})',
+      promoRewardBoost: '×{mult} boost for {minutes} min',
+      promoRewardTaps: '+{taps} bonus taps'
     }
   },
   ru: {
@@ -902,7 +924,18 @@ const messages = {
       adminActive: 'вкл',
       adminInactive: 'выкл',
       adminRestockAmount: 'Количество для рестока',
-      adminStop: 'Стоп'
+      adminStop: 'Стоп',
+      promoTitle: 'Активировать промокод',
+      promoSub: 'Введите код и заберите награду.',
+      promoPlaceholder: 'КОД',
+      promoRedeem: 'Активировать',
+      promoRedeeming: 'Активация...',
+      promoSuccess: 'Награда получена!',
+      promoRewardCoins: '{coins} монет',
+      promoRewardTickets: '{tickets} билетов',
+      promoRewardSpecies: '{qty}× {emoji} ({tier})',
+      promoRewardBoost: '×{mult} буст на {minutes} мин',
+      promoRewardTaps: '+{taps} бонус-тапов'
     }
   }
 }

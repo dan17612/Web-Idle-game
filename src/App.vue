@@ -163,7 +163,10 @@ async function hardReload() {
 <template>
   <div class="app-shell">
     <header v-if="showNav" class="top-bar">
-      <div class="brand">🐾 Zoo Empire</div>
+      <div class="brand">
+        <span class="brand-logo">🐾</span>
+        <span class="brand-text">Zoo Empire</span>
+      </div>
       <div class="top-right">
         <div class="balance">
           <span class="coin">🪙</span>
@@ -281,7 +284,7 @@ async function hardReload() {
     </nav>
 
     <Button
-      v-if="showNav && auth.profile?.is_admin"
+      v-if="showNav && (auth.profile?.is_admin || auth.profile?.is_subadmin)"
       class="admin-fab"
       @click="adminOpen = true"
       :title="t('app.admin')"

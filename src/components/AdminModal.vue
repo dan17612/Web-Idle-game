@@ -3,13 +3,19 @@ import { computed, ref, onMounted } from 'vue'
 import { supabase } from '../supabase'
 import { speciesInfo } from '../animals'
 import { locale } from '../i18n'
+import { useAuthStore } from '../stores/auth'
 
 const emit = defineEmits(['close'])
 
+const auth = useAuthStore()
+const isFullAdmin = computed(() => !!auth.profile?.is_admin)
+const isSubadmin = computed(() => !isFullAdmin.value && !!auth.profile?.is_subadmin)
+
 const I18N = {
   de: {
-    title: 'Admin',
-    tabs: { broadcast: 'Broadcast', shop: 'Shop', gift: 'Gift', users: 'Users', tickets: 'Tickets' },
+    title: '🛠️',
+    titleLite: '🛠️⚡',
+    tabs: { broadcast: '📢', shop: '🏪', gift: '🎁', users: '👥', tickets: '🎫', filter: '🚫' },
     tiers: { normal: 'Normal', gold: 'Gold', diamond: 'Diamant', epic: 'Episch', rainbow: 'Rainbow' },
     tickets: {
       subtitle: 'Support-Tickets der Spieler. Antworten gehen per E-Mail an den Spieler.',
@@ -38,9 +44,10 @@ const I18N = {
     flash: {
       enterMessage: 'Nachricht eingeben',
       broadcastSent: 'Nachricht an alle gesendet',
-      enterUserOrAll: 'Username oder @all angeben',
+      enterUserOrAll: 'Username, @all oder @online angeben',
       enterCoinsOrSpecies: 'Muenzen oder Spezies angeben',
       sentAll: 'An alle {count} Spieler gesendet',
+      sentOnline: 'An {count} aktuell online Spieler gesendet',
       giftQueued: '{count} Geschenk(e) eingereiht',
       notFound: 'nicht gefunden',
       ok: 'OK',
@@ -62,7 +69,7 @@ const I18N = {
     gift: {
       subtitle: 'Geschenk wird beim naechsten Login des Empfaengers automatisch eingeloest.',
       recipientLabel: 'Empfaenger - mehrere mit Komma oder',
-      recipientPlaceholder: 'alice, bob, charlie oder @all',
+      recipientPlaceholder: 'alice, bob, charlie, @all oder @online',
       coinsOptional: 'Muenzen (optional)',
       speciesOptional: 'Spezies (optional)',
       tier: 'Tier',
@@ -82,20 +89,44 @@ const I18N = {
     },
     users: {
       subtitle: 'Accounts verwalten: suchen, bannen/entbannen, loeschen.',
+      subtitleLite: 'Accounts verwalten: suchen und bannen/entbannen. Begründung erforderlich.',
       searchPlaceholder: 'Suche nach Username oder E-Mail',
       search: 'Suchen',
       admin: 'ADMIN',
+      subadmin: 'SUB-ADMIN',
       banned: 'BANNED',
       noEmail: 'keine E-Mail',
       coins: 'Coins: {coins}',
       ban: 'Bannen',
       unban: 'Entbannen',
-      delete: 'Loeschen'
+      delete: 'Loeschen',
+      makeSub: 'Sub-Admin',
+      revokeSub: 'Sub-Admin entziehen',
+      promptBanReason: 'Bitte Begründung für den Bann angeben:',
+      promptBanReasonOptional: 'Begründung für den Bann (optional):'
+    },
+    filter: {
+      subtitle: 'Verbotene Wörter in Usernamen. „contains" trifft auch als Bestandteil, „exact" nur als ganzer Name.',
+      addPattern: 'Neues Muster',
+      patternPlaceholder: 'z. B. admin oder zooempire',
+      kindContains: 'Enthält',
+      kindExact: 'Exakt',
+      notePlaceholder: 'Notiz (optional)',
+      add: 'Hinzufügen',
+      remove: 'Entfernen',
+      apply: 'Sperrliste auf alle Spieler anwenden',
+      applyConfirm: 'Alle blockierten Spieler werden auf u + 9 Zufallsziffern umbenannt. Fortfahren?',
+      applied: '{count} Spieler umbenannt.',
+      empty: 'Keine Muster vorhanden.',
+      enterPattern: 'Muster eingeben.',
+      added: 'Muster hinzugefügt.',
+      removed: 'Muster entfernt.'
     }
   },
   en: {
-    title: 'Admin',
-    tabs: { broadcast: 'Broadcast', shop: 'Shop', gift: 'Gift', users: 'Users', tickets: 'Tickets' },
+    title: '🛠️',
+    titleLite: '🛠️⚡',
+    tabs: { broadcast: '📢', shop: '🏪', gift: '🎁', users: '👥', tickets: '🎫', filter: '🚫' },
     tiers: { normal: 'Normal', gold: 'Gold', diamond: 'Diamond', epic: 'Epic', rainbow: 'Rainbow' },
     tickets: {
       subtitle: 'Player support tickets. Replies are emailed to the player.',
@@ -124,9 +155,10 @@ const I18N = {
     flash: {
       enterMessage: 'Enter a message',
       broadcastSent: 'Message sent to everyone',
-      enterUserOrAll: 'Enter username or @all',
+      enterUserOrAll: 'Enter username, @all or @online',
       enterCoinsOrSpecies: 'Enter coins or species',
       sentAll: 'Sent to all {count} players',
+      sentOnline: 'Sent to {count} online players',
       giftQueued: '{count} gift(s) queued',
       notFound: 'not found',
       ok: 'OK',
@@ -148,7 +180,7 @@ const I18N = {
     gift: {
       subtitle: 'Gift is automatically claimed on the recipient’s next login.',
       recipientLabel: 'Recipient - multiple names separated by comma or',
-      recipientPlaceholder: 'alice, bob, charlie or @all',
+      recipientPlaceholder: 'alice, bob, charlie, @all or @online',
       coinsOptional: 'Coins (optional)',
       speciesOptional: 'Species (optional)',
       tier: 'Tier',
@@ -168,20 +200,44 @@ const I18N = {
     },
     users: {
       subtitle: 'Manage accounts: search, ban/unban, delete.',
+      subtitleLite: 'Manage accounts: search and ban/unban. Reason required.',
       searchPlaceholder: 'Search by username or email',
       search: 'Search',
       admin: 'ADMIN',
+      subadmin: 'SUB-ADMIN',
       banned: 'BANNED',
       noEmail: 'no email',
       coins: 'Coins: {coins}',
       ban: 'Ban',
       unban: 'Unban',
-      delete: 'Delete'
+      delete: 'Delete',
+      makeSub: 'Make sub-admin',
+      revokeSub: 'Revoke sub-admin',
+      promptBanReason: 'Please enter a ban reason:',
+      promptBanReasonOptional: 'Ban reason (optional):'
+    },
+    filter: {
+      subtitle: 'Forbidden words in usernames. "contains" matches as substring, "exact" only the whole name.',
+      addPattern: 'New pattern',
+      patternPlaceholder: 'e.g. admin or zooempire',
+      kindContains: 'Contains',
+      kindExact: 'Exact',
+      notePlaceholder: 'Note (optional)',
+      add: 'Add',
+      remove: 'Remove',
+      apply: 'Apply filter to all players',
+      applyConfirm: 'All blocked players will be renamed to u + 9 random digits. Continue?',
+      applied: '{count} player(s) renamed.',
+      empty: 'No patterns yet.',
+      enterPattern: 'Enter a pattern.',
+      added: 'Pattern added.',
+      removed: 'Pattern removed.'
     }
   },
   ru: {
-    title: 'Админ',
-    tabs: { broadcast: 'Рассылка', shop: 'Магазин', gift: 'Подарок', users: 'Пользователи', tickets: 'Тикеты' },
+    title: '🛠️',
+    titleLite: '🛠️⚡',
+    tabs: { broadcast: '📢', shop: '🏪', gift: '🎁', users: '👥', tickets: '🎫', filter: '🚫' },
     tiers: { normal: 'Обычный', gold: 'Золотой', diamond: 'Алмазный', epic: 'Эпический', rainbow: 'Радужный' },
     tickets: {
       subtitle: 'Тикеты поддержки от игроков. Ответы отправляются игроку по email.',
@@ -210,9 +266,10 @@ const I18N = {
     flash: {
       enterMessage: 'Введите сообщение',
       broadcastSent: 'Сообщение отправлено всем',
-      enterUserOrAll: 'Укажите username или @all',
+      enterUserOrAll: 'Укажите username, @all или @online',
       enterCoinsOrSpecies: 'Укажите монеты или вид',
       sentAll: 'Отправлено всем {count} игрокам',
+      sentOnline: 'Отправлено {count} онлайн-игрокам',
       giftQueued: '{count} подарков поставлено в очередь',
       notFound: 'не найдено',
       ok: 'OK',
@@ -234,7 +291,7 @@ const I18N = {
     gift: {
       subtitle: 'Подарок автоматически забирается при следующем входе получателя.',
       recipientLabel: 'Получатель - несколько имен через запятую или',
-      recipientPlaceholder: 'alice, bob, charlie или @all',
+      recipientPlaceholder: 'alice, bob, charlie, @all или @online',
       coinsOptional: 'Монеты (опционально)',
       speciesOptional: 'Вид (опционально)',
       tier: 'Тир',
@@ -254,15 +311,38 @@ const I18N = {
     },
     users: {
       subtitle: 'Управление аккаунтами: поиск, бан/разбан, удаление.',
+      subtitleLite: 'Управление аккаунтами: поиск и бан/разбан. Нужна причина.',
       searchPlaceholder: 'Поиск по username или email',
       search: 'Найти',
       admin: 'ADMIN',
+      subadmin: 'SUB-ADMIN',
       banned: 'BANNED',
       noEmail: 'нет email',
       coins: 'Монеты: {coins}',
       ban: 'Бан',
       unban: 'Разбан',
-      delete: 'Удалить'
+      delete: 'Удалить',
+      makeSub: 'Назначить саб-админом',
+      revokeSub: 'Снять саб-админа',
+      promptBanReason: 'Укажите причину бана:',
+      promptBanReasonOptional: 'Причина бана (опционально):'
+    },
+    filter: {
+      subtitle: 'Запрещённые слова в никах. „contains" — как подстрока, „exact" — только точное совпадение.',
+      addPattern: 'Новое правило',
+      patternPlaceholder: 'например admin или zooempire',
+      kindContains: 'Содержит',
+      kindExact: 'Точно',
+      notePlaceholder: 'Заметка (опционально)',
+      add: 'Добавить',
+      remove: 'Удалить',
+      apply: 'Применить фильтр ко всем',
+      applyConfirm: 'Все заблокированные игроки будут переименованы в u + 9 цифр. Продолжить?',
+      applied: 'Переименовано: {count}.',
+      empty: 'Пока нет правил.',
+      enterPattern: 'Введите шаблон.',
+      added: 'Правило добавлено.',
+      removed: 'Правило удалено.'
     }
   }
 }
@@ -294,6 +374,13 @@ const users = ref([])
 const tickets = ref([])
 const ticketFilter = ref('open')
 const ticketReply = ref({})
+
+const forbiddenList = ref([])
+const newForbidden = ref({ pattern: '', kind: 'contains', note: '' })
+const filterKindOptions = computed(() => [
+  { label: tx('filter.kindContains'), value: 'contains' },
+  { label: tx('filter.kindExact'), value: 'exact' }
+])
 const ticketStatusOptions = computed(() => [
   { label: tx('tickets.filterAll'), value: '' },
   { label: tx('tickets.filterOpen'), value: 'open' },
@@ -392,7 +479,10 @@ async function sendGift() {
     if (e) throw e
     const sent = Number(data?.sent ?? 0)
     const missed = Array.isArray(data?.missed) ? data.missed : []
-    let msg = data?.all ? tx('flash.sentAll', { count: sent }) : tx('flash.giftQueued', { count: sent })
+    let msg
+    if (data?.all) msg = tx('flash.sentAll', { count: sent })
+    else if (data?.online) msg = tx('flash.sentOnline', { count: sent })
+    else msg = tx('flash.giftQueued', { count: sent })
     if (missed.length) msg += ` · ${tx('flash.notFound')}: ${missed.join(', ')}`
     flash(msg, missed.length > 0 && sent === 0)
     if (sent > 0) giftForm.value = { username: '', coins: 0, species: '', tier: 'normal', qty: 1, note: '' }
@@ -442,16 +532,108 @@ function rotate() {
 
 async function setBan(u, banned) {
   if (u.is_admin) return flash(tx('flash.cannotBanAdmins'), true)
+  let reason = null
+  if (banned) {
+    const promptText = isSubadmin.value
+      ? tx('users.promptBanReason')
+      : tx('users.promptBanReasonOptional')
+    const entered = window.prompt(promptText, '')
+    if (entered === null) return
+    reason = entered.trim() || null
+    if (isSubadmin.value && !reason) return flash(tx('users.promptBanReason'), true)
+  }
   busy.value = banned ? `ban-${u.id}` : `unban-${u.id}`
   try {
     const { error: e } = await supabase.rpc('admin_set_user_ban', {
       p_user_id: u.id,
       p_banned: banned,
-      p_reason: null
+      p_reason: reason
     })
     if (e) throw e
     await loadUsers()
     flash(banned ? tx('flash.banned') : tx('flash.unbanned'))
+  } catch (e) {
+    flash(e.message, true)
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function toggleSubadmin(u) {
+  if (!isFullAdmin.value || u.is_admin) return
+  const next = !u.is_subadmin
+  busy.value = `sub-${u.id}`
+  try {
+    const { error: e } = await supabase.rpc('admin_set_user_subadmin', {
+      p_user_id: u.id,
+      p_is_subadmin: next
+    })
+    if (e) throw e
+    await loadUsers()
+    flash(tx('flash.ok'))
+  } catch (e) {
+    flash(e.message, true)
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function loadForbidden() {
+  if (!isFullAdmin.value) return
+  busy.value = 'filter'
+  try {
+    const { data, error: e } = await supabase.rpc('admin_list_forbidden_usernames')
+    if (e) throw e
+    forbiddenList.value = data || []
+  } catch (e) {
+    flash(e.message, true)
+  } finally {
+    if (busy.value === 'filter') busy.value = ''
+  }
+}
+
+async function addForbidden() {
+  const pattern = (newForbidden.value.pattern || '').trim()
+  if (!pattern) return flash(tx('filter.enterPattern'), true)
+  busy.value = 'filter-add'
+  try {
+    const { error: e } = await supabase.rpc('admin_add_forbidden_username', {
+      p_pattern: pattern,
+      p_kind: newForbidden.value.kind || 'contains',
+      p_note: (newForbidden.value.note || '').trim() || null
+    })
+    if (e) throw e
+    newForbidden.value = { pattern: '', kind: 'contains', note: '' }
+    await loadForbidden()
+    flash(tx('filter.added'))
+  } catch (e) {
+    flash(e.message, true)
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function removeForbidden(id) {
+  busy.value = `filter-rm-${id}`
+  try {
+    const { error: e } = await supabase.rpc('admin_remove_forbidden_username', { p_id: id })
+    if (e) throw e
+    await loadForbidden()
+    flash(tx('filter.removed'))
+  } catch (e) {
+    flash(e.message, true)
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function applyFilter() {
+  if (!confirm(tx('filter.applyConfirm'))) return
+  busy.value = 'filter-apply'
+  try {
+    const { data, error: e } = await supabase.rpc('admin_apply_username_filter')
+    if (e) throw e
+    flash(tx('filter.applied', { count: Number(data?.renamed ?? 0) }))
   } catch (e) {
     flash(e.message, true)
   } finally {
@@ -535,7 +717,7 @@ async function deleteUser(u) {
   <div class="modal-backdrop" @click.self="emit('close')">
     <div class="modal-card">
       <div class="row between" style="margin-bottom:12px">
-        <h2>{{ tx('title') }}</h2>
+        <h2>{{ isSubadmin ? tx('titleLite') : tx('title') }}</h2>
         <Button class="btn secondary small" @click="emit('close')">X</Button>
       </div>
 
@@ -545,6 +727,7 @@ async function deleteUser(u) {
         <Button :class="{ active: tab==='gift' }" @click="tab='gift'">{{ tx('tabs.gift') }}</Button>
         <Button :class="{ active: tab==='users' }" @click="tab='users'">{{ tx('tabs.users') }}</Button>
         <Button :class="{ active: tab==='tickets' }" @click="tab='tickets'; loadTickets()">{{ tx('tabs.tickets') }}</Button>
+        <Button v-if="isFullAdmin" :class="{ active: tab==='filter' }" @click="tab='filter'; loadForbidden()">{{ tx('tabs.filter') }}</Button>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
@@ -566,7 +749,7 @@ async function deleteUser(u) {
 
       <template v-if="tab === 'gift'">
         <p class="subtitle">{{ tx('gift.subtitle') }}</p>
-        <label class="subtitle">{{ tx('gift.recipientLabel') }} <code>@all</code></label>
+        <label class="subtitle">{{ tx('gift.recipientLabel') }} <code>@all</code> / <code>@online</code></label>
         <InputText v-model="giftForm.username" :placeholder="tx('gift.recipientPlaceholder')" style="width:100%;margin-bottom:8px" />
         <label class="subtitle">{{ tx('gift.coinsOptional') }}</label>
         <InputText type="number" min="0" v-model.number="giftForm.coins" placeholder="0" style="width:100%;margin-bottom:8px" />
@@ -640,7 +823,7 @@ async function deleteUser(u) {
       </template>
 
       <template v-if="tab === 'users'">
-        <p class="subtitle">{{ tx('users.subtitle') }}</p>
+        <p class="subtitle">{{ isSubadmin ? tx('users.subtitleLite') : tx('users.subtitle') }}</p>
         <div class="row" style="gap:8px;margin-bottom:10px">
           <InputText
             v-model="userSearch"
@@ -657,6 +840,7 @@ async function deleteUser(u) {
               <div style="font-weight:700;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
                 <span>{{ u.username }}</span>
                 <span v-if="u.is_admin" class="pill">{{ tx('users.admin') }}</span>
+                <span v-if="u.is_subadmin && !u.is_admin" class="pill subadmin">{{ tx('users.subadmin') }}</span>
                 <span v-if="u.is_banned" class="pill banned">{{ tx('users.banned') }}</span>
               </div>
               <div class="subtitle" style="margin:0">{{ u.email || tx('users.noEmail') }}</div>
@@ -681,11 +865,75 @@ async function deleteUser(u) {
               {{ busy===`unban-${u.id}` ? '...' : tx('users.unban') }}
             </Button>
             <Button
+              v-if="isFullAdmin"
+              class="btn secondary small"
+              :disabled="busy===`sub-${u.id}` || u.is_admin"
+              @click="toggleSubadmin(u)"
+            >
+              {{ busy===`sub-${u.id}` ? '...' : (u.is_subadmin ? tx('users.revokeSub') : tx('users.makeSub')) }}
+            </Button>
+            <Button
+              v-if="isFullAdmin"
               class="btn danger small"
               :disabled="busy===`del-${u.id}` || u.is_admin"
               @click="deleteUser(u)"
             >
               {{ busy===`del-${u.id}` ? '...' : tx('users.delete') }}
+            </Button>
+          </div>
+        </div>
+      </template>
+
+      <template v-if="tab === 'filter' && isFullAdmin">
+        <p class="subtitle">{{ tx('filter.subtitle') }}</p>
+        <div class="row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+          <InputText
+            v-model="newForbidden.pattern"
+            :placeholder="tx('filter.patternPlaceholder')"
+            style="flex:1;min-width:140px"
+          />
+          <Select
+            v-model="newForbidden.kind"
+            :options="filterKindOptions"
+            optionLabel="label"
+            optionValue="value"
+            style="min-width:130px"
+          />
+        </div>
+        <InputText
+          v-model="newForbidden.note"
+          :placeholder="tx('filter.notePlaceholder')"
+          maxlength="140"
+          style="width:100%;margin-bottom:8px"
+        />
+        <div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap">
+          <Button class="btn small" :disabled="busy==='filter-add'" @click="addForbidden">
+            {{ busy==='filter-add' ? '...' : tx('filter.add') }}
+          </Button>
+          <Button class="btn danger small" :disabled="busy==='filter-apply'" @click="applyFilter">
+            {{ busy==='filter-apply' ? '...' : tx('filter.apply') }}
+          </Button>
+        </div>
+        <div v-if="!forbiddenList.length" class="subtitle" style="text-align:center;padding:12px">
+          {{ tx('filter.empty') }}
+        </div>
+        <div v-for="f in forbiddenList" :key="f.id" class="admin-row">
+          <div class="admin-left" style="min-width:0;flex:1">
+            <div style="min-width:0">
+              <div style="font-weight:700;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <code class="ticket-num">{{ f.pattern }}</code>
+                <span class="pill">{{ f.kind === 'exact' ? tx('filter.kindExact') : tx('filter.kindContains') }}</span>
+              </div>
+              <div v-if="f.note" class="subtitle" style="margin:0;word-break:break-word">{{ f.note }}</div>
+            </div>
+          </div>
+          <div class="admin-actions">
+            <Button
+              class="btn danger small"
+              :disabled="busy===`filter-rm-${f.id}`"
+              @click="removeForbidden(f.id)"
+            >
+              {{ busy===`filter-rm-${f.id}` ? '...' : tx('filter.remove') }}
             </Button>
           </div>
         </div>
@@ -800,6 +1048,10 @@ async function deleteUser(u) {
 .pill.banned {
   border-color: #ff6b6b;
   color: #ff8a8a;
+}
+.pill.subadmin {
+  border-color: #6bd4ff;
+  color: #6bd4ff;
 }
 .pill.status-open { border-color: #ffb86b; color: #ffb86b; }
 .pill.status-replied { border-color: #6bd4ff; color: #6bd4ff; }

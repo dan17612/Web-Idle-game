@@ -299,6 +299,55 @@ function adminRestock(species) {
     "f-" + species,
   );
 }
+
+const promoCode = ref("");
+const promoBusy = ref(false);
+const promoMessage = ref("");
+
+async function redeemPromo() {
+  const code = (promoCode.value || "").trim();
+  if (!code) return;
+  promoBusy.value = true;
+  error.value = "";
+  success.value = "";
+  promoMessage.value = "";
+  try {
+    const { data, error: e } = await supabase.rpc("redeem_promo_code", { p_code: code });
+    if (e) throw e;
+    const r = data?.rewards || {};
+    const parts = [];
+    if (Number(r.coins) > 0) parts.push(t("shop.promoRewardCoins", { coins: formatCoins(Number(r.coins)) }));
+    if (Number(r.tickets) > 0) parts.push(t("shop.promoRewardTickets", { tickets: Number(r.tickets) }));
+    if (r.species && Number(r.qty) > 0) {
+      parts.push(t("shop.promoRewardSpecies", {
+        qty: r.qty,
+        emoji: speciesInfo(r.species).emoji || r.species,
+        tier: r.tier || "normal",
+      }));
+    }
+    if (Number(r.pet_boost_multiplier) > 0 && Number(r.pet_boost_minutes) > 0) {
+      parts.push(t("shop.promoRewardBoost", {
+        mult: r.pet_boost_multiplier,
+        minutes: r.pet_boost_minutes,
+      }));
+    }
+    const bonusTaps = Number(r.bonus_taps) || 0;
+    if (bonusTaps > 0) {
+      game.bonusTaps = (game.bonusTaps || 0) + bonusTaps;
+      try {
+        if (auth.user) localStorage.setItem("bonusTaps:" + auth.user.id, String(game.bonusTaps));
+      } catch {}
+      parts.push(t("shop.promoRewardTaps", { taps: bonusTaps }));
+    }
+    promoMessage.value = `${t("shop.promoSuccess")} ${parts.join(" · ")}`.trim();
+    promoCode.value = "";
+    await game.load();
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    promoBusy.value = false;
+  }
+}
 </script>
 
 <template>
@@ -617,6 +666,33 @@ function adminRestock(species) {
       </div>
     </div>
   </template>
+
+  <div class="card promo-card">
+    <div class="promo-head">
+      <div class="promo-icon">🎟️</div>
+      <div>
+        <div class="promo-title">{{ t("shop.promoTitle") }}</div>
+        <div class="promo-sub">{{ t("shop.promoSub") }}</div>
+      </div>
+    </div>
+    <div class="promo-row">
+      <InputText
+        v-model="promoCode"
+        :placeholder="t('shop.promoPlaceholder')"
+        maxlength="40"
+        class="promo-input"
+        @keydown.enter.prevent="redeemPromo"
+      />
+      <Button
+        class="btn"
+        :disabled="promoBusy || !promoCode.trim()"
+        @click="redeemPromo"
+      >
+        {{ promoBusy ? t("shop.promoRedeeming") : t("shop.promoRedeem") }}
+      </Button>
+    </div>
+    <p v-if="promoMessage" class="success promo-msg">{{ promoMessage }}</p>
+  </div>
 </template>
 
 <style scoped>
@@ -936,4 +1012,34 @@ function adminRestock(species) {
   60% { opacity: 1; transform: translateY(-8px) scale(1.15); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+.promo-card {
+  margin-top: 16px;
+  background: linear-gradient(135deg, rgba(155, 110, 255, 0.18), rgba(255, 209, 102, 0.12));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.promo-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.promo-icon {
+  font-size: 32px;
+  filter: drop-shadow(0 0 8px rgba(255, 209, 102, 0.4));
+}
+.promo-title { font-weight: 800; font-size: 16px; }
+.promo-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.promo-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.promo-input {
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+.promo-msg { margin: 8px 0 0; word-break: break-word; }
 </style>
