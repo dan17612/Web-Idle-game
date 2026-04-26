@@ -7,6 +7,8 @@ import { t } from '../i18n'
 const TAP_MAX = 10
 const TAP_MUL_MAX_LEVEL = 25
 const TAP_CAP_MAX_LEVEL = 20
+const BOSS_BOOST_MULTIPLIER = 10
+const BOSS_BOOST_DURATION_MS = 10 * 60 * 1000
 
 export const useGameStore = defineStore('game', {
   state: () => ({
@@ -71,6 +73,9 @@ export const useGameStore = defineStore('game', {
     },
     boostActive(state) {
       return (Date.now() + state.serverOffset) < state.petBoostUntil
+    },
+    bossBoostActive(state) {
+      return this.boostActive && Number(state.petBoostMultiplier) >= BOSS_BOOST_MULTIPLIER
     },
     activeMultiplier(state) {
       return this.boostActive ? state.petBoostMultiplier : 1
@@ -347,6 +352,35 @@ export const useGameStore = defineStore('game', {
       this.petBoostMultiplier = Number(data.boost_multiplier)
       this.petBoostUntil = new Date(data.boost_until).getTime()
       if (data.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      return data
+    },
+    async claimBossBoost(score, target) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('claim_boss_boost', {
+        p_score: Math.floor(Number(score) || 0),
+        p_target: Math.floor(Number(target) || 0)
+      })
+      if (error) {
+        const msg = error.message || String(error)
+        if (!/claim_boss_boost|schema cache|does not exist|not found/i.test(msg)) throw error
+        const serverNow = Date.now() + this.serverOffset
+        const currentIsBossBoost = this.boostActive && Number(this.petBoostMultiplier) >= BOSS_BOOST_MULTIPLIER
+        this.petBoostMultiplier = BOSS_BOOST_MULTIPLIER
+        this.petBoostUntil = currentIsBossBoost
+          ? Math.max(this.petBoostUntil + BOSS_BOOST_DURATION_MS, serverNow + BOSS_BOOST_DURATION_MS)
+          : serverNow + BOSS_BOOST_DURATION_MS
+        return {
+          boost_multiplier: this.petBoostMultiplier,
+          boost_until: new Date(this.petBoostUntil).toISOString(),
+          server_now: new Date(serverNow).toISOString(),
+          local_only: true
+        }
+      }
+      this.petBoostMultiplier = Number(data?.boost_multiplier ?? BOSS_BOOST_MULTIPLIER)
+      this.petBoostUntil = data?.boost_until
+        ? new Date(data.boost_until).getTime()
+        : Date.now() + this.serverOffset + BOSS_BOOST_DURATION_MS
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
       return data
     },
     async buyAnimal(speciesKey) {

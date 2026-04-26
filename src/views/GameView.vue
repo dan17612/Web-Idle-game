@@ -12,6 +12,7 @@ import {
   compareAnimalsByRate,
 } from "../animals";
 import { locale, t as tGlobal } from "../i18n";
+import BossFight from "../components/BossFight.vue";
 import TutorialBubble from "../components/TutorialBubble.vue";
 
 const game = useGameStore();
@@ -453,6 +454,12 @@ const boostRemaining = computed(() => {
   return Math.max(0, game.petBoostUntil - (Date.now() + game.serverOffset));
 });
 
+const bossBoostLabel = computed(() => {
+  if (locale.value === "de") return "Boss-Boost aktiv";
+  if (locale.value === "ru") return "Босс-буст активен";
+  return "Boss boost active";
+});
+
 const tapLimitReached = computed(
   () => game.tapsUsed >= game.tapsMax && game.bonusTaps <= 0,
 );
@@ -782,8 +789,13 @@ async function doSplit(animalId) {
           </div>
         </div>
       </router-link>
-      <div v-if="game.favoriteBoostActive" class="boost-chip">
-        ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
+      <div v-if="game.boostActive" class="boost-stack">
+        <div v-if="game.bossBoostActive" class="boost-chip boss">
+          {{ bossBoostLabel }} · ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
+        </div>
+        <div v-else-if="game.favoriteBoostActive" class="boost-chip">
+          ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
+        </div>
       </div>
     </div>
 
@@ -794,7 +806,7 @@ async function doSplit(animalId) {
           <div class="rate">
             +{{ formatCoins(game.ratePerSec) }}
             <span style="opacity: 0.6">/s</span>
-            <span v-if="game.favoriteBoostActive" class="rate-boost"
+            <span v-if="game.favoriteBoostActive || game.bossBoostActive" class="rate-boost"
               >×{{ game.petBoostMultiplier }}</span
             >
           </div>
@@ -830,14 +842,14 @@ async function doSplit(animalId) {
           class="tap-zone"
           :class="{
             disabled: tapLimitReached,
-            boosted: game.favoriteBoostActive,
+            boosted: game.favoriteBoostActive || game.bossBoostActive,
             empty: !favAnimal,
             'tut-highlight': game.tutorialStep === 0 && !shouldShowGiftDialog,
           }"
           @pointerdown="tap"
         >
           <span class="tap-emoji">{{ tapLimitReached ? "⏳" : favEmoji }}</span>
-          <span v-if="game.favoriteBoostActive" class="tap-sparkle">✨</span>
+          <span v-if="game.favoriteBoostActive || game.bossBoostActive" class="tap-sparkle">✨</span>
         </div>
         <span
           v-for="f in floats"
@@ -1481,8 +1493,11 @@ async function doSplit(animalId) {
             </div>
           </template>
         </template>
+
       </div>
     </div>
+
+    <BossFight />
   </div>
 </template>
 
@@ -1536,6 +1551,16 @@ async function doSplit(animalId) {
   padding: 6px 10px;
   border-radius: 999px;
   box-shadow: 0 4px 14px rgba(6, 214, 160, 0.35);
+}
+.boost-stack {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.boost-chip.boss {
+  background: linear-gradient(135deg, #ff477e, #ffd166 48%, #06d6a0);
+  box-shadow: 0 4px 18px rgba(255, 71, 126, 0.35);
 }
 
 .tap-card {
