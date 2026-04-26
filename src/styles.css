@@ -155,7 +155,11 @@ input:focus { border-color: var(--accent); }
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
-.brand { font-weight: 700; font-size: 18px; letter-spacing: 0.3px; }
+.brand { font-weight: 700; font-size: 18px; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 6px; }
+.brand-logo { font-size: 22px; line-height: 1; }
+@media (max-width: 390px) {
+  .brand-text { display: none; }
+}
 .balance {
   display: inline-flex; align-items: center; gap: 6px;
   background: linear-gradient(135deg, #2a3866, #1c2748);
