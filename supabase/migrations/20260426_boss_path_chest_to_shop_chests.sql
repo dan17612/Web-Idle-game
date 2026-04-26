@@ -1,6 +1,11 @@
 -- Pfad-Truhen geben jetzt zufällige Tiere wie die Shop-Truhe.
 
-delete from public.boss_path_rewards;
+do $$
+begin
+  if to_regclass('public.boss_path_rewards') is not null then
+    delete from public.boss_path_rewards;
+  end if;
+end $$;
 
 create or replace function public.complete_boss_stage(p_stage int, p_score int, p_target int)
 returns jsonb language plpgsql security definer set search_path = public as $$

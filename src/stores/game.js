@@ -380,6 +380,16 @@ export const useGameStore = defineStore('game', {
       const completedStage = Number(data?.stage || stage)
       this.bossPathHighest = Math.max(Number(this.bossPathHighest || 0), completedStage)
       this.bossPathCurrent = Number(data?.next_stage || completedStage + 1)
+      if (Number(data?.pet_reward?.qty || 0) > 0) {
+        if (!this.favoriteAnimalId && Array.isArray(data?.pet_reward?.animal_ids)) {
+          this.favoriteAnimalId = data.pet_reward.animal_ids[0] || null
+        }
+        const auth = useAuthStore()
+        if (auth.user) {
+          const { data: animals } = await supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at')
+          if (animals) this.animals = animals
+        }
+      }
       return data
     },
     async openBossPathChest(rewardId) {

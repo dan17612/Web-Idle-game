@@ -113,6 +113,7 @@ function tx(key, vars = {}) {
 const BOSS_BOARD_SIZE = 7;
 const BOSS_FIGHT_MS_DEFAULT = 3 * 60 * 1000;
 const BOSS_MIN_ROSTER = 5;
+const BOSS_MATCH_POINTS = 15;
 const SWAP_ANIMATION_MS = 180;
 
 const now = ref(Date.now());
@@ -496,7 +497,7 @@ async function settleBossBoard() {
     if (matches.size === 0) break;
     combo += 1;
     bossMatched.value = matches;
-    points += matches.size * 10 * combo;
+    points += matches.size * BOSS_MATCH_POINTS * combo;
     await wait(170);
     board = collapseBossBoard(board, matches);
     bossBoard.value = board;

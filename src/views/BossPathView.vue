@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useGameStore } from "../stores/game";
-import { speciesInfo, formatCoins } from "../animals";
+import { speciesInfo, formatCoins, tierInfo } from "../animals";
 import { locale } from "../i18n";
 import BossFight from "../components/BossFight.vue";
 
@@ -36,7 +36,9 @@ const I18N = {
     bossDefeated: "Boss besiegt!",
     rewardChestEarned: "Truhe mit {qty} zufälligen Tieren",
     rewardBoostEarned: "{mult}× Boost für {min} Min erhalten",
+    rewardPetEarned: "{qty}× {tier} {animal} erhalten",
     chestQty: "{qty} Tier(e)",
+    petReward: "{qty}× {tier} {animal}",
     chestOpenedTitle: "Truhe geöffnet!",
     chestOpenedSub: "Du hast erhalten:",
     awesome: "Super!",
@@ -73,7 +75,9 @@ const I18N = {
     bossDefeated: "Boss defeated!",
     rewardChestEarned: "Chest with {qty} random animals",
     rewardBoostEarned: "{mult}× boost for {min} min earned",
+    rewardPetEarned: "{qty}× {tier} {animal} earned",
     chestQty: "{qty} animal(s)",
+    petReward: "{qty}× {tier} {animal}",
     chestOpenedTitle: "Chest opened!",
     chestOpenedSub: "You received:",
     awesome: "Awesome!",
@@ -110,7 +114,9 @@ const I18N = {
     bossDefeated: "Босс побеждён!",
     rewardChestEarned: "Сундук с {qty} случайными животными",
     rewardBoostEarned: "Получен ×{mult} буст на {min} мин",
+    rewardPetEarned: "Получено: {qty}× {tier} {animal}",
     chestQty: "{qty} животных",
+    petReward: "{qty}× {tier} {animal}",
     chestOpenedTitle: "Сундук открыт!",
     chestOpenedSub: "Ты получил:",
     awesome: "Супер!",
@@ -136,23 +142,51 @@ function chestQtyForStage(stage) {
   return 5;
 }
 
-const STAGES = [
-  { stage: 1,  species: "chick",       name: "Wiesen-Küken",        terrain: "meadow",       hp: 900,    timeSeconds: 180, boostMult: 2,  boostMinutes: 3 },
-  { stage: 2,  species: "chicken",     name: "Hofhuhn",             terrain: "meadow",       hp: 1300,   timeSeconds: 180, boostMult: 2,  boostMinutes: 4 },
-  { stage: 3,  species: "rabbit",      name: "Wald-Hase",           terrain: "forest",       hp: 1800,   timeSeconds: 180, boostMult: 3,  boostMinutes: 5 },
-  { stage: 4,  species: "pig",         name: "Wildschwein",         terrain: "farm",         hp: 2400,   timeSeconds: 180, boostMult: 3,  boostMinutes: 5 },
-  { stage: 5,  species: "sheep",       name: "Sturm-Schaf",         terrain: "plains",       hp: 3000,   timeSeconds: 180, boostMult: 3,  boostMinutes: 6 },
-  { stage: 6,  species: "cow",         name: "Donner-Stier",        terrain: "plains",       hp: 3600,   timeSeconds: 180, boostMult: 4,  boostMinutes: 6 },
-  { stage: 7,  species: "horse",       name: "Schatten-Pferd",      terrain: "mountain_low", hp: 4400,   timeSeconds: 180, boostMult: 5,  boostMinutes: 7 },
-  { stage: 8,  species: "scorpion",    name: "Sand-Skorpion",       terrain: "desert",       hp: 5400,   timeSeconds: 180, boostMult: 5,  boostMinutes: 7 },
-  { stage: 9,  species: "panda",       name: "Bambus-Panda",        terrain: "bamboo",       hp: 6500,   timeSeconds: 180, boostMult: 6,  boostMinutes: 8 },
-  { stage: 10, species: "tiger",       name: "Säbelzahn-Tiger",     terrain: "jungle",       hp: 8000,   timeSeconds: 180, boostMult: 7,  boostMinutes: 8 },
-  { stage: 11, species: "lion",        name: "Kronen-Löwe",         terrain: "savanna",      hp: 9500,   timeSeconds: 180, boostMult: 8,  boostMinutes: 10 },
-  { stage: 12, species: "trex",        name: "Urzeit-T-Rex",        terrain: "volcano",      hp: 11500,  timeSeconds: 180, boostMult: 9,  boostMinutes: 10 },
-  { stage: 13, species: "peacock",     name: "Sternen-Pfau",        terrain: "peak",         hp: 13500,  timeSeconds: 180, boostMult: 10, boostMinutes: 10 },
-  { stage: 14, species: "jormungandr", name: "Tiefsee-Jörmungandr", terrain: "abyss",        hp: 16000,  timeSeconds: 180, boostMult: 10, boostMinutes: 15 },
-  { stage: 15, species: "dragon",      name: "Drachenkönig",        terrain: "dragon_lair",  hp: 20000,  timeSeconds: 180, boostMult: 15, boostMinutes: 30 }
-].map((s) => ({ ...s, chestQty: chestQtyForStage(s.stage) }));
+function stagePetDefaults(stage) {
+  return stage === 15
+    ? { petSpecies: "dragon", petTier: "gold", petQty: 1 }
+    : { petSpecies: null, petTier: "normal", petQty: 0 };
+}
+
+const DEFAULT_STAGES = [
+  { stage: 1,  species: "chick",       name: "Wiesen-Küken",        terrain: "meadow",       hp: 900,    time_seconds: 180, boostMult: 2,  boostMinutes: 3 },
+  { stage: 2,  species: "chicken",     name: "Hofhuhn",             terrain: "meadow",       hp: 1300,   time_seconds: 180, boostMult: 2,  boostMinutes: 4 },
+  { stage: 3,  species: "rabbit",      name: "Wald-Hase",           terrain: "forest",       hp: 1800,   time_seconds: 180, boostMult: 3,  boostMinutes: 5 },
+  { stage: 4,  species: "pig",         name: "Wildschwein",         terrain: "farm",         hp: 2400,   time_seconds: 180, boostMult: 3,  boostMinutes: 5 },
+  { stage: 5,  species: "sheep",       name: "Sturm-Schaf",         terrain: "plains",       hp: 3000,   time_seconds: 180, boostMult: 3,  boostMinutes: 6 },
+  { stage: 6,  species: "cow",         name: "Donner-Stier",        terrain: "plains",       hp: 3600,   time_seconds: 180, boostMult: 4,  boostMinutes: 6 },
+  { stage: 7,  species: "horse",       name: "Schatten-Pferd",      terrain: "mountain_low", hp: 4400,   time_seconds: 180, boostMult: 5,  boostMinutes: 7 },
+  { stage: 8,  species: "scorpion",    name: "Sand-Skorpion",       terrain: "desert",       hp: 5400,   time_seconds: 180, boostMult: 5,  boostMinutes: 7 },
+  { stage: 9,  species: "panda",       name: "Bambus-Panda",        terrain: "bamboo",       hp: 6500,   time_seconds: 180, boostMult: 6,  boostMinutes: 8 },
+  { stage: 10, species: "tiger",       name: "Säbelzahn-Tiger",     terrain: "jungle",       hp: 8000,   time_seconds: 180, boostMult: 7,  boostMinutes: 8 },
+  { stage: 11, species: "lion",        name: "Kronen-Löwe",         terrain: "savanna",      hp: 9500,   time_seconds: 180, boostMult: 8,  boostMinutes: 10 },
+  { stage: 12, species: "trex",        name: "Urzeit-T-Rex",        terrain: "volcano",      hp: 11500,  time_seconds: 180, boostMult: 9,  boostMinutes: 10 },
+  { stage: 13, species: "peacock",     name: "Sternen-Pfau",        terrain: "peak",         hp: 13500,  time_seconds: 180, boostMult: 10, boostMinutes: 10 },
+  { stage: 14, species: "jormungandr", name: "Tiefsee-Jörmungandr", terrain: "abyss",        hp: 16000,  time_seconds: 180, boostMult: 10, boostMinutes: 15 },
+  { stage: 15, species: "dragon",      name: "Drachenkönig",        terrain: "dragon_lair",  hp: 20000,  time_seconds: 180, boostMult: 15, boostMinutes: 30 }
+].map((s) => ({ ...stagePetDefaults(s.stage), ...s, chestQty: chestQtyForStage(s.stage) }));
+
+function normalizeStageConfig(raw) {
+  const stage = Number(raw?.stage || 0);
+  const fallback = DEFAULT_STAGES.find((s) => s.stage === stage) || {};
+  const species = raw?.species || fallback.species || "chick";
+  return {
+    ...fallback,
+    ...raw,
+    stage,
+    species,
+    name: raw?.name || fallback.name || speciesInfo(species).name,
+    terrain: raw?.terrain || fallback.terrain || "meadow",
+    hp: Number(raw?.hp ?? fallback.hp ?? 1000),
+    time_seconds: Number(raw?.time_seconds ?? raw?.timeSeconds ?? fallback.time_seconds ?? 180),
+    chestQty: Number(raw?.chest_qty ?? raw?.chestQty ?? fallback.chestQty ?? chestQtyForStage(stage)),
+    boostMult: Number(raw?.boost_mult ?? raw?.boostMult ?? fallback.boostMult ?? 1),
+    boostMinutes: Number(raw?.boost_minutes ?? raw?.boostMinutes ?? fallback.boostMinutes ?? 0),
+    petSpecies: raw?.pet_species ?? raw?.petSpecies ?? fallback.petSpecies ?? null,
+    petTier: raw?.pet_tier ?? raw?.petTier ?? fallback.petTier ?? "normal",
+    petQty: Number(raw?.pet_qty ?? raw?.petQty ?? fallback.petQty ?? 0)
+  };
+}
 
 const TERRAIN_BG = {
   meadow:        "linear-gradient(180deg, #6dd47e 0%, #4cae5b 100%)",
@@ -186,7 +220,14 @@ const TERRAIN_DECOR = {
   dragon_lair:   ["🔥", "💀", "👑"]
 };
 
-const pathState = ref({ current_stage: 1, highest_stage: 0, total_victories: 0, rewards: [], max_stage: 15 });
+const pathState = ref({
+  current_stage: 1,
+  highest_stage: 0,
+  total_victories: 0,
+  rewards: [],
+  stages: DEFAULT_STAGES,
+  max_stage: 15
+});
 const loading = ref(false);
 const error = ref("");
 const fightOpen = ref(false);
@@ -212,12 +253,16 @@ async function refreshPath() {
   try {
     const data = await game.loadBossPath();
     if (data) {
+      const stages = Array.isArray(data.stages) && data.stages.length
+        ? data.stages.map(normalizeStageConfig)
+        : DEFAULT_STAGES;
       pathState.value = {
         current_stage: Number(data.current_stage || 1),
         highest_stage: Number(data.highest_stage || 0),
         total_victories: Number(data.total_victories || 0),
         rewards: Array.isArray(data.rewards) ? data.rewards : [],
-        max_stage: Number(data.max_stage || 15)
+        stages,
+        max_stage: Number(data.max_stage || stages.length || 15)
       };
     }
   } catch (e) {
@@ -228,7 +273,7 @@ async function refreshPath() {
 }
 
 const stageList = computed(() =>
-  STAGES.map((s) => {
+  (pathState.value.stages?.length ? pathState.value.stages : DEFAULT_STAGES).map((s) => {
     const info = speciesInfo(s.species);
     const status = s.stage < pathState.value.current_stage
       ? "cleared"
@@ -286,7 +331,10 @@ async function onVictory({ score, target, stage }) {
       stage,
       chestQty: Number(result?.chest?.chest_qty || 0),
       boostMult: Number(result?.boost?.multiplier || 0),
-      boostMin: Number(result?.boost?.duration_minutes || 0)
+      boostMin: Number(result?.boost?.duration_minutes || 0),
+      petSpecies: result?.pet_reward?.species || null,
+      petTier: result?.pet_reward?.tier || "normal",
+      petQty: Number(result?.pet_reward?.qty || 0)
     };
     await refreshPath();
   } catch (e) {
@@ -300,8 +348,11 @@ async function openChest(reward) {
   chestReveal.value = { phase: "shake", species: [] };
   try {
     const data = await game.openBossPathChest(reward.id);
-    await new Promise((r) => setTimeout(r, 600));
-    chestReveal.value = { phase: "reveal", species: Array.isArray(data?.species) ? data.species : [] };
+    const species = Array.isArray(data?.species) ? data.species : [];
+    await new Promise((r) => setTimeout(r, 800));
+    chestReveal.value = { phase: "open", species };
+    await new Promise((r) => setTimeout(r, 500));
+    chestReveal.value = { phase: "reveal", species };
     await refreshPath();
   } catch (e) {
     error.value = e?.message || tx("error");
@@ -339,6 +390,35 @@ function rewardBoostPayload(r) {
     mult: Number(r.payload?.multiplier || 0),
     min: Number(r.payload?.duration_minutes || 0)
   };
+}
+
+function tierRewardLabel(tier) {
+  const key = tier || "normal";
+  const labels = {
+    de: { normal: "Normal", gold: "Gold", diamond: "Diamond", epic: "Epic", rainbow: "Rainbow" },
+    en: { normal: "Normal", gold: "Gold", diamond: "Diamond", epic: "Epic", rainbow: "Rainbow" },
+    ru: { normal: "Обычный", gold: "Золотой", diamond: "Алмазный", epic: "Эпический", rainbow: "Радужный" }
+  };
+  return labels[locale.value]?.[key] || labels.en[key] || key;
+}
+
+function petRewardPayload(reward) {
+  if (!reward?.petSpecies || Number(reward?.petQty || 0) <= 0) return null;
+  const info = speciesInfo(reward.petSpecies);
+  const tier = tierRewardLabel(reward.petTier);
+  return {
+    emoji: info.emoji,
+    animal: info.name,
+    tier,
+    tierBadge: tierInfo(reward.petTier).badge,
+    qty: Number(reward.petQty || 0)
+  };
+}
+
+function formatPetReward(reward, key = "petReward") {
+  const pet = petRewardPayload(reward);
+  if (!pet) return "";
+  return `${pet.tierBadge || ""} ${tx(key, { ...pet, animal: `${pet.emoji} ${pet.animal}` })}`.trim();
 }
 </script>
 
@@ -430,6 +510,7 @@ function rewardBoostPayload(r) {
           <div class="bp-stage-rewards">
             <span>🎁 {{ tx("chestQty", { qty: stage.chestQty }) }}</span>
             <span>⚡ ×{{ stage.boostMult }} · {{ stage.boostMinutes }}{{ tx("minutes") }}</span>
+            <span v-if="formatPetReward(stage)">🎖️ {{ formatPetReward(stage) }}</span>
           </div>
           <Button
             v-if="stage.status === 'current'"
@@ -451,29 +532,34 @@ function rewardBoostPayload(r) {
     <div v-if="error" class="bp-error">{{ error }}</div>
 
     <Teleport to="body">
-      <div v-if="chestReveal" class="bp-modal-overlay" @click.self="closeChestReveal">
-        <div class="bp-modal">
-          <div class="bp-chest" :class="['phase-' + chestReveal.phase]">
-            <div v-if="chestReveal.phase === 'shake'" class="chest-shake">
-              <div class="chest-icon">🎁</div>
-              <div class="chest-sparks">
-                <span>✨</span><span>⭐</span><span>💫</span><span>✨</span>
-              </div>
-            </div>
-            <div v-else class="chest-reveal-body">
-              <div class="chest-burst">🎉</div>
-              <div class="chest-title">{{ tx("chestOpenedTitle") }}</div>
-              <div class="chest-sub">{{ tx("chestOpenedSub") }}</div>
-              <div class="chest-pets">
-                <div v-for="(sp, i) in chestReveal.species" :key="i" class="chest-pet">
-                  <span class="cp-emoji">{{ speciesInfo(sp).emoji }}</span>
-                  <span class="cp-name">{{ speciesInfo(sp).name }}</span>
-                </div>
-              </div>
-              <Button class="btn full" @click="closeChestReveal">{{ tx("awesome") }}</Button>
+      <div
+        v-if="chestReveal"
+        class="chest-modal"
+        @click.self="chestReveal.phase === 'reveal' && closeChestReveal()"
+      >
+        <div class="chest-stage">
+          <div
+            class="chest-box"
+            :class="{
+              shake: chestReveal.phase === 'shake',
+              opening: chestReveal.phase === 'open',
+              gone: chestReveal.phase === 'reveal'
+            }"
+          >🎁</div>
+          <div v-if="chestReveal.phase === 'shake' || chestReveal.phase === 'open'" class="chest-glow"></div>
+          <div v-if="chestReveal.phase === 'reveal'" class="chest-reveal">
+            <div
+              v-for="(sp, i) in chestReveal.species"
+              :key="i"
+              class="reveal-animal"
+              :style="{ animationDelay: (i * 0.25) + 's' }"
+            >
+              {{ speciesInfo(sp).emoji || "❓" }}
+              <div class="reveal-name">{{ speciesInfo(sp).name }}</div>
             </div>
           </div>
         </div>
+        <Button v-if="chestReveal.phase === 'reveal'" class="btn" @click="closeChestReveal">{{ tx("continue") }}</Button>
       </div>
 
       <div v-if="fightOpen" class="bp-modal-overlay" @click.self="closeFight">
@@ -496,6 +582,9 @@ function rewardBoostPayload(r) {
               </div>
               <div class="bp-victory-row boost">
                 ⚡ {{ tx("rewardBoostEarned", { mult: victoryInfo.boostMult, min: victoryInfo.boostMin }) }}
+              </div>
+              <div v-if="formatPetReward(victoryInfo)" class="bp-victory-row pet">
+                🎖️ {{ formatPetReward(victoryInfo, "rewardPetEarned") }}
               </div>
             </div>
             <Button class="btn full" @click="closeFight">{{ tx("continue") }}</Button>
@@ -908,111 +997,98 @@ function rewardBoostPayload(r) {
   border: 1px solid rgba(6, 214, 160, 0.4);
   color: var(--accent-2);
 }
+.bp-victory-row.pet {
+  background: rgba(168, 85, 247, 0.16);
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  color: #d8b4fe;
+}
 
-.bp-chest {
-  background: linear-gradient(135deg, #2a1d0e, #14130a);
-  border: 2px solid rgba(255, 209, 102, 0.55);
-  border-radius: 16px;
-  padding: 26px;
-  box-shadow: 0 0 0 6px rgba(255, 209, 102, 0.18), 0 16px 36px rgba(0, 0, 0, 0.65);
+.chest-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
 }
-.chest-shake {
+.chest-stage {
   position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 220px;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.chest-icon {
-  font-size: 120px;
-  filter: drop-shadow(0 8px 18px rgba(255, 209, 102, 0.5));
-  animation: chestShake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+.chest-box {
+  font-size: 110px;
+  filter: drop-shadow(0 0 30px rgba(255, 209, 102, 0.5));
+  transition: transform 0.4s, opacity 0.4s;
 }
-@keyframes chestShake {
-  0%, 100% { transform: translate(0, 0) rotate(0); }
-  20% { transform: translate(-3px, -1px) rotate(-5deg); }
-  40% { transform: translate(3px, -2px) rotate(5deg); }
-  60% { transform: translate(-2px, 1px) rotate(-3deg); }
-  80% { transform: translate(2px, 0) rotate(3deg); }
+.chest-box.shake {
+  animation: chest-shake 0.8s ease-in-out infinite;
 }
-.chest-sparks {
+.chest-box.opening {
+  animation: chest-pop 0.5s ease-out forwards;
+}
+.chest-box.gone {
+  opacity: 0;
+  transform: scale(0.2) rotate(20deg);
+}
+.chest-glow {
   position: absolute;
   inset: 0;
+  background: radial-gradient(circle, rgba(255, 209, 102, 0.6), transparent 70%);
+  animation: glow-pulse 1s ease-in-out infinite;
   pointer-events: none;
 }
-.chest-sparks span {
+.chest-reveal {
   position: absolute;
-  font-size: 22px;
-  opacity: 0;
-  animation: sparkFly 1.4s ease-out infinite;
-}
-.chest-sparks span:nth-child(1) { top: 12%; left: 22%; animation-delay: 0s; }
-.chest-sparks span:nth-child(2) { top: 18%; right: 18%; animation-delay: 0.3s; }
-.chest-sparks span:nth-child(3) { bottom: 22%; left: 26%; animation-delay: 0.6s; }
-.chest-sparks span:nth-child(4) { bottom: 16%; right: 24%; animation-delay: 0.9s; }
-@keyframes sparkFly {
-  0% { opacity: 0; transform: scale(0.4); }
-  40% { opacity: 1; transform: scale(1.2); }
-  100% { opacity: 0; transform: scale(0.6) translate(0, -20px); }
-}
-.chest-reveal-body {
+  inset: 0;
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 12px;
   align-items: center;
+  justify-content: center;
+}
+.reveal-animal {
+  font-size: 56px;
   text-align: center;
-  animation: victoryPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  opacity: 0;
+  transform: translateY(40px) scale(0.4);
+  animation: reveal-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  filter: drop-shadow(0 0 14px rgba(255, 209, 102, 0.7));
 }
-.chest-burst {
-  font-size: 64px;
-  filter: drop-shadow(0 6px 14px rgba(255, 209, 102, 0.6));
-}
-.chest-title {
-  font-size: 22px;
-  font-weight: 900;
-  background: linear-gradient(90deg, #ffd166, #ff476f);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.chest-sub {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-}
-.chest-pets {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 8px;
-  width: 100%;
-}
-.chest-pet {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 6px;
-  border-radius: 10px;
-  background: rgba(255, 209, 102, 0.12);
-  border: 1px solid rgba(255, 209, 102, 0.35);
-  animation: petPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.chest-pet:nth-child(1) { animation-delay: 0.05s; }
-.chest-pet:nth-child(2) { animation-delay: 0.15s; }
-.chest-pet:nth-child(3) { animation-delay: 0.25s; }
-.chest-pet:nth-child(4) { animation-delay: 0.35s; }
-.chest-pet:nth-child(5) { animation-delay: 0.45s; }
-@keyframes petPop {
-  from { opacity: 0; transform: scale(0.5) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-.cp-emoji {
-  font-size: 38px;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
-}
-.cp-name {
+.reveal-name {
   font-size: 12px;
-  font-weight: 800;
-  color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  margin-top: 2px;
+}
+@keyframes chest-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  15% { transform: translate(-4px, -2px) rotate(-4deg); }
+  30% { transform: translate(5px, 2px) rotate(5deg); }
+  45% { transform: translate(-3px, 3px) rotate(-3deg); }
+  60% { transform: translate(4px, -2px) rotate(4deg); }
+  75% { transform: translate(-2px, 2px) rotate(-2deg); }
+}
+@keyframes chest-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(255, 209, 102, 1)); }
+  100% { transform: scale(0.1); opacity: 0; }
+}
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+@keyframes reveal-pop {
+  0% { opacity: 0; transform: translateY(40px) scale(0.4); }
+  60% { opacity: 1; transform: translateY(-8px) scale(1.15); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (max-width: 520px) {
