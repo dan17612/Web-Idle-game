@@ -113,7 +113,7 @@ function tx(key, vars = {}) {
 const BOSS_BOARD_SIZE = 7;
 const BOSS_FIGHT_MS_DEFAULT = 3 * 60 * 1000;
 const BOSS_MIN_ROSTER = 5;
-const BOSS_MATCH_POINTS = 25;
+const BOSS_MATCH_POINTS = 20;
 const SWAP_ANIMATION_MS = 180;
 
 const now = ref(Date.now());
