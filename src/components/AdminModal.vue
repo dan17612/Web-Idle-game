@@ -13,9 +13,9 @@ const isSubadmin = computed(() => !isFullAdmin.value && !!auth.profile?.is_subad
 
 const I18N = {
   de: {
-    title: 'Admin',
-    titleLite: 'Admin Lite',
-    tabs: { broadcast: 'Broadcast', shop: 'Shop', gift: 'Gift', users: 'Users', tickets: 'Tickets', filter: 'Namensfilter' },
+    title: '🛠️',
+    titleLite: '🛠️⚡',
+    tabs: { broadcast: '📢', shop: '🏪', gift: '🎁', users: '👥', tickets: '🎫', filter: '🚫' },
     tiers: { normal: 'Normal', gold: 'Gold', diamond: 'Diamant', epic: 'Episch', rainbow: 'Rainbow' },
     tickets: {
       subtitle: 'Support-Tickets der Spieler. Antworten gehen per E-Mail an den Spieler.',
@@ -124,9 +124,9 @@ const I18N = {
     }
   },
   en: {
-    title: 'Admin',
-    titleLite: 'Admin Lite',
-    tabs: { broadcast: 'Broadcast', shop: 'Shop', gift: 'Gift', users: 'Users', tickets: 'Tickets', filter: 'Name filter' },
+    title: '🛠️',
+    titleLite: '🛠️⚡',
+    tabs: { broadcast: '📢', shop: '🏪', gift: '🎁', users: '👥', tickets: '🎫', filter: '🚫' },
     tiers: { normal: 'Normal', gold: 'Gold', diamond: 'Diamond', epic: 'Epic', rainbow: 'Rainbow' },
     tickets: {
       subtitle: 'Player support tickets. Replies are emailed to the player.',
@@ -235,9 +235,9 @@ const I18N = {
     }
   },
   ru: {
-    title: 'Админ',
-    titleLite: 'Админ Lite',
-    tabs: { broadcast: 'Рассылка', shop: 'Магазин', gift: 'Подарок', users: 'Пользователи', tickets: 'Тикеты', filter: 'Фильтр имён' },
+    title: '🛠️',
+    titleLite: '🛠️⚡',
+    tabs: { broadcast: '📢', shop: '🏪', gift: '🎁', users: '👥', tickets: '🎫', filter: '🚫' },
     tiers: { normal: 'Обычный', gold: 'Золотой', diamond: 'Алмазный', epic: 'Эпический', rainbow: 'Радужный' },
     tickets: {
       subtitle: 'Тикеты поддержки от игроков. Ответы отправляются игроку по email.',
