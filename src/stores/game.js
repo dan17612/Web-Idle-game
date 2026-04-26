@@ -7,6 +7,8 @@ import { t } from '../i18n'
 const TAP_MAX = 10
 const TAP_MUL_MAX_LEVEL = 25
 const TAP_CAP_MAX_LEVEL = 20
+const BOSS_BOOST_MULTIPLIER = 10
+const BOSS_BOOST_DURATION_MS = 10 * 60 * 1000
 
 export const useGameStore = defineStore('game', {
   state: () => ({
@@ -33,7 +35,9 @@ export const useGameStore = defineStore('game', {
     newbieGiftClaimed: false,
     pendingGiftToast: null,
     pendingOfflineEarnings: null,
-    tutorialStep: 5
+    tutorialStep: 5,
+    bossPathHighest: 0,
+    bossPathCurrent: 1
   }),
   getters: {
     favoriteAnimal(state) {
@@ -71,6 +75,9 @@ export const useGameStore = defineStore('game', {
     },
     boostActive(state) {
       return (Date.now() + state.serverOffset) < state.petBoostUntil
+    },
+    bossBoostActive(state) {
+      return this.boostActive && Number(state.petBoostMultiplier) >= BOSS_BOOST_MULTIPLIER
     },
     activeMultiplier(state) {
       return this.boostActive ? state.petBoostMultiplier : 1
@@ -115,6 +122,9 @@ export const useGameStore = defineStore('game', {
     },
     newbieGiftAvailable(state) {
       return !state.newbieGiftClaimed && state.animals.length === 0 && state.tapsUsed >= state.tapsMax
+    },
+    bossArenaUnlocked(state) {
+      return Number(state.bossPathHighest) >= 3
     }
   },
   actions: {
@@ -170,6 +180,7 @@ export const useGameStore = defineStore('game', {
       this.applyOffline()
       this.loading = false
       this.claimPendingGifts().catch(() => {})
+      this.loadBossPath().catch(() => {})
       this.lastLoadedAt = Date.now()
     },
     async claimPendingGifts() {
@@ -347,6 +358,85 @@ export const useGameStore = defineStore('game', {
       this.petBoostMultiplier = Number(data.boost_multiplier)
       this.petBoostUntil = new Date(data.boost_until).getTime()
       if (data.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      return data
+    },
+    async loadBossPath() {
+      const { data, error } = await supabase.rpc('get_boss_path')
+      if (error) throw error
+      if (data) {
+        this.bossPathHighest = Number(data.highest_stage || 0)
+        this.bossPathCurrent = Number(data.current_stage || 1)
+      }
+      return data || null
+    },
+    async completeBossStage(stage, score, target) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('complete_boss_stage', {
+        p_stage: Math.floor(Number(stage) || 0),
+        p_score: Math.floor(Number(score) || 0),
+        p_target: Math.floor(Number(target) || 0)
+      })
+      if (error) throw error
+      const completedStage = Number(data?.stage || stage)
+      this.bossPathHighest = Math.max(Number(this.bossPathHighest || 0), completedStage)
+      this.bossPathCurrent = Number(data?.next_stage || completedStage + 1)
+      if (Number(data?.pet_reward?.qty || 0) > 0) {
+        if (!this.favoriteAnimalId && Array.isArray(data?.pet_reward?.animal_ids)) {
+          this.favoriteAnimalId = data.pet_reward.animal_ids[0] || null
+        }
+        const auth = useAuthStore()
+        if (auth.user) {
+          const { data: animals } = await supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at')
+          if (animals) this.animals = animals
+        }
+      }
+      return data
+    },
+    async openBossPathChest(rewardId) {
+      const { data, error } = await supabase.rpc('open_boss_chest', { p_reward_id: rewardId })
+      if (error) throw error
+      const auth = useAuthStore()
+      if (auth.user) {
+        const { data: animals } = await supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at')
+        if (animals) this.animals = animals
+      }
+      return data
+    },
+    async activateBossPathReward(rewardId) {
+      const { data, error } = await supabase.rpc('activate_boss_reward', { p_reward_id: rewardId })
+      if (error) throw error
+      if (data?.boost_multiplier != null) this.petBoostMultiplier = Number(data.boost_multiplier)
+      if (data?.boost_until) this.petBoostUntil = new Date(data.boost_until).getTime()
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      return data
+    },
+    async claimBossBoost(score, target) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('claim_boss_boost', {
+        p_score: Math.floor(Number(score) || 0),
+        p_target: Math.floor(Number(target) || 0)
+      })
+      if (error) {
+        const msg = error.message || String(error)
+        if (!/claim_boss_boost|schema cache|does not exist|not found/i.test(msg)) throw error
+        const serverNow = Date.now() + this.serverOffset
+        const currentIsBossBoost = this.boostActive && Number(this.petBoostMultiplier) >= BOSS_BOOST_MULTIPLIER
+        this.petBoostMultiplier = BOSS_BOOST_MULTIPLIER
+        this.petBoostUntil = currentIsBossBoost
+          ? Math.max(this.petBoostUntil + BOSS_BOOST_DURATION_MS, serverNow + BOSS_BOOST_DURATION_MS)
+          : serverNow + BOSS_BOOST_DURATION_MS
+        return {
+          boost_multiplier: this.petBoostMultiplier,
+          boost_until: new Date(this.petBoostUntil).toISOString(),
+          server_now: new Date(serverNow).toISOString(),
+          local_only: true
+        }
+      }
+      this.petBoostMultiplier = Number(data?.boost_multiplier ?? BOSS_BOOST_MULTIPLIER)
+      this.petBoostUntil = data?.boost_until
+        ? new Date(data.boost_until).getTime()
+        : Date.now() + this.serverOffset + BOSS_BOOST_DURATION_MS
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
       return data
     },
     async buyAnimal(speciesKey) {
