@@ -6,7 +6,7 @@ import { useGameStore } from "../stores/game";
 
 const props = defineProps({
   stageConfig: { type: Object, default: null },
-  autoStart: { type: Boolean, default: false }
+  autoStart: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["victory", "exit", "timeout"]);
@@ -42,7 +42,7 @@ const I18N = {
     points: "+{points} Punkte",
     boosted: "Boss-Boost aktiv",
     exit: "Schließen",
-    boss: "Boss"
+    boss: "Boss",
   },
   en: {
     title: "👑 Boss fight",
@@ -71,7 +71,7 @@ const I18N = {
     points: "+{points} points",
     boosted: "Boss boost active",
     exit: "Close",
-    boss: "Boss"
+    boss: "Boss",
   },
   ru: {
     title: "👑 Бой с боссом",
@@ -100,8 +100,8 @@ const I18N = {
     points: "+{points} очков",
     boosted: "Босс-буст активен",
     exit: "Закрыть",
-    boss: "Босс"
-  }
+    boss: "Босс",
+  },
 };
 
 function tx(key, vars = {}) {
@@ -113,7 +113,7 @@ function tx(key, vars = {}) {
 const BOSS_BOARD_SIZE = 7;
 const BOSS_FIGHT_MS_DEFAULT = 3 * 60 * 1000;
 const BOSS_MIN_ROSTER = 5;
-const BOSS_MATCH_POINTS = 15;
+const BOSS_MATCH_POINTS = 25;
 const SWAP_ANIMATION_MS = 180;
 
 const now = ref(Date.now());
@@ -154,7 +154,7 @@ watch(
   () => props.stageConfig,
   (cfg) => {
     if (cfg && props.autoStart) startBossFight();
-  }
+  },
 );
 
 const stageBossInfo = computed(() => {
@@ -164,17 +164,20 @@ const stageBossInfo = computed(() => {
   return {
     species: sp,
     name: props.stageConfig.name || info.name,
-    emoji: info.emoji || "❓"
+    emoji: info.emoji || "❓",
   };
 });
 
 const fightDurationMs = computed(() => {
-  if (props.stageConfig?.time_seconds) return Number(props.stageConfig.time_seconds) * 1000;
+  if (props.stageConfig?.time_seconds)
+    return Number(props.stageConfig.time_seconds) * 1000;
   return BOSS_FIGHT_MS_DEFAULT;
 });
 
 const bossRoster = computed(() => {
-  const ownedKeys = Array.from(new Set(game.animals.map((a) => a.species).filter(Boolean)));
+  const ownedKeys = Array.from(
+    new Set(game.animals.map((a) => a.species).filter(Boolean)),
+  );
   const catalogKeys = Object.values(SPECIES)
     .filter((s) => s.enabled !== false && s.shop_visible !== false)
     .map((s) => s.key)
@@ -199,15 +202,16 @@ const bossRoster = computed(() => {
 
 const bossCanStart = computed(() => bossRoster.value.length >= 3);
 const bossLeader = computed(() => {
-  if (stageBossInfo.value) return { key: stageBossInfo.value.species, info: stageBossInfo.value };
+  if (stageBossInfo.value)
+    return { key: stageBossInfo.value.species, info: stageBossInfo.value };
   return bossRunRoster.value[0] || bossRoster.value[0] || null;
 });
 const bossCells = computed(() =>
   bossBoard.value.map((cell, index) => ({
     ...cell,
     index,
-    info: speciesInfo(cell.species)
-  }))
+    info: speciesInfo(cell.species),
+  })),
 );
 const bossRemaining = computed(() => {
   void now.value;
@@ -220,11 +224,14 @@ const boostRemaining = computed(() => {
 });
 const bossHp = computed(() => Math.max(0, bossTarget.value - bossScore.value));
 const bossHealthPercent = computed(() =>
-  bossTarget.value > 0 ? Math.max(0, Math.min(100, (bossHp.value / bossTarget.value) * 100)) : 100
+  bossTarget.value > 0
+    ? Math.max(0, Math.min(100, (bossHp.value / bossTarget.value) * 100))
+    : 100,
 );
 
 watch(bossRemaining, (remaining) => {
-  if (bossActive.value && remaining <= 0 && bossHp.value > 0) finishBossTimeout();
+  if (bossActive.value && remaining <= 0 && bossHp.value > 0)
+    finishBossTimeout();
 });
 
 function wait(ms) {
@@ -258,19 +265,27 @@ function shuffled(list) {
 }
 
 function randomBossSpecies() {
-  const roster = bossRunRoster.value.length ? bossRunRoster.value : bossRoster.value;
+  const roster = bossRunRoster.value.length
+    ? bossRunRoster.value
+    : bossRoster.value;
   return roster[Math.floor(Math.random() * roster.length)]?.key || "chick";
 }
 
 function wouldCreateBossLine(board, index, species) {
   const row = Math.floor(index / BOSS_BOARD_SIZE);
   const col = index % BOSS_BOARD_SIZE;
-  if (col >= 2 && board[index - 1]?.species === species && board[index - 2]?.species === species) return true;
+  if (
+    col >= 2 &&
+    board[index - 1]?.species === species &&
+    board[index - 2]?.species === species
+  )
+    return true;
   if (
     row >= 2 &&
     board[index - BOSS_BOARD_SIZE]?.species === species &&
     board[index - BOSS_BOARD_SIZE * 2]?.species === species
-  ) return true;
+  )
+    return true;
   return false;
 }
 
@@ -287,7 +302,8 @@ function createBossBoard() {
   let board = [];
   for (let attempt = 0; attempt < 30; attempt++) {
     board = [];
-    for (let i = 0; i < BOSS_BOARD_SIZE * BOSS_BOARD_SIZE; i++) board.push(makeBossCell(board, i));
+    for (let i = 0; i < BOSS_BOARD_SIZE * BOSS_BOARD_SIZE; i++)
+      board.push(makeBossCell(board, i));
     if (hasBossMove(board)) return board;
   }
   return board;
@@ -305,7 +321,10 @@ function startBossFight() {
     showBossMessage("noRoster", "error");
     return;
   }
-  bossRunRoster.value = shuffled(bossRoster.value).slice(0, Math.min(7, bossRoster.value.length));
+  bossRunRoster.value = shuffled(bossRoster.value).slice(
+    0,
+    Math.min(7, bossRoster.value.length),
+  );
   bossScore.value = 0;
   bossTarget.value = bossTargetPoints();
   bossEndsAt.value = Date.now() + game.serverOffset + fightDurationMs.value;
@@ -350,7 +369,7 @@ function moveBossDrag(event) {
   bossDrag.value = {
     ...bossDrag.value,
     dx: event.clientX - bossDrag.value.x,
-    dy: event.clientY - bossDrag.value.y
+    dy: event.clientY - bossDrag.value.y,
   };
 }
 
@@ -362,7 +381,11 @@ async function finishBossDrag(index, event) {
   if (targetEl?.hasPointerCapture?.(event.pointerId)) {
     targetEl.releasePointerCapture(event.pointerId);
   }
-  const target = bossDragTarget(drag.index, event.clientX - drag.x, event.clientY - drag.y);
+  const target = bossDragTarget(
+    drag.index,
+    event.clientX - drag.x,
+    event.clientY - drag.y,
+  );
   if (target == null) {
     await pickBossCell(index);
     return;
@@ -382,14 +405,18 @@ function bossSwapTransform(index) {
   if (index === swap.from) {
     if (delta === 1) return "translateX(calc(100% + var(--boss-gap)))";
     if (delta === -1) return "translateX(calc(-100% - var(--boss-gap)))";
-    if (delta === BOSS_BOARD_SIZE) return "translateY(calc(100% + var(--boss-gap)))";
-    if (delta === -BOSS_BOARD_SIZE) return "translateY(calc(-100% - var(--boss-gap)))";
+    if (delta === BOSS_BOARD_SIZE)
+      return "translateY(calc(100% + var(--boss-gap)))";
+    if (delta === -BOSS_BOARD_SIZE)
+      return "translateY(calc(-100% - var(--boss-gap)))";
   }
   if (index === swap.to) {
     if (delta === 1) return "translateX(calc(-100% - var(--boss-gap)))";
     if (delta === -1) return "translateX(calc(100% + var(--boss-gap)))";
-    if (delta === BOSS_BOARD_SIZE) return "translateY(calc(-100% - var(--boss-gap)))";
-    if (delta === -BOSS_BOARD_SIZE) return "translateY(calc(100% + var(--boss-gap)))";
+    if (delta === BOSS_BOARD_SIZE)
+      return "translateY(calc(-100% - var(--boss-gap)))";
+    if (delta === -BOSS_BOARD_SIZE)
+      return "translateY(calc(100% + var(--boss-gap)))";
   }
   return "";
 }
@@ -402,7 +429,7 @@ function bossTileStyle(index) {
     return {
       transform: `translate(${dx}px, ${dy}px) scale(1.04)`,
       transition: "none",
-      zIndex: 3
+      zIndex: 3,
     };
   }
   const transform = bossSwapTransform(index);
@@ -471,11 +498,10 @@ async function resolveBossSwap(from, to) {
   if (result.points > 0) {
     bossScore.value += result.points;
     bossShake.value++;
-    showBossMessage(
-      result.combo > 1 ? "combo" : "points",
-      "success",
-      { combo: result.combo, points: result.points }
-    );
+    showBossMessage(result.combo > 1 ? "combo" : "points", "success", {
+      combo: result.combo,
+      points: result.points,
+    });
   }
 
   if (bossHp.value <= 0) {
@@ -515,9 +541,14 @@ function findBossMatches(board) {
     while (start < BOSS_BOARD_SIZE) {
       const species = board[row * BOSS_BOARD_SIZE + start]?.species;
       let end = start + 1;
-      while (end < BOSS_BOARD_SIZE && board[row * BOSS_BOARD_SIZE + end]?.species === species) end++;
+      while (
+        end < BOSS_BOARD_SIZE &&
+        board[row * BOSS_BOARD_SIZE + end]?.species === species
+      )
+        end++;
       if (species && end - start >= 3) {
-        for (let col = start; col < end; col++) matches.add(row * BOSS_BOARD_SIZE + col);
+        for (let col = start; col < end; col++)
+          matches.add(row * BOSS_BOARD_SIZE + col);
       }
       start = end;
     }
@@ -528,9 +559,14 @@ function findBossMatches(board) {
     while (start < BOSS_BOARD_SIZE) {
       const species = board[start * BOSS_BOARD_SIZE + col]?.species;
       let end = start + 1;
-      while (end < BOSS_BOARD_SIZE && board[end * BOSS_BOARD_SIZE + col]?.species === species) end++;
+      while (
+        end < BOSS_BOARD_SIZE &&
+        board[end * BOSS_BOARD_SIZE + col]?.species === species
+      )
+        end++;
       if (species && end - start >= 3) {
-        for (let row = start; row < end; row++) matches.add(row * BOSS_BOARD_SIZE + col);
+        for (let row = start; row < end; row++)
+          matches.add(row * BOSS_BOARD_SIZE + col);
       }
       start = end;
     }
@@ -575,7 +611,11 @@ async function finishBossVictory() {
   bossActive.value = false;
   if (isStageMode.value) {
     showBossMessage("stageVictory", "success", {}, true);
-    emit("victory", { score: bossScore.value, target: bossTarget.value, stage: props.stageConfig?.stage });
+    emit("victory", {
+      score: bossScore.value,
+      target: bossTarget.value,
+      stage: props.stageConfig?.stage,
+    });
     return;
   }
   showBossMessage("claiming", "success", {}, true);
@@ -583,7 +623,9 @@ async function finishBossVictory() {
     await game.claimBossBoost(bossScore.value, bossTarget.value);
     showBossMessage("victory", "success", {}, true);
   } catch (e) {
-    bossMessage.value = /cooldown/i.test(e.message || "") ? tx("cooldown") : e.message;
+    bossMessage.value = /cooldown/i.test(e.message || "")
+      ? tx("cooldown")
+      : e.message;
     bossMessageKind.value = "error";
   }
 }
@@ -607,16 +649,24 @@ function exitFight() {
 <template>
   <div class="card boss-card boss-arena" :class="{ 'stage-mode': isStageMode }">
     <div class="boss-head">
-      <div class="boss-face" :class="{ shaking: bossShake > 0 }" :key="bossShake">
+      <div
+        class="boss-face"
+        :class="{ shaking: bossShake > 0 }"
+        :key="bossShake"
+      >
         <span v-if="!isStageMode" class="boss-crown">👑</span>
-        <span v-else-if="props.stageConfig?.stage === 15" class="boss-crown">👑</span>
+        <span v-else-if="props.stageConfig?.stage === 15" class="boss-crown"
+          >👑</span
+        >
         <span class="boss-emoji">{{ bossLeader?.info.emoji || "🐾" }}</span>
       </div>
       <div class="boss-main">
         <div class="boss-title-row">
           <div class="boss-title-block">
             <div class="boss-title">
-              <template v-if="isStageMode">{{ stageBossInfo?.name || tx("boss") }}</template>
+              <template v-if="isStageMode">{{
+                stageBossInfo?.name || tx("boss")
+              }}</template>
               <template v-else>{{ tx("title") }}</template>
             </div>
             <div class="boss-sub">
@@ -632,7 +682,9 @@ function exitFight() {
               @click="startBossFight"
             >
               <template v-if="bossBoard.length">{{ tx("restart") }}</template>
-              <template v-else>{{ isStageMode ? tx("fight") : tx("start") }}</template>
+              <template v-else>{{
+                isStageMode ? tx("fight") : tx("start")
+              }}</template>
             </Button>
             <Button
               v-if="isStageMode"
@@ -649,7 +701,12 @@ function exitFight() {
         <div class="boss-stats">
           <span>❤️ {{ formatCoins(bossHp) }}</span>
           <span>⚔️ {{ formatCoins(bossScore) }}</span>
-          <span>⏱️ {{ bossActive ? fmtTime(bossRemaining) : fmtTime(fightDurationMs) }}</span>
+          <span
+            >⏱️
+            {{
+              bossActive ? fmtTime(bossRemaining) : fmtTime(fightDurationMs)
+            }}</span
+          >
         </div>
       </div>
     </div>
@@ -657,14 +714,11 @@ function exitFight() {
     <p v-if="!isStageMode" class="hint boss-hint">{{ tx("hint") }}</p>
 
     <div v-if="!isStageMode && game.bossBoostActive" class="boss-reward-live">
-      {{ tx("boosted") }} · ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
+      {{ tx("boosted") }} · ×{{ game.petBoostMultiplier }} ·
+      {{ fmtTime(boostRemaining) }}
     </div>
 
-    <div
-      v-if="bossMessage"
-      class="boss-message"
-      :class="bossMessageKind"
-    >
+    <div v-if="bossMessage" class="boss-message" :class="bossMessageKind">
       {{ bossMessage }}
     </div>
 
@@ -688,7 +742,9 @@ function exitFight() {
             selected: bossSelected === cell.index,
             matched: bossMatched.has(cell.index),
             dragging: bossDrag?.index === cell.index,
-            swapping: !!bossSwap && (bossSwap.from === cell.index || bossSwap.to === cell.index)
+            swapping:
+              !!bossSwap &&
+              (bossSwap.from === cell.index || bossSwap.to === cell.index),
           }"
           :style="bossTileStyle(cell.index)"
           :disabled="!bossActive || bossBusy"
@@ -713,19 +769,30 @@ function exitFight() {
     </div>
 
     <Transition name="defeat-fade">
-      <div v-if="defeatVisible" class="defeat-overlay" @click.self="dismissDefeat">
+      <div
+        v-if="defeatVisible"
+        class="defeat-overlay"
+        @click.self="dismissDefeat"
+      >
         <div class="defeat-card">
           <div class="defeat-skull">💀</div>
           <div class="defeat-title">{{ tx("defeatTitle") }}</div>
           <div class="defeat-sub">{{ tx("defeatSub") }}</div>
           <div class="defeat-bossline">
-            <span class="defeat-bossemoji">{{ stageBossInfo?.emoji || bossLeader?.info?.emoji || "👑" }}</span>
+            <span class="defeat-bossemoji">{{
+              stageBossInfo?.emoji || bossLeader?.info?.emoji || "👑"
+            }}</span>
             <span>{{ stageBossInfo?.name || tx("title") }}</span>
             <span class="defeat-laugh">😈</span>
           </div>
           <div class="defeat-actions">
-            <Button class="btn small btn-ghost" @click="dismissDefeat">✕</Button>
-            <Button class="btn defeat-retry" @click="(dismissDefeat(), startBossFight())">
+            <Button class="btn small btn-ghost" @click="dismissDefeat"
+              >✕</Button
+            >
+            <Button
+              class="btn defeat-retry"
+              @click="(dismissDefeat(), startBossFight())"
+            >
               ⚔️ {{ tx("retry") }}
             </Button>
           </div>
@@ -750,8 +817,16 @@ function exitFight() {
 }
 .boss-arena.stage-mode {
   background:
-    radial-gradient(circle at 20% 0%, rgba(255, 209, 102, 0.18), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.16), transparent 60%),
+    radial-gradient(
+      circle at 20% 0%,
+      rgba(255, 209, 102, 0.18),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(168, 85, 247, 0.16),
+      transparent 60%
+    ),
     linear-gradient(135deg, #161b3a, #0b1230);
   border-color: rgba(255, 209, 102, 0.35);
 }
@@ -765,23 +840,43 @@ function exitFight() {
   width: 86px;
   min-height: 86px;
   border-radius: 16px;
-  background: radial-gradient(circle at 35% 30%, rgba(255, 209, 102, 0.32), rgba(255, 71, 126, 0.18) 52%, #162048);
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 209, 102, 0.32),
+    rgba(255, 71, 126, 0.18) 52%,
+    #162048
+  );
   border: 1px solid rgba(255, 209, 102, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 50px;
   overflow: hidden;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35), inset 0 0 18px rgba(255, 209, 102, 0.1);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.35),
+    inset 0 0 18px rgba(255, 209, 102, 0.1);
 }
 .boss-face.shaking {
   animation: bossShake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 @keyframes bossShake {
-  10%, 90% { transform: translate(-1px, 0); }
-  20%, 80% { transform: translate(2px, 0); }
-  30%, 50%, 70% { transform: translate(-3px, 0); }
-  40%, 60% { transform: translate(3px, 0); }
+  10%,
+  90% {
+    transform: translate(-1px, 0);
+  }
+  20%,
+  80% {
+    transform: translate(2px, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate(-3px, 0);
+  }
+  40%,
+  60% {
+    transform: translate(3px, 0);
+  }
 }
 .boss-crown {
   position: absolute;
@@ -792,8 +887,13 @@ function exitFight() {
   animation: crownPulse 2.2s ease-in-out infinite;
 }
 @keyframes crownPulse {
-  0%, 100% { transform: rotate(-6deg) scale(1); }
-  50% { transform: rotate(6deg) scale(1.08); }
+  0%,
+  100% {
+    transform: rotate(-6deg) scale(1);
+  }
+  50% {
+    transform: rotate(6deg) scale(1.08);
+  }
 }
 .boss-emoji {
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
@@ -811,7 +911,9 @@ function exitFight() {
   gap: 10px;
   align-items: flex-start;
 }
-.boss-title-block { min-width: 0; }
+.boss-title-block {
+  min-width: 0;
+}
 .boss-title {
   font-size: 18px;
   font-weight: 800;
@@ -852,8 +954,12 @@ function exitFight() {
   animation: healthShimmer 2.5s linear infinite;
 }
 @keyframes healthShimmer {
-  from { background-position: 0% 0; }
-  to { background-position: 200% 0; }
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
 }
 .boss-stats {
   display: grid;
@@ -995,7 +1101,11 @@ function exitFight() {
   min-height: 190px;
   border-radius: 14px;
   border: 1px dashed rgba(255, 209, 102, 0.45);
-  background: linear-gradient(135deg, rgba(255, 209, 102, 0.14), rgba(255, 71, 126, 0.14));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 209, 102, 0.14),
+    rgba(255, 71, 126, 0.14)
+  );
   color: inherit;
   display: flex;
   flex-direction: column;
@@ -1012,13 +1122,22 @@ function exitFight() {
   animation: floatY 2.4s ease-in-out infinite;
 }
 @keyframes floatY {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 .defeat-overlay {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 40%, rgba(239, 71, 111, 0.35), rgba(0, 0, 0, 0.85));
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(239, 71, 111, 0.35),
+    rgba(0, 0, 0, 0.85)
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1040,16 +1159,33 @@ function exitFight() {
   gap: 10px;
   width: min(360px, 100%);
   cursor: default;
-  box-shadow: 0 0 0 6px rgba(239, 71, 111, 0.18), 0 16px 36px rgba(0, 0, 0, 0.65);
+  box-shadow:
+    0 0 0 6px rgba(239, 71, 111, 0.18),
+    0 16px 36px rgba(0, 0, 0, 0.65);
   animation: defeatShake 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 @keyframes defeatShake {
-  0% { transform: scale(0.7) rotate(-4deg); opacity: 0; }
-  20% { transform: scale(1.05) rotate(2deg); opacity: 1; }
-  35% { transform: scale(0.97) rotate(-2deg); }
-  50% { transform: scale(1.03) rotate(1deg); }
-  70% { transform: scale(0.99) rotate(-1deg); }
-  100% { transform: scale(1) rotate(0); opacity: 1; }
+  0% {
+    transform: scale(0.7) rotate(-4deg);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1.05) rotate(2deg);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(0.97) rotate(-2deg);
+  }
+  50% {
+    transform: scale(1.03) rotate(1deg);
+  }
+  70% {
+    transform: scale(0.99) rotate(-1deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
 }
 .defeat-skull {
   font-size: 76px;
@@ -1057,8 +1193,13 @@ function exitFight() {
   animation: skullFloat 2.4s ease-in-out infinite;
 }
 @keyframes skullFloat {
-  0%, 100% { transform: translateY(0) rotate(-3deg); }
-  50% { transform: translateY(-4px) rotate(3deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(3deg);
+  }
 }
 .defeat-title {
   font-size: 30px;
@@ -1074,8 +1215,12 @@ function exitFight() {
   text-shadow: 0 0 20px rgba(239, 71, 111, 0.4);
 }
 @keyframes defeatTextShimmer {
-  from { background-position: 0% 0; }
-  to { background-position: 200% 0; }
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
 }
 .defeat-sub {
   color: #f3c8d1;
@@ -1094,8 +1239,13 @@ function exitFight() {
   font-weight: 800;
   color: #ffd5e0;
 }
-.defeat-bossemoji { font-size: 22px; }
-.defeat-laugh { font-size: 20px; animation: skullFloat 1.6s ease-in-out infinite; }
+.defeat-bossemoji {
+  font-size: 22px;
+}
+.defeat-laugh {
+  font-size: 20px;
+  animation: skullFloat 1.6s ease-in-out infinite;
+}
 .defeat-actions {
   display: flex;
   gap: 8px;
@@ -1125,7 +1275,9 @@ function exitFight() {
     align-items: stretch;
     flex-direction: column;
   }
-  .boss-actions { align-self: stretch; }
+  .boss-actions {
+    align-self: stretch;
+  }
   .boss-stats {
     grid-template-columns: 1fr 1fr 1fr;
     font-size: 11px;

@@ -420,6 +420,8 @@ function formatPetReward(reward, key = "petReward") {
   if (!pet) return "";
   return `${pet.tierBadge || ""} ${tx(key, { ...pet, animal: `${pet.emoji} ${pet.animal}` })}`.trim();
 }
+
+const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 </script>
 
 <template>
@@ -583,8 +585,22 @@ function formatPetReward(reward, key = "petReward") {
               <div class="bp-victory-row boost">
                 ⚡ {{ tx("rewardBoostEarned", { mult: victoryInfo.boostMult, min: victoryInfo.boostMin }) }}
               </div>
-              <div v-if="formatPetReward(victoryInfo)" class="bp-victory-row pet">
-                🎖️ {{ formatPetReward(victoryInfo, "rewardPetEarned") }}
+              <div v-if="victoryPetReward" class="bp-pet-reward">
+                <div class="bp-pet-reward-stage">
+                  <div class="bp-pet-glow"></div>
+                  <div class="bp-pet-gift">🎁</div>
+                  <div class="bp-pet-prize">
+                    <div class="bp-pet-emoji">{{ victoryPetReward.emoji }}</div>
+                    <div class="bp-pet-name">
+                      <span v-if="victoryPetReward.tierBadge">{{ victoryPetReward.tierBadge }}</span>
+                      {{ victoryPetReward.tier }} {{ victoryPetReward.animal }}
+                    </div>
+                    <div v-if="victoryPetReward.qty > 1" class="bp-pet-count">
+                      ×{{ victoryPetReward.qty }}
+                    </div>
+                  </div>
+                </div>
+                <div class="bp-pet-caption">{{ formatPetReward(victoryInfo, "rewardPetEarned") }}</div>
               </div>
             </div>
             <Button class="btn full" @click="closeFight">{{ tx("continue") }}</Button>
@@ -997,10 +1013,78 @@ function formatPetReward(reward, key = "petReward") {
   border: 1px solid rgba(6, 214, 160, 0.4);
   color: var(--accent-2);
 }
-.bp-victory-row.pet {
-  background: rgba(168, 85, 247, 0.16);
+.bp-pet-reward {
+  border-radius: 14px;
   border: 1px solid rgba(168, 85, 247, 0.45);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 209, 102, 0.2), transparent 48%),
+    linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(255, 209, 102, 0.12));
+  padding: 12px;
+  overflow: hidden;
+}
+.bp-pet-reward-stage {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  display: grid;
+  place-items: center;
+}
+.bp-pet-glow {
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 209, 102, 0.56), transparent 68%);
+  animation: glow-pulse 1s ease-in-out infinite;
+}
+.bp-pet-gift {
+  position: absolute;
+  font-size: 82px;
+  filter: drop-shadow(0 0 28px rgba(255, 209, 102, 0.58));
+  animation:
+    chest-shake 0.55s ease-in-out 0s 2,
+    chest-pop 0.45s ease-out 1.1s forwards;
+  z-index: 2;
+}
+.bp-pet-prize {
+  position: relative;
+  z-index: 3;
+  opacity: 0;
+  transform: translateY(40px) scale(0.4);
+  animation: reveal-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) 1.35s forwards;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.bp-pet-emoji {
+  font-size: 74px;
+  line-height: 1;
+  filter: drop-shadow(0 0 18px rgba(255, 209, 102, 0.8));
+}
+.bp-pet-name {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+.bp-pet-count {
+  position: absolute;
+  top: 4px;
+  right: -20px;
+  min-width: 28px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1b1300;
+  font-size: 12px;
+  font-weight: 900;
+}
+.bp-pet-caption {
   color: #d8b4fe;
+  font-size: 13px;
+  font-weight: 900;
+  margin-top: -4px;
 }
 
 .chest-modal {
