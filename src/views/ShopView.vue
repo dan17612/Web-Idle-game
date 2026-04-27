@@ -8,10 +8,12 @@ import { SPECIES, speciesInfo, formatCoins } from "../animals";
 import { t } from "../i18n";
 import TutorialBubble from "../components/TutorialBubble.vue";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
+import { useAppToast } from "../composables/useAppToast";
 
 const game = useGameStore();
 const auth = useAuthStore();
 const route = useRoute();
+const appToast = useAppToast();
 
 const tab = ref(route.query.tab === "food" ? "food" : "animals");
 watch(
@@ -42,8 +44,6 @@ async function loadChestStatus() {
 }
 
 async function buyChest() {
-  error.value = "";
-  success.value = "";
   busyKey.value = "chest";
   chestAnim.value = { phase: "shake", species: [] };
   try {
@@ -58,7 +58,7 @@ async function buyChest() {
     chestAnim.value = { phase: "reveal", species: data.species };
     if (game.tutorialStep === 4) game.setTutorialStep(5);
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
     chestAnim.value = null;
   } finally {
     busyKey.value = "";
@@ -110,7 +110,7 @@ function reloadPageForRotation() {
 async function loadShop() {
   const { data, error: e } = await supabase.rpc("get_shop");
   if (e) {
-    error.value = e.message;
+    appToast.err(e);
     return;
   }
   stock.value = data?.stock || {};
@@ -153,7 +153,7 @@ async function loadAdminData() {
 async function saveWeight(species) {
   const val = parseInt(weightDraft.value[species], 10);
   if (!(val > 0)) {
-    error.value = t("shop.weightMustBePositive");
+    appToast.err(t("shop.weightMustBePositive"));
     return;
   }
   if (val === weightMap.value[species]) return;
@@ -175,10 +175,11 @@ onMounted(async () => {
     });
   }
   timer = setInterval(() => {
+    if (document.visibilityState !== "visible") return;
     now.value = Date.now();
     if (rotatesAt.value && serverNow() >= rotatesAt.value + 500)
       reloadPageForRotation();
-  }, 500);
+  }, 1000);
 });
 onUnmounted(() => clearInterval(timer));
 
@@ -244,51 +245,43 @@ const stockTotal = computed(() =>
 );
 
 async function buy(key) {
-  error.value = "";
-  success.value = "";
   busyKey.value = key;
   try {
     await game.buyAnimal(key);
-    success.value = t("shop.boughtAnimal", { animal: speciesInfo(key).name });
+    appToast.ok(t("shop.boughtAnimal", { animal: speciesInfo(key).name }));
     await loadShop();
   } catch (e) {
-    error.value = e.message;
-    if (/rotation|ausverkauft|stock/i.test(e.message)) await loadShop();
+    appToast.err(e);
+    if (/rotation|ausverkauft|stock/i.test(e.message || '')) await loadShop();
   } finally {
     busyKey.value = "";
-    setTimeout(() => (success.value = ""), 2000);
   }
 }
 
 async function feed(food) {
-  error.value = "";
-  success.value = "";
   if (game.boostActive) {
-    error.value = t("storeErrors.boostAlreadyActive");
+    appToast.err(t("storeErrors.boostAlreadyActive"));
     return;
   }
   busyKey.value = "food-" + food.food;
   try {
     const res = await game.feedPet(food.food);
-    success.value = t("shop.foodFedSuccess", { food: food.name, mult: res.boost_multiplier });
+    appToast.ok(t("shop.foodFedSuccess", { food: food.name, mult: res.boost_multiplier }));
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
   } finally {
     busyKey.value = "";
-    setTimeout(() => (success.value = ""), 2500);
   }
 }
 
 async function callAdmin(rpc, args, key) {
-  error.value = "";
-  success.value = "";
   busyAdmin.value = key;
   try {
     const { error: e } = await supabase.rpc(rpc, args);
     if (e) throw e;
     await Promise.all([loadShop(), loadAdminData()]);
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
   } finally {
     busyAdmin.value = "";
   }
@@ -311,8 +304,6 @@ async function redeemPromo() {
   const code = (promoCode.value || "").trim();
   if (!code) return;
   promoBusy.value = true;
-  error.value = "";
-  success.value = "";
   promoMessage.value = "";
   try {
     const { data, error: e } = await supabase.rpc("redeem_promo_code", { p_code: code });
@@ -342,11 +333,13 @@ async function redeemPromo() {
       } catch {}
       parts.push(t("shop.promoRewardTaps", { taps: bonusTaps }));
     }
-    promoMessage.value = `${t("shop.promoSuccess")} ${parts.join(" · ")}`.trim();
+    const summary = `${t("shop.promoSuccess")} ${parts.join(" · ")}`.trim();
+    promoMessage.value = summary;
+    appToast.ok(summary);
     promoCode.value = "";
     await game.load();
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
   } finally {
     promoBusy.value = false;
   }
@@ -365,8 +358,6 @@ async function redeemPromo() {
     </Button>
   </div>
 
-  <p v-if="error" class="error">{{ error }}</p>
-  <p v-if="success" class="success">{{ success }}</p>
 
   <template v-if="tab === 'animals'">
     <div class="card row between" style="margin-bottom: 10px">

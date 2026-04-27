@@ -97,13 +97,16 @@ onMounted(async () => {
     subscribeBroadcasts();
   }
 
+  // Game-Tick: 500ms reicht fuer Tickcoin-Animation, halbiert den Re-render-Overhead
+  // gegenueber 250ms (alte Geraete spuerbar fluessiger).
   let last = performance.now();
   setInterval(() => {
+    if (document.visibilityState !== "visible") return;
     const now = performance.now();
     const dt = (now - last) / 1000;
     last = now;
     if (auth.isAuth) game.tick(dt);
-  }, 250);
+  }, 500);
 
   setInterval(() => {
     if (auth.isAuth) game.persist();

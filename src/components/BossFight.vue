@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { SPECIES, formatCoins, speciesInfo } from "../animals";
 import { locale } from "../i18n";
 import { useGameStore } from "../stores/game";
+import { animationsEnabled } from "../composables/useAnimations";
 
 const props = defineProps({
   stageConfig: { type: Object, default: null },
@@ -235,7 +236,10 @@ watch(bossRemaining, (remaining) => {
 });
 
 function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  // Bei deaktivierten Animationen warten wir nur minimal - Spielablauf bleibt
+  // identisch, aber das Brett reagiert sofort statt synchron mit CSS-Transitions.
+  const eff = animationsEnabled.value ? ms : Math.min(8, ms);
+  return new Promise((resolve) => setTimeout(resolve, eff));
 }
 
 function fmtTime(ms) {
@@ -421,19 +425,70 @@ function bossSwapTransform(index) {
   return "";
 }
 
+// Palette mit stark unterscheidbaren Farben. Jede Spezies bekommt deterministisch
+// genau einen Slot - keine Kollision zwischen unterschiedlichen Spezies.
+const BOSS_TILE_PALETTE = [
+  ["#e63946", "#7a1d27"], // rot
+  ["#f4a261", "#7a3d12"], // orange
+  ["#ffd166", "#7a5a10"], // gelb
+  ["#2a9d8f", "#0f4d47"], // tuerkis
+  ["#06d6a0", "#0a5a44"], // gruen
+  ["#118ab2", "#0a4458"], // teal
+  ["#3a86ff", "#0d2a5c"], // blau
+  ["#7209b7", "#33044f"], // violett
+  ["#ff476f", "#6e1731"], // pink
+  ["#ff9f1c", "#6b3d05"], // amber
+  ["#cdb4db", "#4f3f60"], // mauve
+  ["#76c893", "#2c5b3c"], // mint
+  ["#9b5de5", "#421a6e"], // lila
+  ["#fb5607", "#5c1d02"], // mandarine
+  ["#80ed99", "#235e34"], // limette
+  ["#00bbf9", "#054b66"], // sky
+  ["#d62828", "#5a0d0d"], // crimson
+  ["#a8dadc", "#3a6062"], // himmelblau
+  ["#bc6c25", "#4a2607"], // bronze
+  ["#8338ec", "#3a0f70"], // indigo
+  ["#fcbf49", "#7a5505"], // honey
+  ["#48cae4", "#0d4c5a"], // cyan
+  ["#ff006e", "#660029"], // magenta
+  ["#90be6d", "#33502a"], // olive
+];
+
+const speciesColorMap = computed(() => {
+  // Alle bekannten Spezies stabil sortieren und je eine Palettenfarbe zuweisen.
+  // Damit haben unterschiedliche Emojis garantiert unterschiedliche Hintergrundfarben
+  // (solange Spezieszahl <= Palettengrösse, aktuell 24).
+  const keys = Object.keys(SPECIES).sort();
+  const map = {};
+  keys.forEach((k, i) => {
+    map[k] = BOSS_TILE_PALETTE[i % BOSS_TILE_PALETTE.length];
+  });
+  return map;
+});
+
+function bossTileBg(species) {
+  const pair = speciesColorMap.value[species] || BOSS_TILE_PALETTE[0];
+  const [light, dark] = pair;
+  return `linear-gradient(135deg, ${light}, ${dark})`;
+}
+
 function bossTileStyle(index) {
+  const cell = bossBoard.value[index];
+  const base = cell ? { "--tile-bg": bossTileBg(cell.species) } : null;
   const drag = bossDrag.value;
   if (drag?.index === index) {
     const dx = Math.max(-46, Math.min(46, drag.dx || 0));
     const dy = Math.max(-46, Math.min(46, drag.dy || 0));
     return {
+      ...base,
       transform: `translate(${dx}px, ${dy}px) scale(1.04)`,
       transition: "none",
       zIndex: 3,
     };
   }
   const transform = bossSwapTransform(index);
-  return transform ? { transform, zIndex: 2 } : null;
+  if (transform) return { ...base, transform, zIndex: 2 };
+  return base;
 }
 
 function areBossNeighbors(a, b) {
@@ -718,21 +773,18 @@ function exitFight() {
       {{ fmtTime(boostRemaining) }}
     </div>
 
-    <div v-if="bossMessage" class="boss-message" :class="bossMessageKind">
-      {{ bossMessage }}
-    </div>
-
     <div v-if="!bossCanStart" class="hint boss-empty">
       {{ tx("noRoster") }}
     </div>
 
     <div v-else class="boss-board-wrap">
-      <TransitionGroup
+      <component
+        :is="animationsEnabled ? 'TransitionGroup' : 'div'"
         v-if="bossBoard.length"
-        name="boss-cell"
-        tag="div"
+        :name="animationsEnabled ? 'boss-cell' : undefined"
+        :tag="animationsEnabled ? 'div' : undefined"
         class="boss-board"
-        :class="{ paused: !bossActive, busy: bossBusy }"
+        :class="{ paused: !bossActive, busy: bossBusy, 'no-anim-board': !animationsEnabled }"
       >
         <Button
           v-for="cell in bossCells"
@@ -755,7 +807,7 @@ function exitFight() {
         >
           <span class="boss-tile-emoji">{{ cell.info.emoji }}</span>
         </Button>
-      </TransitionGroup>
+      </component>
 
       <Button
         v-else
@@ -768,7 +820,15 @@ function exitFight() {
       </Button>
     </div>
 
-    <Transition name="defeat-fade">
+    <div class="boss-message-slot" aria-live="polite">
+      <Transition :name="animationsEnabled ? 'boss-msg-fade' : ''">
+        <div v-if="bossMessage" class="boss-message" :class="bossMessageKind">
+          {{ bossMessage }}
+        </div>
+      </Transition>
+    </div>
+
+    <Transition :name="animationsEnabled ? 'defeat-fade' : ''">
       <div
         v-if="defeatVisible"
         class="defeat-overlay"
@@ -973,39 +1033,68 @@ function exitFight() {
 .boss-hint {
   margin: 0;
 }
-.boss-reward-live,
-.boss-message {
+.boss-reward-live {
   border-radius: 12px;
   padding: 9px 10px;
   text-align: center;
   font-size: 12px;
   font-weight: 800;
-}
-.boss-reward-live {
   background: rgba(6, 214, 160, 0.16);
   color: var(--accent-2);
   border: 1px solid rgba(6, 214, 160, 0.35);
 }
+.boss-message-slot {
+  position: relative;
+  height: 36px;        /* feste Hoehe → reserviert Platz, verhindert Layout-Shift */
+  flex: 0 0 auto;
+}
 .boss-message {
-  background: rgba(255, 255, 255, 0.06);
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: 100%;
+  height: 32px;
+  border-radius: 12px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: rgba(15, 20, 40, 0.85);
   border: 1px solid var(--border);
   color: var(--muted);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .boss-message.success {
-  background: rgba(6, 214, 160, 0.14);
-  border-color: rgba(6, 214, 160, 0.35);
+  background: rgba(6, 214, 160, 0.16);
+  border-color: rgba(6, 214, 160, 0.4);
   color: var(--accent-2);
 }
 .boss-message.error {
-  background: rgba(239, 71, 111, 0.12);
-  border-color: rgba(239, 71, 111, 0.35);
+  background: rgba(239, 71, 111, 0.14);
+  border-color: rgba(239, 71, 111, 0.4);
   color: var(--danger);
+}
+.boss-msg-fade-enter-active,
+.boss-msg-fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.boss-msg-fade-enter-from,
+.boss-msg-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 .boss-empty {
   text-align: center;
   padding: 12px;
 }
 .boss-board-wrap {
+  position: relative;
   display: flex;
   justify-content: center;
 }
@@ -1024,13 +1113,22 @@ function exitFight() {
 .boss-board.busy .boss-tile {
   cursor: wait;
 }
+.boss-board.no-anim-board .boss-tile,
+.boss-board.no-anim-board .boss-tile-emoji {
+  transition: none !important;
+  animation: none !important;
+}
+.boss-board.no-anim-board .boss-tile.matched {
+  transform: none;
+  opacity: 0.5;
+}
 .boss-tile {
   min-width: 0;
   min-height: 0;
   padding: 0;
   border-radius: 10px;
-  background: linear-gradient(135deg, #22305a, #162048);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--tile-bg, linear-gradient(135deg, #22305a, #162048));
+  border: 1px solid rgba(255, 255, 255, 0.12);
   font-size: clamp(22px, 8vw, 34px);
   line-height: 1;
   display: grid;
@@ -1050,12 +1148,12 @@ function exitFight() {
 .boss-tile:not(:disabled):hover,
 .boss-tile.selected {
   border-color: var(--accent);
-  background: linear-gradient(135deg, #314174, #1c2a58);
+  filter: brightness(1.18);
   transform: translateY(-1px);
 }
 .boss-tile.dragging {
   border-color: var(--accent-2);
-  background: linear-gradient(135deg, #1f4d5c, #1c2a58);
+  filter: brightness(1.22);
 }
 .boss-tile.swapping {
   border-color: rgba(255, 209, 102, 0.65);
@@ -1070,7 +1168,9 @@ function exitFight() {
 .boss-tile-emoji {
   display: block;
   pointer-events: none;
-  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.35));
+  filter:
+    drop-shadow(0 0 2px rgba(0, 0, 0, 0.85))
+    drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55));
 }
 .boss-cell-move {
   transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.2, 1);

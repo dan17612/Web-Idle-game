@@ -16,6 +16,7 @@ import Toast from 'primevue/toast'
 import './styles.css'
 import 'primeicons/primeicons.css'
 import { initLocale, t } from './i18n'
+import './composables/useAnimations'
 // Zoom global deaktivieren (Pinch, Double-Tap, Gesture-Zoom).
 function disableZoomGestures() {
   let lastTouchEnd = 0

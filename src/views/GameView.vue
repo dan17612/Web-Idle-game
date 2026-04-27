@@ -490,7 +490,7 @@ async function openGift() {
       coinsAdded: Number(data.coins_added || 0),
     };
   } catch (e) {
-    giftError.value = e.message || tx("gift.openFailed");
+    appToast.err(e?.message || tx("gift.openFailed"));
   } finally {
     giftBusy.value = false;
   }
@@ -523,8 +523,9 @@ const now = ref(Date.now());
 let clockTimer;
 onMounted(() => {
   clockTimer = setInterval(() => {
+    if (document.visibilityState !== "visible") return;
     now.value = Date.now();
-  }, 500);
+  }, 1000);
   loadSlotInfo();
 });
 
@@ -578,8 +579,7 @@ async function tap(e) {
     const f = floats.value.find((f) => f.id === id);
     if (f) f.v = "+" + formatCoins(data.earned);
   } catch (err) {
-    error.value = err.message;
-    setTimeout(() => (error.value = ""), 2500);
+    appToast.err(err);
   }
 }
 
@@ -601,8 +601,7 @@ async function upgradeTap(kind) {
     if (kind === "offline") await game.upgradeOffline();
     else await game.upgradeTap(kind);
   } catch (e) {
-    error.value = e.message;
-    setTimeout(() => (error.value = ""), 2500);
+    appToast.err(e);
   } finally {
     upgradingTap.value = "";
   }
@@ -611,13 +610,11 @@ async function upgradeTap(kind) {
 async function equipBest() {
   if (equipBestBusy.value || !ownedAnimals.value.length) return;
   equipBestBusy.value = true;
-  error.value = "";
   try {
     await game.equipBestAnimals();
     if (game.tutorialStep === 2) game.setTutorialStep(3);
   } catch (err) {
-    error.value = err.message;
-    setTimeout(() => (error.value = ""), 2500);
+    appToast.err(err);
   } finally {
     equipBestBusy.value = false;
   }
@@ -796,8 +793,7 @@ async function doFusion(species, tier) {
   const td = TIERS[tier];
   if (!td || group.count < td.required_qty) return;
   if (fusionLocked.value) {
-    error.value = tx("fusion.busySingle");
-    setTimeout(() => (error.value = ""), 2500);
+    appToast.err(tx("fusion.busySingle"));
     return;
   }
   fusionBusy.value = true;
@@ -808,8 +804,7 @@ async function doFusion(species, tier) {
     fusionSpecies.value = "";
     fusionTier.value = "";
   } catch (e) {
-    error.value = e.message;
-    setTimeout(() => (error.value = ""), 2500);
+    appToast.err(e);
   } finally {
     fusionBusy.value = false;
     fusionTarget.value = null;
@@ -848,8 +843,7 @@ const splitOutputCount = computed(() => {
 async function doSplit(animalId) {
   if (!animalId) return;
   if (fusionLocked.value) {
-    error.value = tx("fusion.busySingle");
-    setTimeout(() => (error.value = ""), 2500);
+    appToast.err(tx("fusion.busySingle"));
     return;
   }
   fusionBusy.value = true;
@@ -857,8 +851,7 @@ async function doSplit(animalId) {
     await game.startTierDowngrade(animalId);
     splitAnimalId.value = "";
   } catch (e) {
-    error.value = e.message;
-    setTimeout(() => (error.value = ""), 2500);
+    appToast.err(e);
   } finally {
     fusionBusy.value = false;
   }
@@ -879,13 +872,6 @@ async function doSplit(animalId) {
           <h2 class="title" style="margin: 0 0 6px">{{ tx("gift.title") }}</h2>
           <p class="subtitle" style="margin: 0 0 14px; text-align: center">
             {{ tx("gift.subtitle") }}
-          </p>
-          <p
-            v-if="giftError"
-            class="error"
-            style="text-align: center; margin: 0 0 10px"
-          >
-            {{ giftError }}
           </p>
           <Button class="btn full" :disabled="giftBusy" @click="openGift">
             {{ giftBusy ? tx("common.loadingShort") : tx("gift.open") }}
@@ -1000,9 +986,6 @@ async function doSplit(animalId) {
       </p>
       <p v-else class="tap-note">
         {{ tx("tap.buyFirst") }}
-      </p>
-      <p v-if="error" class="error" style="text-align: center; margin: 4px 0 0">
-        {{ error }}
       </p>
     </div>
 

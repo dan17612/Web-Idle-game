@@ -5,8 +5,10 @@ import { supabase } from "../supabase";
 import { speciesInfo, formatCoins, tierInfo, isUpgrading, animalRate, compareAnimalsByRate } from "../animals";
 import { t } from "../i18n";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
+import { useAppToast } from "../composables/useAppToast";
 
 const game = useGameStore();
+const appToast = useAppToast();
 const error = ref("");
 const busy = ref("");
 const slotInfo = ref({ current_slots: 1, next_slot: 2, next_cost: null });
@@ -109,24 +111,22 @@ const counts = computed(() => {
 });
 
 async function equipOne(group) {
-  error.value = "";
   const id = group.unequippedReadyIds[0];
   if (!id || game.freeSlots <= 0) {
-    if (game.freeSlots <= 0) error.value = t("inventory.noFreeSlots");
+    if (game.freeSlots <= 0) appToast.err(t("inventory.noFreeSlots"));
     return;
   }
   busy.value = `eq-${group.key}`;
   try {
     await game.equipAnimal(id);
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
   } finally {
     busy.value = "";
   }
 }
 
 async function equipAll(group) {
-  error.value = "";
   const toEquip = group.unequippedReadyIds.slice(0, game.freeSlots);
   if (!toEquip.length) return;
   busy.value = `eq-${group.key}`;
@@ -135,28 +135,26 @@ async function equipAll(group) {
       await game.equipAnimal(id);
     }
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
   } finally {
     busy.value = "";
   }
 }
 
 async function unequipOne(group) {
-  error.value = "";
   const id = group.equippedIds[0];
   if (!id) return;
   busy.value = `uneq-${group.key}`;
   try {
     await game.unequipAnimal(id);
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
   } finally {
     busy.value = "";
   }
 }
 
 async function unequipAll(group) {
-  error.value = "";
   if (!group.equippedIds.length) return;
   busy.value = `uneq-${group.key}`;
   try {
@@ -164,14 +162,13 @@ async function unequipAll(group) {
       await game.unequipAnimal(id);
     }
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
   } finally {
     busy.value = "";
   }
 }
 
 async function setFavorite(group) {
-  error.value = "";
   if (group.favoriteInGroup) return;
   const id =
     group.favoriteId ||
@@ -183,20 +180,19 @@ async function setFavorite(group) {
   try {
     await game.setFavoriteAnimal(id);
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
   } finally {
     busy.value = "";
   }
 }
 
 async function buySlot() {
-  error.value = "";
   busy.value = "slot";
   try {
     await game.buyEquipSlot();
     await loadSlot();
   } catch (e) {
-    error.value = e.message;
+    appToast.err(e);
   } finally {
     busy.value = "";
   }
@@ -238,7 +234,6 @@ const filters = computed(() => [
     <span v-else class="subtitle" style="margin:0;font-size:12px">{{ t("inventory.max") }}</span>
   </div>
 
-  <p v-if="error" class="error">{{ error }}</p>
 
   <div class="card filter-card">
     <div class="filter-bar">

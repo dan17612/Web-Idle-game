@@ -416,3 +416,15 @@ input:focus { border-color: var(--accent); }
   0%, 100% { box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.6), 0 0 24px 4px rgba(255, 209, 102, 0.4); }
   50% { box-shadow: 0 0 0 6px rgba(255, 209, 102, 0.8), 0 0 36px 10px rgba(255, 209, 102, 0.55); }
 }
+
+/* Animationen global ausschaltbar (Settings → "Animationen aus"). */
+body.no-anim *,
+body.no-anim *::before,
+body.no-anim *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
