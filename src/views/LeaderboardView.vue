@@ -5,6 +5,7 @@ import { supabase } from '../supabase'
 import { formatCoins } from '../animals'
 import { useAuthStore } from '../stores/auth'
 import { t } from '../i18n'
+import { useReturnRefresh } from '../composables/useReturnRefresh'
 
 const router = useRouter()
 const route = useRoute()
@@ -61,6 +62,7 @@ watch(() => route.name, (name) => {
   if (name === 'leaderboard') load()
 })
 onMounted(load)
+useReturnRefresh(load)
 
 function openProfile(username) {
   router.push({ name: 'profile', query: { u: username } })

@@ -7,6 +7,7 @@ import { supabase } from "../supabase";
 import { SPECIES, speciesInfo, formatCoins } from "../animals";
 import { t } from "../i18n";
 import TutorialBubble from "../components/TutorialBubble.vue";
+import { useReturnRefresh } from "../composables/useReturnRefresh";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -162,6 +163,8 @@ async function saveWeight(species) {
     "w-" + species,
   );
 }
+
+useReturnRefresh(() => Promise.all([loadShop(), loadFoods(), loadChestStatus()]));
 
 onMounted(async () => {
   if (game.tutorialStep === 3) game.setTutorialStep(4);

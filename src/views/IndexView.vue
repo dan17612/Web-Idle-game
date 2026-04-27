@@ -5,6 +5,7 @@ import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { SPECIES, loadCatalog, tierInfo } from '../animals'
 import { t } from '../i18n'
+import { useReturnRefresh } from '../composables/useReturnRefresh'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -45,6 +46,7 @@ async function load() {
   }
 }
 onMounted(load)
+useReturnRefresh(load)
 watch(() => route.query.u, load)
 
 const tierCounts = computed(() => {

@@ -4,6 +4,7 @@ import { useGameStore } from "../stores/game";
 import { supabase } from "../supabase";
 import { speciesInfo, formatCoins, tierInfo, isUpgrading, animalRate, compareAnimalsByRate } from "../animals";
 import { t } from "../i18n";
+import { useReturnRefresh } from "../composables/useReturnRefresh";
 
 const game = useGameStore();
 const error = ref("");
@@ -20,6 +21,8 @@ onMounted(async () => {
   if (!game.animals.length) await game.load();
   await loadSlot();
 });
+
+useReturnRefresh(loadSlot);
 
 const tierOrder = ["rainbow", "epic", "diamond", "gold", "normal"];
 const tierRank = { rainbow: 0, epic: 1, diamond: 2, gold: 3, normal: 4 };

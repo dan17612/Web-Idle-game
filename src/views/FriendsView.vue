@@ -6,6 +6,7 @@ import { useGameStore } from '../stores/game'
 import { formatCoins } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
 import { t } from '../i18n'
+import { useReturnRefresh } from '../composables/useReturnRefresh'
 
 const router = useRouter()
 const game = useGameStore()
@@ -46,6 +47,7 @@ async function load() {
   }
 }
 onMounted(load)
+useReturnRefresh(load)
 
 function av(name) { return avatars.value[name] || '👤' }
 

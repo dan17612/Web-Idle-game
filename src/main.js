@@ -5,12 +5,14 @@ import router from './router'
 import { useAuthStore } from './stores/auth'
 import { supabase } from './supabase'
 import PrimeVue from 'primevue/config'
+import ToastService from 'primevue/toastservice'
 import Aura from '@primeuix/themes/aura'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Checkbox from 'primevue/checkbox'
 import Select from 'primevue/select'
+import Toast from 'primevue/toast'
 import './styles.css'
 import 'primeicons/primeicons.css'
 import { initLocale, t } from './i18n'
@@ -84,11 +86,13 @@ async function bootstrap() {
       preset: Aura
     }
   })
+  app.use(ToastService)
   app.component('Button', Button)
   app.component('InputText', InputText)
   app.component('Textarea', Textarea)
   app.component('Checkbox', Checkbox)
   app.component('Select', Select)
+  app.component('Toast', Toast)
   app.config.globalProperties.$t = t
 
   const auth = useAuthStore(pinia)

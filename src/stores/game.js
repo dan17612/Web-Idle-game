@@ -5,8 +5,9 @@ import { useAuthStore } from './auth'
 import { t } from '../i18n'
 
 const TAP_MAX = 10
-const TAP_MUL_MAX_LEVEL = 25
-const TAP_CAP_MAX_LEVEL = 20
+const TAP_MUL_MAX_LEVEL = 300
+const TAP_CAP_MAX_LEVEL = 300
+const SLOT_MAX = 12
 const BOSS_BOOST_MULTIPLIER = 10
 const BOSS_BOOST_DURATION_MS = 10 * 60 * 1000
 
@@ -37,7 +38,8 @@ export const useGameStore = defineStore('game', {
     pendingOfflineEarnings: null,
     tutorialStep: 5,
     bossPathHighest: 0,
-    bossPathCurrent: 1
+    bossPathCurrent: 1,
+    craftJob: null
   }),
   getters: {
     favoriteAnimal(state) {
@@ -47,10 +49,12 @@ export const useGameStore = defineStore('game', {
       return 1 + (state.tapLevel - 1) * 0.25
     },
     nextTapCost(state) {
+      if (state.tapLevel >= TAP_MUL_MAX_LEVEL) return null
       return Math.floor(100 * Math.pow(3, state.tapLevel - 1))
     },
     nextCapCost(state) {
-      return Math.floor(150 * Math.pow(3, state.tapCapLevel - 1))
+      if (state.tapCapLevel >= TAP_CAP_MAX_LEVEL) return null
+      return Math.floor(100 * Math.pow(3, state.tapCapLevel - 1))
     },
     // Offline: Basis 2h, pro Level +30min, hart gecappt bei 8h (Server-Limit).
     maxOfflineHours(state) {
@@ -125,6 +129,15 @@ export const useGameStore = defineStore('game', {
     },
     bossArenaUnlocked(state) {
       return Number(state.bossPathHighest) >= 3
+    },
+    slotsMaxed(state) {
+      return state.equipSlots >= SLOT_MAX
+    },
+    craftJobReady(state) {
+      const job = state.craftJob
+      if (!job || !job.active) return false
+      const ready = new Date(job.ready_at).getTime()
+      return Date.now() + state.serverOffset >= ready
     }
   },
   actions: {
@@ -181,6 +194,7 @@ export const useGameStore = defineStore('game', {
       this.loading = false
       this.claimPendingGifts().catch(() => {})
       this.loadBossPath().catch(() => {})
+      this.loadCraftStatus().catch(() => {})
       this.lastLoadedAt = Date.now()
     },
     async claimPendingGifts() {
@@ -527,7 +541,31 @@ export const useGameStore = defineStore('game', {
     async craftAnimal(recipeId) {
       const { data, error } = await supabase.rpc('craft_animal', { p_recipe_id: recipeId })
       if (error) throw error
-      await this.load()
+      this.craftJob = data || null
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      const auth = useAuthStore()
+      if (auth.user) {
+        const { data: animals } = await supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at')
+        if (animals) this.animals = animals
+      }
+      return data
+    },
+    async loadCraftStatus() {
+      const { data, error } = await supabase.rpc('get_craft_status')
+      if (error) return null
+      this.craftJob = data && data.active ? data : null
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      return data
+    },
+    async claimCraftAnimal() {
+      const { data, error } = await supabase.rpc('claim_craft_animal')
+      if (error) throw error
+      this.craftJob = null
+      const auth = useAuthStore()
+      if (auth.user) {
+        const { data: animals } = await supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at')
+        if (animals) this.animals = animals
+      }
       return data
     },
     async releaseAnimal(animalId) {

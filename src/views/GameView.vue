@@ -14,10 +14,14 @@ import {
 import { locale, t as tGlobal } from "../i18n";
 import BossFight from "../components/BossFight.vue";
 import TutorialBubble from "../components/TutorialBubble.vue";
+import { supabase } from "../supabase";
+import { useAppToast } from "../composables/useAppToast";
+import { useReturnRefresh } from "../composables/useReturnRefresh";
 
 const game = useGameStore();
 const auth = useAuthStore();
 const router = useRouter();
+const appToast = useAppToast();
 
 const I18N = {
   de: {
@@ -79,7 +83,10 @@ const I18N = {
       equipBest: "🏆 Beste ausrüsten",
       freeSlotAria: "Freier Slot {slot} - zum Inventar",
       freeSlot: "Freier Slot",
-      tapToEquip: "Tippen zum Ausrüsten"
+      tapToEquip: "Tippen zum Ausrüsten",
+      buySlot: "Slot kaufen",
+      slotMaxed: "Max. Slots",
+      slotBought: "Neuer Slot freigeschaltet!"
     },
     crafter: {
       title: "⚗️ Crafter-Maschine",
@@ -94,7 +101,13 @@ const I18N = {
       recipe: "Rezept",
       craft: "⚗️ Craften",
       notEnough: "Nicht genug Zutaten",
-      crafted: "{emoji} {name} gecraftet!"
+      crafted: "{emoji} {name} gecraftet!",
+      started: "Crafting gestartet · 15 Min",
+      alreadyRunning: "Es läuft bereits ein Craft.",
+      ready: "Fertig!",
+      claim: "🎁 Abholen",
+      running: "Läuft… {time}",
+      progress: "Fortschritt"
     },
     fusion: {
       title: "🧬 Fusions-Maschine",
@@ -192,7 +205,10 @@ const I18N = {
       equipBest: "🏆 Equip best",
       freeSlotAria: "Free slot {slot} - to inventory",
       freeSlot: "Free slot",
-      tapToEquip: "Tap to equip"
+      tapToEquip: "Tap to equip",
+      buySlot: "Buy slot",
+      slotMaxed: "Max slots",
+      slotBought: "New slot unlocked!"
     },
     crafter: {
       title: "⚗️ Crafter Machine",
@@ -207,7 +223,13 @@ const I18N = {
       recipe: "Recipe",
       craft: "⚗️ Craft",
       notEnough: "Not enough ingredients",
-      crafted: "{emoji} {name} crafted!"
+      crafted: "{emoji} {name} crafted!",
+      started: "Craft started · 15 min",
+      alreadyRunning: "A craft is already running.",
+      ready: "Ready!",
+      claim: "🎁 Claim",
+      running: "Running… {time}",
+      progress: "Progress"
     },
     fusion: {
       title: "🧬 Fusion Machine",
@@ -301,6 +323,9 @@ const I18N = {
     },
     equipped: {
       title: "🎯 Экипировано",
+      buySlot: "Купить слот",
+      slotMaxed: "Макс. слоты",
+      slotBought: "Новый слот открыт!",
       manage: "📦 Управлять инвентарем",
       equipBest: "🏆 Экипировать лучших",
       freeSlotAria: "Свободный слот {slot} - в инвентарь",
@@ -320,7 +345,13 @@ const I18N = {
       recipe: "Рецепт",
       craft: "⚗️ Крафт",
       notEnough: "Недостаточно ингредиентов",
-      crafted: "{emoji} {name} скрафчен!"
+      crafted: "{emoji} {name} скрафчен!",
+      started: "Крафт начат · 15 мин",
+      alreadyRunning: "Крафт уже идёт.",
+      ready: "Готово!",
+      claim: "🎁 Забрать",
+      running: "Идёт… {time}",
+      progress: "Прогресс"
     },
     fusion: {
       title: "🧬 Машина слияния",
@@ -387,6 +418,36 @@ const slotCells = computed(() => {
     cells.push(equipped.value[i] || null);
   return cells;
 });
+
+const slotInfo = ref({ next_slot: null, next_cost: null });
+const slotBuyBusy = ref(false);
+
+async function loadSlotInfo() {
+  try {
+    const { data } = await supabase.rpc("get_next_slot_cost");
+    if (data) slotInfo.value = data;
+  } catch {}
+}
+
+const canBuySlot = computed(() =>
+  !game.slotsMaxed
+  && slotInfo.value.next_cost != null
+  && Number(game.displayCoins) >= Number(slotInfo.value.next_cost)
+);
+
+async function buySlot() {
+  if (slotBuyBusy.value || game.slotsMaxed) return;
+  slotBuyBusy.value = true;
+  try {
+    await game.buyEquipSlot();
+    await loadSlotInfo();
+    appToast.ok(tx("equipped.slotBought"));
+  } catch (e) {
+    appToast.err(e);
+  } finally {
+    slotBuyBusy.value = false;
+  }
+}
 
 const favAnimal = computed(() => {
   const f = game.favoriteAnimal;
@@ -464,7 +525,10 @@ onMounted(() => {
   clockTimer = setInterval(() => {
     now.value = Date.now();
   }, 500);
+  loadSlotInfo();
 });
+
+useReturnRefresh(() => Promise.all([loadSlotInfo(), game.loadCraftStatus()]));
 onUnmounted(() => clearInterval(clockTimer));
 
 function fmtTime(ms) {
@@ -578,7 +642,7 @@ async function loadCrafterRecipes() {
     crafterRecipes.value = await game.loadCraftRecipes()
     crafterLoaded.value = true
   } catch (e) {
-    crafterError.value = e.message
+    appToast.err(e)
   }
 }
 
@@ -596,21 +660,59 @@ function canCraft(recipe) {
   return recipe?.ingredients?.every((ing, i) => ingCount(recipe, i) >= ing.qty) ?? false
 }
 
+const craftRemainingMs = computed(() => {
+  const job = game.craftJob
+  if (!job?.active) return 0
+  const ready = new Date(job.ready_at).getTime()
+  return Math.max(0, ready - (now.value + game.serverOffset))
+})
+const craftRemainingLabel = computed(() => {
+  const ms = craftRemainingMs.value
+  if (ms <= 0) return tx("crafter.ready")
+  const total = Math.ceil(ms / 1000)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+})
+const craftProgressPct = computed(() => {
+  const job = game.craftJob
+  if (!job?.active) return 0
+  const start = new Date(job.started_at).getTime()
+  const ready = new Date(job.ready_at).getTime()
+  const total = Math.max(1, ready - start)
+  const done = Math.max(0, Math.min(total, (now.value + game.serverOffset) - start))
+  return Math.round((done / total) * 100)
+})
+
 async function doCraft() {
   const recipe = crafterSelected.value
   if (!recipe || crafterBusy.value || !canCraft(recipe)) return
+  if (game.craftJob?.active) {
+    appToast.warn(tx("crafter.alreadyRunning"))
+    return
+  }
   crafterBusy.value = true
-  crafterError.value = ''
-  crafterSuccess.value = ''
   try {
-    const data = await game.craftAnimal(recipe.id)
-    const outInfo = speciesInfo(data.animal.species)
-    crafterSuccess.value = tx("crafter.crafted", { emoji: outInfo.emoji, name: outInfo.name })
+    await game.craftAnimal(recipe.id)
     crafterRecipeId.value = ''
-    setTimeout(() => (crafterSuccess.value = ''), 3000)
+    appToast.info(tx("crafter.started"))
   } catch (e) {
-    crafterError.value = e.message
-    setTimeout(() => (crafterError.value = ''), 3000)
+    appToast.err(e)
+  } finally {
+    crafterBusy.value = false
+  }
+}
+
+async function claimCraft() {
+  if (crafterBusy.value) return
+  if (!game.craftJobReady) return
+  crafterBusy.value = true
+  try {
+    const data = await game.claimCraftAnimal()
+    const outInfo = speciesInfo(data.animal.species)
+    appToast.ok(tx("crafter.crafted", { emoji: outInfo.emoji, name: outInfo.name }))
+  } catch (e) {
+    appToast.err(e)
   } finally {
     crafterBusy.value = false
   }
@@ -1149,6 +1251,26 @@ async function doSplit(animalId) {
             <div class="farm-meta-sub">{{ tx("equipped.tapToEquip") }}</div>
           </router-link>
         </template>
+        <button
+          v-if="!game.slotsMaxed && slotInfo.next_cost != null"
+          type="button"
+          class="farm-cell slot-buy"
+          :class="{ disabled: !canBuySlot || slotBuyBusy }"
+          :disabled="!canBuySlot || slotBuyBusy"
+          @click="buySlot"
+        >
+          <div class="farm-plus">＋</div>
+          <div class="farm-meta">{{ tx("equipped.buySlot") }}</div>
+          <div class="farm-meta-sub coin-line">🪙 {{ formatCoins(slotInfo.next_cost) }}</div>
+        </button>
+        <div
+          v-else-if="game.slotsMaxed"
+          class="farm-cell slot-maxed"
+          :aria-label="tx('equipped.slotMaxed')"
+        >
+          <div class="farm-plus">★</div>
+          <div class="farm-meta">{{ tx("equipped.slotMaxed") }}</div>
+        </div>
       </div>
     </div>
 
@@ -1172,10 +1294,23 @@ async function doSplit(animalId) {
         <span class="fusion-preview-label">{{ tx("crafter.pickRecipe") }}</span>
       </Button>
 
-      <div v-if="crafterOpen" class="fusion-body">
-        <p v-if="crafterError"   class="error"   style="text-align:center;margin:0 0 6px">{{ crafterError }}</p>
-        <p v-if="crafterSuccess" class="success" style="text-align:center;margin:0 0 6px">{{ crafterSuccess }}</p>
+      <div v-if="game.craftJob && game.craftJob.active" class="craft-job" :class="{ ready: game.craftJobReady }">
+        <div class="craft-job-row">
+          <div class="craft-job-emoji">{{ speciesInfo(game.craftJob.output_species).emoji }}</div>
+          <div class="craft-job-body">
+            <div class="craft-job-title">{{ speciesInfo(game.craftJob.output_species).name }}</div>
+            <div class="craft-job-time">{{ game.craftJobReady ? tx("crafter.ready") : tx("crafter.running", { time: craftRemainingLabel }) }}</div>
+            <div class="craft-job-bar"><span :style="{ width: craftProgressPct + '%' }"></span></div>
+          </div>
+          <Button
+            class="btn small"
+            :disabled="!game.craftJobReady || crafterBusy"
+            @click="claimCraft"
+          >{{ tx("crafter.claim") }}</Button>
+        </div>
+      </div>
 
+      <div v-if="crafterOpen" class="fusion-body">
         <div v-if="!crafterLoaded" class="hint" style="text-align:center;padding:12px">{{ tx("crafter.loading") }}</div>
         <div v-else-if="!crafterRecipes.length" class="hint" style="text-align:center;padding:12px">{{ tx("crafter.none") }}</div>
 
@@ -1243,11 +1378,12 @@ async function doSplit(animalId) {
 
             <Button
               class="btn full"
-              :disabled="!crafterSelected || !canCraft(crafterSelected) || crafterBusy"
+              :disabled="!crafterSelected || !canCraft(crafterSelected) || crafterBusy || (game.craftJob && game.craftJob.active)"
               @click="doCraft"
             >
               {{
-                crafterBusy ? tx("common.loadingShort")
+                game.craftJob && game.craftJob.active ? tx("crafter.alreadyRunning")
+                : crafterBusy ? tx("common.loadingShort")
                 : !crafterSelected ? tx("crafter.pickRecipe")
                 : canCraft(crafterSelected) ? tx("crafter.craft")
                 : tx("crafter.notEnough")
@@ -2068,6 +2204,69 @@ async function doSplit(animalId) {
   color: var(--muted);
   opacity: 0.7;
   margin-top: 2px;
+}
+.farm-cell.slot-buy {
+  background: linear-gradient(135deg, rgba(255, 209, 102, 0.18), rgba(255, 71, 126, 0.12));
+  border: 2px dashed rgba(255, 209, 102, 0.6);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.farm-cell.slot-buy:hover:not(.disabled) {
+  border-color: var(--accent);
+  border-style: solid;
+  transform: translateY(-2px);
+}
+.farm-cell.slot-buy.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.farm-cell.slot-buy .coin-line {
+  font-weight: 800;
+  color: var(--accent);
+  opacity: 1;
+  font-size: 12px;
+}
+.farm-cell.slot-maxed {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(255, 209, 102, 0.12));
+  border: 2px solid rgba(168, 85, 247, 0.5);
+  opacity: 0.85;
+}
+.craft-job {
+  margin: 6px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(99, 242, 255, 0.12), rgba(168, 85, 247, 0.12));
+  border: 1px solid rgba(99, 242, 255, 0.35);
+}
+.craft-job.ready {
+  background: linear-gradient(135deg, rgba(6, 214, 160, 0.18), rgba(255, 209, 102, 0.12));
+  border-color: rgba(6, 214, 160, 0.5);
+  animation: cardPulse 2s ease-in-out infinite;
+}
+.craft-job-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.craft-job-emoji { font-size: 32px; flex-shrink: 0; }
+.craft-job-body { flex: 1; min-width: 0; }
+.craft-job-title { font-weight: 800; font-size: 14px; }
+.craft-job-time { font-size: 12px; color: var(--muted); font-weight: 700; }
+.craft-job-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.3);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-top: 4px;
+}
+.craft-job-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #06d6a0, #ffd166);
+  transition: width 0.3s ease;
 }
 .inventory-btn {
   padding: 10px 16px;

@@ -5,6 +5,7 @@ import { useGameStore } from "../stores/game";
 import { speciesInfo, formatCoins, tierInfo } from "../animals";
 import { locale } from "../i18n";
 import BossFight from "../components/BossFight.vue";
+import { useReturnRefresh } from "../composables/useReturnRefresh";
 
 const game = useGameStore();
 const router = useRouter();
@@ -47,7 +48,9 @@ const I18N = {
     pathComplete: "🏆 Pfad abgeschlossen! Alle Bosse besiegt.",
     bossActiveBoost: "Aktiver Boost: ×{mult} · {time}",
     confirmFight: "Bereit?",
-    cancel: "Abbrechen"
+    cancel: "Abbrechen",
+    loading: "Lade Boss-Pfad…",
+    retry: "Erneut versuchen"
   },
   en: {
     title: "🗺️ Boss path",
@@ -86,7 +89,9 @@ const I18N = {
     pathComplete: "🏆 Path complete! All bosses defeated.",
     bossActiveBoost: "Active boost: ×{mult} · {time}",
     confirmFight: "Ready?",
-    cancel: "Cancel"
+    cancel: "Cancel",
+    loading: "Loading boss path…",
+    retry: "Retry"
   },
   ru: {
     title: "🗺️ Путь босса",
@@ -125,7 +130,9 @@ const I18N = {
     pathComplete: "🏆 Путь завершён! Все боссы повержены.",
     bossActiveBoost: "Активный буст: ×{mult} · {time}",
     confirmFight: "Готов?",
-    cancel: "Отмена"
+    cancel: "Отмена",
+    loading: "Загрузка пути…",
+    retry: "Повторить"
   }
 };
 
@@ -228,6 +235,7 @@ const pathState = ref({
   stages: DEFAULT_STAGES,
   max_stage: 15
 });
+const loaded = ref(false);
 const loading = ref(false);
 const error = ref("");
 const fightOpen = ref(false);
@@ -237,6 +245,8 @@ const chestOpening = ref(false);
 const chestReveal = ref(null);
 const tickNow = ref(Date.now());
 let tickTimer = null;
+
+useReturnRefresh(() => refreshPath());
 
 onMounted(async () => {
   tickTimer = setInterval(() => { tickNow.value = Date.now(); }, 500);
@@ -252,19 +262,19 @@ async function refreshPath() {
   error.value = "";
   try {
     const data = await game.loadBossPath();
-    if (data) {
-      const stages = Array.isArray(data.stages) && data.stages.length
-        ? data.stages.map(normalizeStageConfig)
-        : DEFAULT_STAGES;
-      pathState.value = {
-        current_stage: Number(data.current_stage || 1),
-        highest_stage: Number(data.highest_stage || 0),
-        total_victories: Number(data.total_victories || 0),
-        rewards: Array.isArray(data.rewards) ? data.rewards : [],
-        stages,
-        max_stage: Number(data.max_stage || stages.length || 15)
-      };
-    }
+    if (!data) throw new Error(tx("error"));
+    const stages = Array.isArray(data.stages) && data.stages.length
+      ? data.stages.map(normalizeStageConfig)
+      : DEFAULT_STAGES;
+    pathState.value = {
+      current_stage: Number(data.current_stage || 1),
+      highest_stage: Number(data.highest_stage || 0),
+      total_victories: Number(data.total_victories || 0),
+      rewards: Array.isArray(data.rewards) ? data.rewards : [],
+      stages,
+      max_stage: Number(data.max_stage || stages.length || 15)
+    };
+    loaded.value = true;
   } catch (e) {
     error.value = e?.message || tx("error");
   } finally {
@@ -437,6 +447,17 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
       </div>
     </header>
 
+    <div v-if="!loaded && loading" class="bp-loading">
+      <i class="pi pi-spin pi-spinner"></i>
+      <span>{{ tx("loading") }}</span>
+    </div>
+
+    <div v-else-if="!loaded && error" class="bp-load-error">
+      <div class="bp-load-error-msg">{{ error }}</div>
+      <Button class="btn small" @click="refreshPath">{{ tx("retry") }}</Button>
+    </div>
+
+    <template v-else>
     <div class="bp-stats">
       <div class="bp-stat">
         <div class="bp-stat-value">{{ Math.min(pathState.current_stage - 1, pathState.max_stage) }}/{{ pathState.max_stage }}</div>
@@ -530,8 +551,9 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
         </div>
       </div>
     </section>
+    </template>
 
-    <div v-if="error" class="bp-error">{{ error }}</div>
+    <div v-if="loaded && error" class="bp-error">{{ error }}</div>
 
     <Teleport to="body">
       <div
@@ -940,6 +962,35 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   color: var(--danger);
   font-weight: 700;
   font-size: 13px;
+}
+
+.bp-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 12px;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 14px;
+}
+.bp-loading .pi-spinner { font-size: 22px; color: var(--accent); }
+
+.bp-load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 12px;
+  border-radius: 14px;
+  background: rgba(239, 71, 111, 0.12);
+  border: 1px solid rgba(239, 71, 111, 0.4);
+}
+.bp-load-error-msg {
+  color: var(--danger);
+  font-weight: 800;
+  font-size: 14px;
+  text-align: center;
 }
 
 .bp-modal-overlay {

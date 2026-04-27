@@ -26,13 +26,20 @@ const auth = useAuthStore();
 const game = useGameStore();
 const route = useRoute();
 
-const STALE_MS = 90_000; // 90s – danach Game-Daten neu laden
+const STALE_MS = 90_000; // 90s – Route-Wechsel: nur neu laden, wenn lange nicht aktualisiert.
+const RETURN_THROTTLE_MS = 4_000; // Tab/Fokus-Rückkehr: max alle 4s erneut laden.
 
 function refreshIfStale() {
   if (!auth.isAuth || game.loading) return;
   if (Date.now() - game.lastLoadedAt > STALE_MS) {
     game.load().catch(() => {});
   }
+}
+
+function refreshOnReturn() {
+  if (!auth.isAuth || game.loading) return;
+  if (Date.now() - game.lastLoadedAt < RETURN_THROTTLE_MS) return;
+  game.load().catch(() => {});
 }
 
 const broadcast = ref(null);
@@ -108,8 +115,13 @@ onMounted(async () => {
     if (document.visibilityState === "hidden" && auth.isAuth) {
       game.persist();
     } else if (document.visibilityState === "visible") {
-      refreshIfStale();
+      refreshOnReturn();
     }
+  });
+  window.addEventListener("focus", refreshOnReturn);
+  window.addEventListener("pageshow", (e) => {
+    // bfcache-Wiederherstellung (mobile Safari, Firefox): Daten sind dann garantiert alt.
+    if (e.persisted) refreshOnReturn();
   });
 });
 
@@ -162,6 +174,7 @@ async function hardReload() {
 
 <template>
   <div class="app-shell">
+    <Toast position="top-right" />
     <header v-if="showNav" class="top-bar">
       <div class="brand">
         <span class="brand-logo">🐾</span>
