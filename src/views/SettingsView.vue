@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { localePreference, setLocale, t, LOCALE_OPTIONS } from '../i18n'
+import { animationsEnabled } from '../composables/useAnimations'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -222,6 +223,15 @@ async function logout() {
         :options="localeOptions"
         optionLabel="label"
         optionValue="code" />
+    </section>
+
+    <section class="card stack">
+      <h2 style="margin:0">{{ t('settings.animationsTitle') }}</h2>
+      <p class="hint">{{ t('settings.animationsHint') }}</p>
+      <label class="row" style="gap:8px; justify-content:flex-start; align-items:center">
+        <Checkbox v-model="animationsEnabled" :binary="true" inputId="anim-toggle" />
+        <span style="font-size:14px">{{ t('settings.animationsLabel') }}</span>
+      </label>
     </section>
 
     <section class="card stack">

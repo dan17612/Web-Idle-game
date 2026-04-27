@@ -6,8 +6,10 @@ import { speciesInfo, formatCoins, tierInfo } from "../animals";
 import { locale } from "../i18n";
 import BossFight from "../components/BossFight.vue";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
+import { useAppToast } from "../composables/useAppToast";
 
 const game = useGameStore();
+const appToast = useAppToast();
 const router = useRouter();
 
 const I18N = {
@@ -237,6 +239,7 @@ const pathState = ref({
 });
 const loaded = ref(false);
 const loading = ref(false);
+const loadFailed = ref(false);
 const error = ref("");
 const fightOpen = ref(false);
 const fightStage = ref(null);
@@ -249,7 +252,10 @@ let tickTimer = null;
 useReturnRefresh(() => refreshPath());
 
 onMounted(async () => {
-  tickTimer = setInterval(() => { tickNow.value = Date.now(); }, 500);
+  tickTimer = setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    tickNow.value = Date.now();
+  }, 1000);
   await refreshPath();
 });
 
@@ -259,7 +265,7 @@ onUnmounted(() => {
 
 async function refreshPath() {
   loading.value = true;
-  error.value = "";
+  loadFailed.value = false;
   try {
     const data = await game.loadBossPath();
     if (!data) throw new Error(tx("error"));
@@ -276,7 +282,8 @@ async function refreshPath() {
     };
     loaded.value = true;
   } catch (e) {
-    error.value = e?.message || tx("error");
+    if (!loaded.value) loadFailed.value = true;
+    appToast.err(e?.message || tx("error"));
   } finally {
     loading.value = false;
   }
@@ -348,7 +355,7 @@ async function onVictory({ score, target, stage }) {
     };
     await refreshPath();
   } catch (e) {
-    error.value = e?.message || tx("error");
+    appToast.err(e?.message || tx("error"));
   }
 }
 
@@ -365,7 +372,7 @@ async function openChest(reward) {
     chestReveal.value = { phase: "reveal", species };
     await refreshPath();
   } catch (e) {
-    error.value = e?.message || tx("error");
+    appToast.err(e?.message || tx("error"));
     chestReveal.value = null;
   } finally {
     chestOpening.value = false;
@@ -381,7 +388,7 @@ async function activateBoost(reward) {
     await game.activateBossPathReward(reward.id);
     await refreshPath();
   } catch (e) {
-    error.value = e?.message || tx("error");
+    appToast.err(e?.message || tx("error"));
   }
 }
 
@@ -452,8 +459,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
       <span>{{ tx("loading") }}</span>
     </div>
 
-    <div v-else-if="!loaded && error" class="bp-load-error">
-      <div class="bp-load-error-msg">{{ error }}</div>
+    <div v-else-if="!loaded && loadFailed" class="bp-load-error">
       <Button class="btn small" @click="refreshPath">{{ tx("retry") }}</Button>
     </div>
 
@@ -553,7 +559,6 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
     </section>
     </template>
 
-    <div v-if="loaded && error" class="bp-error">{{ error }}</div>
 
     <Teleport to="body">
       <div

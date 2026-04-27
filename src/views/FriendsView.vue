@@ -7,8 +7,10 @@ import { formatCoins } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
 import { t } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
+import { useAppToast } from '../composables/useAppToast'
 
 const router = useRouter()
+const appToast = useAppToast()
 const game = useGameStore()
 const friends = ref([])
 const avatars = ref({})
@@ -41,7 +43,7 @@ async function load() {
       avatars.value = m
     }
   } catch (e) {
-    error.value = e?.message || t('friends.loadFailed')
+    appToast.err(e?.message || t('friends.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -58,16 +60,14 @@ const outgoing = computed(() => friends.value.filter(f => f.status === 'pending'
 async function sendRequest() {
   if (!requestName.value.trim()) return
   busy.value = true
-  error.value = ''
-  success.value = ''
   try {
     const { data, error: e } = await supabase.rpc('friend_request', { p_username: requestName.value.trim() })
     if (e) throw e
-    success.value = data?.status === 'accepted' ? t('friends.requestAccepted') : t('friends.requestSent')
+    appToast.ok(data?.status === 'accepted' ? t('friends.requestAccepted') : t('friends.requestSent'))
     requestName.value = ''
     await load()
   } catch (e) {
-    error.value = e.message
+    appToast.err(e)
   } finally {
     busy.value = false
   }
@@ -75,13 +75,12 @@ async function sendRequest() {
 
 async function respond(id, accept) {
   busy.value = true
-  error.value = ''
   try {
     const { error: e } = await supabase.rpc('friend_respond', { p_id: id, p_accept: accept })
     if (e) throw e
     await load()
   } catch (e) {
-    error.value = e.message
+    appToast.err(e)
   } finally {
     busy.value = false
   }
@@ -96,7 +95,7 @@ async function remove(friendId) {
     if (e) throw e
     await load()
   } catch (e) {
-    error.value = e.message
+    appToast.err(e)
   } finally {
     busy.value = false
   }
@@ -127,11 +126,11 @@ async function confirmSend() {
   sendModal.busy = true
   try {
     await game.sendCoins(sendModal.to, amt)
-    success.value = t('friends.sentCoins', { amount: formatCoins(amt), username: sendModal.to })
+    appToast.ok(t('friends.sentCoins', { amount: formatCoins(amt), username: sendModal.to }))
     sendModal.open = false
-    setTimeout(() => { success.value = '' }, 3000)
   } catch (e) {
     sendModal.err = e.message
+    appToast.err(e)
   } finally {
     sendModal.busy = false
   }
@@ -155,8 +154,6 @@ function openProfile(username) {
       <InputText v-model="requestName" :placeholder="t('friends.examplePlaceholder')" style="flex:1" />
       <Button type="submit" class="btn" :disabled="busy || !requestName.trim()">{{ t('friends.send') }}</Button>
     </div>
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="success" class="success">{{ success }}</p>
   </form>
 
   <div class="tabs">

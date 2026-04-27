@@ -370,6 +370,7 @@ onMounted(async () => {
   if (!game.animals.length) await game.load();
   await loadShop();
   timer = setInterval(() => {
+    if (document.visibilityState !== "visible") return;
     now.value = Date.now();
     if (rotatesInMs.value <= 0) {
       loadShop();

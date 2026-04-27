@@ -262,8 +262,13 @@ export const useGameStore = defineStore('game', {
       if (pending <= 0 && this.lastCollected && (Date.now() - this.lastCollected.getTime()) < 15000) return
       this.coins += pending
       this.tickCoins -= pending
-      const { data, error } = await supabase.rpc('collect_offline', { p_coins: pending })
-      if (!error && data?.coins != null) this.coins = Number(data.coins)
+      try {
+        const { data, error } = await supabase.rpc('collect_offline', { p_coins: pending })
+        if (!error && data?.coins != null) this.coins = Number(data.coins)
+      } catch {
+        // Persist ist Best-Effort (z.B. waehrend JWT-Refresh) und darf nachfolgende
+        // Aktionen wie complete_boss_stage nicht blockieren.
+      }
       this.lastCollected = new Date()
     },
     async tapEarn() {
@@ -385,11 +390,24 @@ export const useGameStore = defineStore('game', {
     },
     async completeBossStage(stage, score, target) {
       await this.persist()
-      const { data, error } = await supabase.rpc('complete_boss_stage', {
+      const args = {
         p_stage: Math.floor(Number(stage) || 0),
         p_score: Math.floor(Number(score) || 0),
         p_target: Math.floor(Number(target) || 0)
-      })
+      }
+      let { data, error } = await supabase.rpc('complete_boss_stage', args)
+      if (error && /wrong stage/i.test(error.message || '')) {
+        // Lokaler Stand war veraltet (z.B. Mehrgeraete-Login). Aktuellen Stand vom
+        // Server holen und genau einmal mit dem korrekten Stage erneut versuchen.
+        try {
+          const fresh = await this.loadBossPath()
+          const serverStage = Number(fresh?.current_stage || 0)
+          if (serverStage > 0 && serverStage !== args.p_stage) {
+            args.p_stage = serverStage
+            ;({ data, error } = await supabase.rpc('complete_boss_stage', args))
+          }
+        } catch {}
+      }
       if (error) throw error
       const completedStage = Number(data?.stage || stage)
       this.bossPathHighest = Math.max(Number(this.bossPathHighest || 0), completedStage)
