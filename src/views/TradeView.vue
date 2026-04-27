@@ -7,6 +7,7 @@ import { useGameStore } from '../stores/game'
 import { speciesInfo, formatCoins, tierInfo, animalRate, compareAnimalsByRate } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
 import { locale, currentLocaleTag } from '../i18n'
+import { useReturnRefresh } from '../composables/useReturnRefresh'
 
 const route = useRoute()
 
@@ -542,6 +543,8 @@ async function acceptPublic(t) {
   } catch (e) { error.value = e.message }
   finally { busy.value = false; setTimeout(() => success.value = '', 2500) }
 }
+
+useReturnRefresh(loadTrades)
 
 // --- Realtime
 let channel

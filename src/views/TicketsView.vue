@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useGameStore } from "../stores/game";
 import { speciesInfo, tierInfo, isUpgrading, formatCoins, animalRate } from "../animals";
 import { locale } from "../i18n";
+import { useReturnRefresh } from "../composables/useReturnRefresh";
 
 const game = useGameStore();
 
@@ -361,6 +362,8 @@ async function openChest() {
 function closeChestAnim() {
   chestAnim.value = null;
 }
+
+useReturnRefresh(loadShop);
 
 let timer;
 onMounted(async () => {

@@ -5,6 +5,7 @@ import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { SPECIES, tierInfo, loadCatalog, formatCoins } from '../animals'
 import { t } from '../i18n'
+import { useReturnRefresh } from '../composables/useReturnRefresh'
 
 const route = useRoute()
 const router = useRouter()
@@ -52,6 +53,7 @@ async function load() {
   }
 }
 onMounted(load)
+useReturnRefresh(load)
 watch(() => route.query.u, load)
 
 // Tier counts from historical species_index entries (total ever had per tier)
