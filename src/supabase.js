@@ -14,4 +14,4 @@ export const supabase = createClient(url || 'http://localhost', key || 'anon', {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit' }
 })
 
-export const AUTH_REDIRECT_URL = window.location.origin + '/'
+export const AUTH_REDIRECT_URL = import.meta.env.VITE_AUTH_REDIRECT_URL || `${window.location.origin}/`

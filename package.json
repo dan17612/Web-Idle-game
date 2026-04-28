@@ -2,13 +2,46 @@
   "name": "animal-idle-game",
   "private": true,
   "version": "0.1.0",
+  "description": "Mobile-first Idle-Game rund um Tiere.",
+  "license": "MIT",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "electron:dev": "concurrently -k \"npm run dev\" \"wait-on http://127.0.0.1:5173 && cross-env ELECTRON_START_URL=http://127.0.0.1:5173 electron .\"",
+    "electron:start": "npm run build && electron .",
+    "dist:windows": "npm run build && electron-builder --win nsis portable",
+    "cap:sync": "npm run build && cap sync",
+    "cap:add:android": "cap add android",
+    "cap:add:ios": "cap add ios",
+    "cap:android": "npm run cap:sync && cap open android",
+    "cap:ios": "npm run cap:sync && cap open ios"
+  },
+  "build": {
+    "appId": "com.zooempire.game",
+    "productName": "Zoo Empire",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
     "@primeuix/themes": "^2.0.3",
     "@supabase/supabase-js": "^2.45.4",
     "@vercel/speed-insights": "^2.0.0",
@@ -19,7 +52,13 @@
     "vue-router": "^4.4.5"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.1",
     "@vitejs/plugin-vue": "^6.0.6",
-    "vite": "^8.0.8"
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
+    "vite": "^8.0.8",
+    "wait-on": "^9.0.5"
   }
 }

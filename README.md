@@ -91,5 +91,33 @@ Alle Werte in `src/animals.js` — beliebig anpassbar:
 - Der anon-Key ist öffentlich — daher ist RLS aktiviert. Schreibzugriff auf `profiles`, `animals`, `transactions`, `trade_offers` läuft ausschließlich über die RPCs.
 - Offline-Earnings sind auf 8 h gedeckelt, damit Missbrauch begrenzt ist.
 
+## Plattform-Builds
+
+Electron baut Desktop-Apps für Windows, macOS und Linux. Android und iOS laufen in diesem Projekt über Capacitor, weil Electron diese mobilen Plattformen nicht als Zielplattformen unterstützt.
+
+### Windows mit Electron
+
+```bash
+npm run electron:dev
+npm run electron:start
+npm run dist:windows
+```
+
+- `electron:dev` startet Vite und öffnet die App im Electron-Fenster.
+- `electron:start` baut `dist/` und startet die gebaute App lokal.
+- `dist:windows` erzeugt Windows-Artefakte im Ordner `release/`.
+
+### Android und iOS mit Capacitor
+
+```bash
+npm run cap:sync
+npm run cap:android
+npm run cap:ios
+```
+
+- Android benötigt Android Studio mit installiertem SDK.
+- iOS benötigt macOS mit Xcode; der iOS-Projektordner kann hier versioniert werden, gebaut wird er aber auf einem Mac.
+- Für Magic-Link- und OAuth-Redirects kann `VITE_AUTH_REDIRECT_URL` gesetzt werden. Die URL muss zusätzlich in Supabase als erlaubte Redirect-URL eingetragen sein.
+
 ## Lizenz
 MIT — siehe `LICENSE`.

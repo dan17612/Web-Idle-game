@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Zoo Empire</string>
+    <string name="title_activity_main">Zoo Empire</string>
+    <string name="package_name">com.zooempire.game</string>
+    <string name="custom_url_scheme">com.zooempire.game</string>
+</resources>
