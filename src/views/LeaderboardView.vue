@@ -30,6 +30,15 @@ async function load() {
         avatar_emoji: r.avatar_emoji,
         rate_per_sec: Number(r.rate_per_sec || 0)
       }))
+    } else if (mode.value === 'boss') {
+      const { data, error: e } = await supabase.rpc('get_boss_leaderboard', { p_limit: 50 })
+      if (e) throw e
+      rows.value = (data || []).map(r => ({
+        username: r.username,
+        avatar_emoji: r.avatar_emoji,
+        highest_stage: r.highest_stage,
+        total_victories: r.total_victories
+      }))
     } else {
       const { data, error: e } = await supabase
         .from('profiles')
@@ -74,11 +83,17 @@ function formatRate(n) {
   if (v < 100) return v.toFixed(1)
   return formatCoins(v)
 }
+
+const subtitle = computed(() => {
+  if (mode.value === 'rate') return t('leaderboard.subtitleRate')
+  if (mode.value === 'boss') return t('leaderboard.subtitleBoss')
+  return t('leaderboard.subtitle')
+})
 </script>
 
 <template>
   <h1 class="title">🏆 {{ t('leaderboard.title') }}</h1>
-  <p class="subtitle">{{ mode === 'rate' ? t('leaderboard.subtitleRate') : t('leaderboard.subtitle') }}</p>
+  <p class="subtitle">{{ subtitle }}</p>
 
   <div class="lb-tabs">
     <Button
@@ -94,6 +109,13 @@ function formatRate(n) {
       @click="setMode('coins')"
     >
       🪙 {{ t('leaderboard.byCoins') }}
+    </Button>
+    <Button
+      class="lb-tab"
+      :class="{ active: mode === 'boss' }"
+      @click="setMode('boss')"
+    >
+      ⚔️ {{ t('leaderboard.byBoss') }}
     </Button>
   </div>
 
@@ -136,9 +158,17 @@ function formatRate(n) {
             <span v-if="r.username === myUsername" class="me-tag">{{ t('leaderboard.you') }}</span>
           </div>
           <div class="sub">
-            <span v-if="mode === 'rate'" class="primary">⚡ {{ formatRate(r.rate_per_sec) }}/s</span>
-            <span v-if="mode === 'rate'" class="secondary">🪙 {{ formatCoins(r.coins) }}</span>
-            <span v-else class="primary">🪙 {{ formatCoins(r.coins) }}</span>
+            <template v-if="mode === 'boss'">
+              <span class="primary">⚔️ {{ t('leaderboard.bossStage') }} {{ r.highest_stage }}</span>
+              <span class="secondary">🏅 {{ r.total_victories }} {{ t('leaderboard.bossVictories') }}</span>
+            </template>
+            <template v-else-if="mode === 'rate'">
+              <span class="primary">⚡ {{ formatRate(r.rate_per_sec) }}/s</span>
+              <span class="secondary">🪙 {{ formatCoins(r.coins) }}</span>
+            </template>
+            <template v-else>
+              <span class="primary">🪙 {{ formatCoins(r.coins) }}</span>
+            </template>
           </div>
         </div>
       </Button>
