@@ -516,6 +516,7 @@ watch(
 
 const floats = ref([]);
 let floatId = 0;
+const floatTimers = new Set();
 const error = ref("");
 const equipBestBusy = ref(false);
 
@@ -530,7 +531,11 @@ onMounted(() => {
 });
 
 useReturnRefresh(() => Promise.all([loadSlotInfo(), game.loadCraftStatus()]));
-onUnmounted(() => clearInterval(clockTimer));
+onUnmounted(() => {
+  clearInterval(clockTimer);
+  for (const t of floatTimers) clearTimeout(t);
+  floatTimers.clear();
+});
 
 function fmtTime(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -571,9 +576,11 @@ async function tap(e) {
   const id = ++floatId;
   const earnGuess = Math.max(1, Math.floor(game.ratePerSec));
   floats.value.push({ id, x, y, v: "+" + formatCoins(earnGuess) });
-  setTimeout(() => {
+  const ft = setTimeout(() => {
+    floatTimers.delete(ft);
     floats.value = floats.value.filter((f) => f.id !== id);
   }, 900);
+  floatTimers.add(ft);
   try {
     const data = await game.tapEarn();
     const f = floats.value.find((f) => f.id === id);
