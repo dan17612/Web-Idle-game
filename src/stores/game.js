@@ -220,6 +220,7 @@ export const useGameStore = defineStore('game', {
     },
     applyOffline() {
       if (!this.lastCollected) return
+      if (this.pendingOfflineEarnings) return
       const capSec = this.maxOfflineHours * 3600
       const rawElapsed = Math.max(0, (Date.now() - this.lastCollected.getTime()) / 1000)
       const elapsed = Math.min(rawElapsed, capSec)
@@ -250,7 +251,7 @@ export const useGameStore = defineStore('game', {
     },
     tick(dt) {
       this.tickCoins += this.ratePerSec * dt
-      if (this.tapsNextReset && Date.now() + this.serverOffset >= this.tapsNextReset) {
+      while (this.tapsNextReset && Date.now() + this.serverOffset >= this.tapsNextReset) {
         this.tapsUsed = 0
         this.tapsNextReset = this.tapsNextReset + 5 * 60 * 1000
       }
