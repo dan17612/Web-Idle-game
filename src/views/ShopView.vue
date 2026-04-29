@@ -248,7 +248,6 @@ async function buy(key) {
   busyKey.value = key;
   try {
     await game.buyAnimal(key);
-    appToast.ok(t("shop.boughtAnimal", { animal: speciesInfo(key).name }));
     await loadShop();
   } catch (e) {
     appToast.err(e);

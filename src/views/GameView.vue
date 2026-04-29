@@ -12,7 +12,7 @@ import {
   compareAnimalsByRate,
 } from "../animals";
 import { locale, t as tGlobal } from "../i18n";
-import BossFight from "../components/BossFight.vue";
+
 import TutorialBubble from "../components/TutorialBubble.vue";
 import { supabase } from "../supabase";
 import { useAppToast } from "../composables/useAppToast";
@@ -137,13 +137,8 @@ const I18N = {
     },
     bossPath: {
       title: "🗺️ Boss-Pfad",
-      sub: "Reise durch 15 Etappen - Truhen & Boosts als Belohnung"
-    },
-    bossLock: {
-      title: "🔒 Bosskampf gesperrt",
-      sub: "Schaffe 3 Etappen auf dem Boss-Pfad, um den Bosskampf hier freizuschalten.",
-      progress: "Fortschritt: {n} / 3 Etappen",
-      goPath: "Zum Boss-Pfad"
+      sub: "Reise durch 15 Etappen - Truhen & Boosts als Belohnung",
+      stage: "Etappe {n} / 15"
     }
   },
   en: {
@@ -259,13 +254,8 @@ const I18N = {
     },
     bossPath: {
       title: "🗺️ Boss path",
-      sub: "Journey through 15 stages - chests & boosts as rewards"
-    },
-    bossLock: {
-      title: "🔒 Boss fight locked",
-      sub: "Clear 3 stages on the Boss path to unlock the boss fight here.",
-      progress: "Progress: {n} / 3 stages",
-      goPath: "Go to boss path"
+      sub: "Journey through 15 stages - chests & boosts as rewards",
+      stage: "Stage {n} / 15"
     }
   },
   ru: {
@@ -381,13 +371,8 @@ const I18N = {
     },
     bossPath: {
       title: "🗺️ Путь босса",
-      sub: "Путешествие по 15 этапам - сундуки и бусты в награду"
-    },
-    bossLock: {
-      title: "🔒 Бой с боссом закрыт",
-      sub: "Пройди 3 этапа на Пути босса, чтобы открыть бой здесь.",
-      progress: "Прогресс: {n} / 3 этапа",
-      goPath: "К Пути босса"
+      sub: "Путешествие по 15 этапам - сундуки и бусты в награду",
+      stage: "Этап {n} / 15"
     }
   }
 };
@@ -1253,14 +1238,6 @@ async function doSplit(animalId) {
           <div class="farm-meta">{{ tx("equipped.buySlot") }}</div>
           <div class="farm-meta-sub coin-line">🪙 {{ formatCoins(slotInfo.next_cost) }}</div>
         </button>
-        <div
-          v-else-if="game.slotsMaxed"
-          class="farm-cell slot-maxed"
-          :aria-label="tx('equipped.slotMaxed')"
-        >
-          <div class="farm-plus">★</div>
-          <div class="farm-meta">{{ tx("equipped.slotMaxed") }}</div>
-        </div>
       </div>
     </div>
 
@@ -1658,26 +1635,11 @@ async function doSplit(animalId) {
       <div class="bpl-body">
         <div class="bpl-title">{{ tx("bossPath.title") }}</div>
         <div class="bpl-sub">{{ tx("bossPath.sub") }}</div>
+        <div v-if="game.bossPathHighest > 0" class="bpl-progress">
+          {{ tx("bossPath.stage", { n: game.bossPathHighest }) }}
+        </div>
       </div>
       <div class="bpl-arrow">›</div>
-    </router-link>
-
-    <BossFight v-if="game.bossArenaUnlocked" />
-    <router-link v-else to="/boss-path" class="card boss-lock-card">
-      <div class="bl-icon">🔒</div>
-      <div class="bl-body">
-        <div class="bl-title">{{ tx("bossLock.title") }}</div>
-        <div class="bl-sub">{{ tx("bossLock.sub") }}</div>
-        <div class="bl-progress">
-          <div class="bl-progress-bar">
-            <span :style="{ width: Math.min(100, (game.bossPathHighest / 3) * 100) + '%' }"></span>
-          </div>
-          <div class="bl-progress-text">
-            {{ tx("bossLock.progress", { n: Math.min(3, game.bossPathHighest) }) }}
-          </div>
-        </div>
-        <div class="bl-cta">{{ tx("bossLock.goPath") }} →</div>
-      </div>
     </router-link>
   </div>
 </template>
@@ -2217,11 +2179,7 @@ async function doSplit(animalId) {
   opacity: 1;
   font-size: 12px;
 }
-.farm-cell.slot-maxed {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(255, 209, 102, 0.12));
-  border: 2px solid rgba(168, 85, 247, 0.5);
-  opacity: 0.85;
-}
+
 .craft-job {
   margin: 6px 0 10px;
   padding: 10px 12px;
@@ -2813,80 +2771,18 @@ async function doSplit(animalId) {
   font-weight: 700;
   margin-top: 2px;
 }
+.bpl-progress {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
 .bpl-arrow {
   font-size: 30px;
   color: var(--accent);
   font-weight: 800;
   line-height: 1;
   flex-shrink: 0;
-}
-.boss-lock-card {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  padding: 16px;
-  text-decoration: none;
-  color: inherit;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(239, 71, 111, 0.18), transparent 55%),
-    linear-gradient(135deg, #1a1530, #0a0612);
-  border: 1px dashed rgba(239, 71, 111, 0.4);
-  transition: border-color 0.18s ease, transform 0.18s ease;
-}
-.boss-lock-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-}
-.bl-icon {
-  font-size: 38px;
-  flex-shrink: 0;
-  filter: grayscale(0.2) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
-}
-.bl-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.bl-title {
-  font-weight: 800;
-  font-size: 16px;
-  color: var(--muted);
-}
-.bl-sub {
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.4;
-}
-.bl-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.bl-progress-bar {
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-.bl-progress-bar span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #ef476f, #ffd166);
-  transition: width 0.3s ease;
-}
-.bl-progress-text {
-  font-size: 11px;
-  color: var(--accent);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-.bl-cta {
-  margin-top: 2px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--accent);
 }
 </style>
