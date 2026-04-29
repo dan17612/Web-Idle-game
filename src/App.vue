@@ -177,7 +177,7 @@ async function hardReload() {
 
 <template>
   <div class="app-shell">
-    <Toast position="top-right" />
+    <Toast position="top-center" />
     <header v-if="showNav" class="top-bar">
       <div class="brand">
         <span class="brand-logo">🐾</span>
