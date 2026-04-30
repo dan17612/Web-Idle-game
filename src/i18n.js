@@ -324,7 +324,10 @@ const messages = {
       promoRewardTickets: '{tickets} Tickets',
       promoRewardSpecies: '{qty}× {emoji} ({tier})',
       promoRewardBoost: '×{mult} Boost für {minutes} Min',
-      promoRewardTaps: '+{taps} Bonus-Taps'
+      promoRewardTaps: '+{taps} Bonus-Taps',
+      animalLimitWarningTitle: 'Tier-Limit erreicht!',
+      animalLimitWarningMessage: 'Du hast 1000 Tiere erreicht. Bitte gehe zur Ticket-Ansicht und lasse einige Tiere frei, um Platz für neue zu schaffen.',
+      animalLimitWarningButton: 'Zur Ticket-Ansicht'
     }
   },
   en: {
@@ -640,7 +643,10 @@ const messages = {
       promoRewardTickets: '{tickets} tickets',
       promoRewardSpecies: '{qty}× {emoji} ({tier})',
       promoRewardBoost: '×{mult} boost for {minutes} min',
-      promoRewardTaps: '+{taps} bonus taps'
+      promoRewardTaps: '+{taps} bonus taps',
+      animalLimitWarningTitle: 'Animal limit reached!',
+      animalLimitWarningMessage: 'You have reached 1000 animals. Please go to the Tickets view and release some animals to make room for new ones.',
+      animalLimitWarningButton: 'Go to Tickets'
     }
   },
   ru: {
@@ -956,7 +962,10 @@ const messages = {
       promoRewardTickets: '{tickets} билетов',
       promoRewardSpecies: '{qty}× {emoji} ({tier})',
       promoRewardBoost: '×{mult} буст на {minutes} мин',
-      promoRewardTaps: '+{taps} бонус-тапов'
+      promoRewardTaps: '+{taps} бонус-тапов',
+      animalLimitWarningTitle: 'Достигнут лимит животных!',
+      animalLimitWarningMessage: 'У вас 1000 животных. Пожалуйста, перейдите в раздел Тикеты и освободите некоторых животных, чтобы освободить место для новых.',
+      animalLimitWarningButton: 'Перейти к тикетам'
     }
   }
 }
