@@ -18,8 +18,8 @@ const appToast = useAppToast();
 const tab = ref(route.query.tab === "food" ? "food" : "animals");
 watch(
   () => route.query.tab,
-  (t) => {
-    if (t === "food" || t === "animals") tab.value = t;
+  (newTab) => {
+    if (newTab === "food" || newTab === "animals") tab.value = newTab;
   },
 );
 
@@ -73,11 +73,7 @@ const chestRemaining = computed(() =>
   Math.max(0, (chestStatus.value.slot_limit || 0) - (chestStatus.value.bought_slot || 0))
 );
 
-const error = ref("");
-const success = ref("");
 const busyKey = ref("");
-const busyAdmin = ref("");
-const adminOpen = ref(false);
 
 const stock = ref({});
 const forcedStock = ref({});
@@ -85,17 +81,9 @@ const myPurchases = ref({});
 const rotatesAt = ref(0);
 const serverOffset = ref(0);
 const now = ref(Date.now());
-const enabledMap = ref({});
-const weightMap = ref({});
-const weightDraft = ref({});
-const restockQty = ref({});
 const foods = ref([]);
 let timer;
 const ROTATION_RELOAD_KEY = "shopReloadedForRotation";
-
-function totalStock(key) {
-  return (stock.value[key] || 0) + (forcedStock.value[key] || 0);
-}
 
 function reloadPageForRotation() {
   const stamp = String(rotatesAt.value || "");
@@ -132,43 +120,11 @@ async function loadFoods() {
   foods.value = data || [];
 }
 
-async function loadAdminData() {
-  if (!auth.profile?.is_admin) return;
-  const { data } = await supabase
-    .from("species_costs")
-    .select("species, enabled, weight");
-  const em = {},
-    wm = {},
-    wd = {};
-  for (const r of data || []) {
-    em[r.species] = r.enabled;
-    wm[r.species] = r.weight;
-    wd[r.species] = r.weight;
-  }
-  enabledMap.value = em;
-  weightMap.value = wm;
-  weightDraft.value = wd;
-}
-
-async function saveWeight(species) {
-  const val = parseInt(weightDraft.value[species], 10);
-  if (!(val > 0)) {
-    appToast.err(t("shop.weightMustBePositive"));
-    return;
-  }
-  if (val === weightMap.value[species]) return;
-  await callAdmin(
-    "admin_set_species_weight",
-    { p_species: species, p_weight: val },
-    "w-" + species,
-  );
-}
-
 useReturnRefresh(() => Promise.all([loadShop(), loadFoods(), loadChestStatus()]));
 
 onMounted(async () => {
   if (game.tutorialStep === 3) game.setTutorialStep(4);
-  await Promise.all([loadShop(), loadAdminData(), loadFoods(), loadChestStatus()]);
+  await Promise.all([loadShop(), loadFoods(), loadChestStatus()]);
   if (game.tutorialStep === 4) {
     nextTick(() => {
       chestCard.value?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -236,7 +192,6 @@ const speciesList = computed(() =>
         boughtQty,
         inStock: remaining > 0,
         isForced: forcedQty > 0,
-        enabled: enabledMap.value[key] !== false,
       };
     }),
 );
@@ -271,28 +226,6 @@ async function feed(food) {
   } finally {
     busyKey.value = "";
   }
-}
-
-async function callAdmin(rpc, args, key) {
-  busyAdmin.value = key;
-  try {
-    const { error: e } = await supabase.rpc(rpc, args);
-    if (e) throw e;
-    await Promise.all([loadShop(), loadAdminData()]);
-  } catch (e) {
-    appToast.err(e);
-  } finally {
-    busyAdmin.value = "";
-  }
-}
-
-function adminRestock(species) {
-  const qty = Math.max(1, parseInt(restockQty.value[species] || 1, 10));
-  return callAdmin(
-    "admin_force_add",
-    { p_species: species, p_qty: qty },
-    "f-" + species,
-  );
 }
 
 const promoCode = ref("");
@@ -377,126 +310,6 @@ async function redeemPromo() {
         <div class="subtitle" style="margin: 0">{{ t("shop.inStock") }}</div>
         <div style="font-weight: 800">
           {{ t("shop.stockCount", { count: stockTotal }) }}
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-if="false"
-      class="card"
-      style="background: linear-gradient(135deg, #3a1d5c, #1d2a5c)"
-    >
-      <div
-        class="row between"
-        @click="adminOpen = !adminOpen"
-        style="cursor: pointer"
-      >
-        <div>
-          <div style="font-weight: 800">🛠️ {{ t("shop.adminPanelTitle") }}</div>
-          <div class="subtitle" style="margin: 2px 0 0">
-            {{ t("shop.adminPanelSub") }}
-          </div>
-        </div>
-        <div>{{ adminOpen ? "▲" : "▼" }}</div>
-      </div>
-
-      <div v-if="adminOpen" style="margin-top: 12px">
-        <Button
-          class="btn full"
-          style="margin-bottom: 12px"
-          :disabled="busyAdmin === 'rotate'"
-          @click="callAdmin('admin_force_rotation', {}, 'rotate')"
-        >
-          🎲 {{ t("shop.adminRerollNow") }}
-        </Button>
-
-        <div v-for="s in speciesList" :key="'adm-' + s.key" class="admin-row">
-          <div class="admin-left">
-            <span style="font-size: 22px">{{ s.info.emoji }}</span>
-            <div>
-              <div style="font-weight: 700">{{ speciesInfo(s.key).name }}</div>
-              <div
-                class="subtitle"
-                style="margin: 0; display: flex; gap: 4px; flex-wrap: wrap"
-              >
-                <span
-                  v-if="s.forcedQty > 0"
-                  class="badge"
-                  style="
-                    background: rgba(255, 209, 102, 0.15);
-                    color: var(--accent);
-                  "
-                >
-                  {{ t("shop.adminRestockCount", { count: s.forcedQty }) }}
-                </span>
-                <span v-if="s.randomQty > 0" class="badge"
-                  >{{ t("shop.adminRotationCount", { count: s.randomQty }) }}</span
-                >
-                <span v-if="s.qty === 0" style="color: var(--muted)">{{ t("shop.adminEmpty") }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="admin-actions">
-            <label class="weight"
-              ><span>⚖️</span>
-              <InputText
-                type="number"
-                min="1"
-                max="9999"
-                v-model.number="weightDraft[s.key]"
-                :disabled="busyAdmin === 'w-' + s.key"
-                @blur="saveWeight(s.key)"
-                @keydown.enter.prevent="
-                  saveWeight(s.key);
-                  $event.target.blur();
-                " />
-            </label>
-            <label class="toggle">
-              <Checkbox
-                :modelValue="s.enabled"
-                binary
-                :disabled="busyAdmin === 'en-' + s.key"
-                @update:modelValue="
-                  callAdmin(
-                    'admin_set_species_enabled',
-                    { p_species: s.key, p_enabled: !s.enabled },
-                    'en-' + s.key,
-                  )
-                "
-              />
-              <span>{{ s.enabled ? t("shop.adminActive") : t("shop.adminInactive") }}</span>
-            </label>
-            <label class="weight" :title="t('shop.adminRestockAmount')">
-              <span>＋</span>
-              <InputText
-                type="number"
-                min="1"
-                max="99"
-                v-model.number="restockQty[s.key]"
-                placeholder="1" />
-            </label>
-            <Button
-              class="btn secondary small"
-              :disabled="busyAdmin === 'f-' + s.key"
-              @click="adminRestock(s.key)"
-            >
-              {{ t("shop.restock") }}
-            </Button>
-            <Button
-              v-if="s.forcedQty > 0"
-              class="btn danger small"
-              :disabled="busyAdmin === 'u-' + s.key"
-              @click="
-                callAdmin(
-                  'admin_force_remove',
-                  { p_species: s.key },
-                  'u-' + s.key,
-                )
-              "
-            >
-              {{ t("shop.adminStop") }}
-            </Button>
-          </div>
         </div>
       </div>
     </div>
@@ -729,59 +542,9 @@ async function redeemPromo() {
   font-size: 12px;
   text-align: center;
 }
-.admin-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.admin-row:last-child {
-  border-bottom: none;
-}
-.admin-left {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-}
-.admin-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
 .btn.small {
   padding: 6px 10px;
   font-size: 12px;
-}
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.toggle :deep(.p-checkbox) {
-  width: 18px;
-  height: 18px;
-}
-.weight {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.weight input {
-  width: 54px;
-  padding: 4px 6px;
-  font-size: 16px;
-  border-radius: 8px;
-  text-align: right;
 }
 
 .chest-card {

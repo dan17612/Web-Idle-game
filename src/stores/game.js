@@ -262,7 +262,7 @@ export const useGameStore = defineStore('game', {
       const pending = Math.floor(this.tickCoins)
       if (pending <= 0 && this.lastCollected && (Date.now() - this.lastCollected.getTime()) < 15000) return
       this.coins += pending
-      this.tickCoins -= pending
+      this.tickCoins = Math.max(0, this.tickCoins - pending)
       try {
         const { data, error } = await supabase.rpc('collect_offline', { p_coins: pending })
         if (!error && data?.coins != null) this.coins = Number(data.coins)

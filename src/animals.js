@@ -118,7 +118,11 @@ export function formatCoins(n) {
   let i = 0
   let v = n
   while (v >= 1000 && i < units.length - 1) { v /= 1000; i++ }
-  return v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0) + units[i]
+  const decimals = v < 10 ? 2 : v < 100 ? 1 : 0
+  const formatted = v.toFixed(decimals)
+  // Rounding can push v to exactly 1000 (e.g. 999,950 -> "1000K"); advance unit.
+  if (formatted === '1000' && i < units.length - 1) return '1.00' + units[i + 1]
+  return formatted + units[i]
 }
 
 export function parseCoinInput(input) {

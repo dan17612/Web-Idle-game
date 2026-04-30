@@ -86,9 +86,14 @@ watch(
   },
 );
 
+let tickInterval = 0;
+let persistInterval = 0;
+
 onUnmounted(() => {
   if (broadcastTimer) clearTimeout(broadcastTimer);
   if (broadcastChannel) supabase.removeChannel(broadcastChannel);
+  clearInterval(tickInterval);
+  clearInterval(persistInterval);
 });
 
 onMounted(async () => {
@@ -100,7 +105,7 @@ onMounted(async () => {
   // Game-Tick: 500ms reicht fuer Tickcoin-Animation, halbiert den Re-render-Overhead
   // gegenueber 250ms (alte Geraete spuerbar fluessiger).
   let last = performance.now();
-  setInterval(() => {
+  tickInterval = setInterval(() => {
     if (document.visibilityState !== "visible") return;
     const now = performance.now();
     const dt = (now - last) / 1000;
@@ -108,7 +113,7 @@ onMounted(async () => {
     if (auth.isAuth) game.tick(dt);
   }, 500);
 
-  setInterval(() => {
+  persistInterval = setInterval(() => {
     if (auth.isAuth) game.persist();
   }, 15000);
   window.addEventListener("beforeunload", () => {
