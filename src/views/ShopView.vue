@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useGameStore } from "../stores/game";
 import { useAuthStore } from "../stores/auth";
 import { supabase } from "../supabase";
@@ -13,6 +13,7 @@ import { useAppToast } from "../composables/useAppToast";
 const game = useGameStore();
 const auth = useAuthStore();
 const route = useRoute();
+const router = useRouter();
 const appToast = useAppToast();
 
 const tab = ref(route.query.tab === "food" ? "food" : "animals");
@@ -78,6 +79,7 @@ const success = ref("");
 const busyKey = ref("");
 const busyAdmin = ref("");
 const adminOpen = ref(false);
+const animalLimitWarning = ref(false);
 
 const stock = ref({});
 const forcedStock = ref({});
@@ -245,6 +247,12 @@ const stockTotal = computed(() =>
 );
 
 async function buy(key) {
+  // Check if user has 1000 or more animals
+  if (game.animals.length >= 1000) {
+    animalLimitWarning.value = true;
+    return;
+  }
+
   busyKey.value = key;
   try {
     await game.buyAnimal(key);
@@ -342,6 +350,11 @@ async function redeemPromo() {
   } finally {
     promoBusy.value = false;
   }
+}
+
+function closeAnimalLimitWarning() {
+  animalLimitWarning.value = false;
+  router.push('/tickets');
 }
 </script>
 
@@ -685,6 +698,18 @@ async function redeemPromo() {
       </Button>
     </div>
     <p v-if="promoMessage" class="success promo-msg">{{ promoMessage }}</p>
+  </div>
+
+  <!-- Animal Limit Warning Modal -->
+  <div v-if="animalLimitWarning" class="chest-modal" @click.self="closeAnimalLimitWarning">
+    <div class="warning-dialog">
+      <div class="warning-icon">⚠️</div>
+      <h2 class="warning-title">{{ t("shop.animalLimitWarningTitle") }}</h2>
+      <p class="warning-message">{{ t("shop.animalLimitWarningMessage") }}</p>
+      <Button class="btn" @click="closeAnimalLimitWarning">
+        {{ t("shop.animalLimitWarningButton") }}
+      </Button>
+    </div>
   </div>
 </template>
 
@@ -1035,4 +1060,37 @@ async function redeemPromo() {
   font-weight: 700;
 }
 .promo-msg { margin: 8px 0 0; word-break: break-word; }
+
+.warning-dialog {
+  background: rgba(20, 20, 30, 0.98);
+  border: 2px solid rgba(255, 152, 0, 0.6);
+  border-radius: 20px;
+  padding: 32px;
+  max-width: 480px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.warning-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 0 12px rgba(255, 152, 0, 0.6));
+}
+.warning-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 16px;
+  color: rgba(255, 152, 0, 1);
+}
+.warning-message {
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0 0 24px;
+  color: rgba(255, 255, 255, 0.9);
+}
+.warning-dialog .btn {
+  width: 100%;
+  font-weight: 800;
+  font-size: 16px;
+  padding: 14px;
+}
 </style>
