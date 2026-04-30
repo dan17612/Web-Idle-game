@@ -49,7 +49,7 @@ const I18N = {
     },
     hints: {
       oneWaySend: 'Einseitige Muenz-Ueberweisung, kein Einverstaendnis noetig.',
-      publicPost: 'Oeffentlich posten',
+      publicPost: 'Öffentlich posten',
       anyoneCanAccept: 'Jeder kann akzeptieren',
       publicCoinsOnly: 'Nenne nur Muenzen als Gegenleistung (keine konkreten Tier-IDs).',
       searching: 'Suche...',
@@ -57,8 +57,8 @@ const I18N = {
       noMyTradable: 'Keine tauschbaren Tiere. Rueste sie zuerst ab.',
       noPartnerTradable: 'Dieser Spieler hat keine tauschbaren Tiere.',
       picker: 'Klick = +1 · Rechtsklick/Chip-Klick = -1',
-      publicList: 'Oeffentliche Angebote - jeder kann annehmen, der die verlangten Muenzen/Tiere hat.',
-      noPublic: 'Keine oeffentlichen Trades.',
+      publicList: 'Öffentliche Angebote - jeder kann annehmen, der die verlangten Muenzen/Tiere hat.',
+      noPublic: 'Keine öffentlichen Trades.',
       noIncoming: 'Keine offenen Anfragen.',
       noOutgoing: 'Keine gesendeten Anfragen offen.',
       noHistory: 'Noch keine abgeschlossenen Trades.',
@@ -69,22 +69,22 @@ const I18N = {
     },
     actions: {
       send: 'Senden',
-      publishPublic: 'Oeffentlich posten',
+      publishPublic: 'Öffentlich posten',
       sendTrade: 'Trade-Anfrage senden'
     },
     errors: {
       notFound: 'Nicht gefunden',
       isSelf: 'Das bist du selbst',
-      partnerOrPublic: 'Partner waehlen oder oeffentlich posten',
+      partnerOrPublic: 'Partner waehlen oder öffentlich posten',
       tradeEmpty: 'Trade ist komplett leer',
       notEnoughCoins: 'Nicht genug Muenzen',
-      publicNoSpecificAnimals: 'Oeffentliche Trades koennen keine konkreten Tiere vom Annehmer verlangen (nur Muenzen).',
+      publicNoSpecificAnimals: 'Öffentliche Trades koennen keine konkreten Tiere vom Annehmer verlangen (nur Muenzen).',
       recipientRequired: 'Empfaenger angeben',
       amountMin: 'Betrag muss >= 1 sein',
       recipientNotFound: 'Empfaenger nicht gefunden'
     },
     success: {
-      publicPosted: 'Oeffentlicher Trade veroeffentlicht!',
+      publicPosted: 'Öffentlicher Trade veröffentlicht!',
       tradeSent: 'Trade-Anfrage gesendet!',
       coinsSent: '{amount} 🪙 gesendet',
       tradeAccepted: 'Trade angenommen!',
