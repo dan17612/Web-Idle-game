@@ -354,6 +354,10 @@ async function redeemPromo() {
 
 function closeAnimalLimitWarning() {
   animalLimitWarning.value = false;
+}
+
+function goToTickets() {
+  animalLimitWarning.value = false;
   router.push('/tickets');
 }
 </script>
@@ -706,7 +710,7 @@ function closeAnimalLimitWarning() {
       <div class="warning-icon">⚠️</div>
       <h2 class="warning-title">{{ t("shop.animalLimitWarningTitle") }}</h2>
       <p class="warning-message">{{ t("shop.animalLimitWarningMessage") }}</p>
-      <Button class="btn" @click="closeAnimalLimitWarning">
+      <Button class="btn" @click="goToTickets">
         {{ t("shop.animalLimitWarningButton") }}
       </Button>
     </div>
