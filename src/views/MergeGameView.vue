@@ -39,8 +39,12 @@ const I18N = {
     globalLine: '{count} Fusionen weltweit',
     pointsGain: '+{points} Punkte',
     rewardCoins: '{coins} Münzen',
+    rewardTickets: '🎟️ {count} Tickets',
     rewardChests: '🎁 {count} Truhe(n)',
     rewardAnimal: '{qty}× {emoji} {name}',
+    milestoneChestTitle: 'Meilenstein-Truhe geöffnet!',
+    milestoneChestSub: 'Aus deiner Belohnung kamen:',
+    continue: 'Weiter',
     resetConfirmTitle: 'Brett zurücksetzen?',
     resetConfirmSub: 'Dein aktueller Fortschritt auf diesem Brett geht verloren.',
     resetCancel: 'Abbrechen',
@@ -79,8 +83,12 @@ const I18N = {
     globalLine: '{count} merges worldwide',
     pointsGain: '+{points} points',
     rewardCoins: '{coins} coins',
+    rewardTickets: '🎟️ {count} tickets',
     rewardChests: '🎁 {count} chest(s)',
     rewardAnimal: '{qty}× {emoji} {name}',
+    milestoneChestTitle: 'Milestone chest opened!',
+    milestoneChestSub: 'Your reward contained:',
+    continue: 'Continue',
     resetConfirmTitle: 'Reset board?',
     resetConfirmSub: 'Your current progress on this board will be lost.',
     resetCancel: 'Cancel',
@@ -119,8 +127,12 @@ const I18N = {
     globalLine: '{count} слияний в мире',
     pointsGain: '+{points} очков',
     rewardCoins: '{coins} монет',
+    rewardTickets: '🎟️ {count} билетов',
     rewardChests: '🎁 {count} сундук(ов)',
     rewardAnimal: '{qty}× {emoji} {name}',
+    milestoneChestTitle: 'Сундук этапа открыт!',
+    milestoneChestSub: 'В награде было:',
+    continue: 'Дальше',
     resetConfirmTitle: 'Сбросить поле?',
     resetConfirmSub: 'Текущий прогресс на этом поле будет потерян.',
     resetCancel: 'Отмена',
@@ -154,6 +166,7 @@ const now = ref(Date.now())
 let clockTimer = null
 let channel = null
 const showResetConfirm = ref(false)
+const milestoneChestReveal = ref(null)
 let touchStart = null
 
 const tilePalette = [
@@ -214,8 +227,11 @@ function rewardParts(reward = {}) {
   if (Number(reward.coins || 0) > 0) {
     parts.push(tx('rewardCoins', { coins: formatCoins(Number(reward.coins || 0)) }))
   }
-  if (Number(reward.tickets || reward.chests || 0) > 0) {
-    parts.push(tx('rewardChests', { count: formatCoins(Number(reward.tickets || reward.chests || 0)) }))
+  if (Number(reward.tickets || 0) > 0) {
+    parts.push(tx('rewardTickets', { count: formatCoins(Number(reward.tickets || 0)) }))
+  }
+  if (Number(reward.chests || 0) > 0) {
+    parts.push(tx('rewardChests', { count: formatCoins(Number(reward.chests || 0)) }))
   }
   if (reward.species && Number(reward.qty || 0) > 0) {
     const meta = speciesMeta(reward.species)
@@ -226,6 +242,21 @@ function rewardParts(reward = {}) {
     }))
   }
   return parts
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function revealSpeciesList(species = []) {
+  return species.map((s) => {
+    const meta = speciesMeta(s)
+    return {
+      species: s,
+      emoji: meta?.emoji || '🐾',
+      name: meta?.name || s
+    }
+  })
 }
 
 function tileStyle(cell) {
@@ -291,14 +322,27 @@ async function claimMilestone(goal) {
   if (busy.value) return
   busy.value = true
   try {
-    data.value = await callMerge('claim', { fusion_goal: goal })
+    const result = await callMerge('claim', { fusion_goal: goal })
+    data.value = result
     await game.load()
+    const claimed = result.turn?.claimed || {}
+    const chestSpecies = Array.isArray(claimed.chest_species) ? claimed.chest_species : []
+    const rewardItems = rewardParts(claimed)
+    milestoneChestReveal.value = { phase: 'shake', species: revealSpeciesList(chestSpecies), rewardItems }
+    await wait(650)
+    milestoneChestReveal.value = { ...milestoneChestReveal.value, phase: 'open' }
+    await wait(420)
+    milestoneChestReveal.value = { ...milestoneChestReveal.value, phase: 'reveal' }
     appToast.ok(tx('rewardClaimed'))
   } catch (e) {
     appToast.err(e?.message || 'Fehler')
   } finally {
     busy.value = false
   }
+}
+
+function closeMilestoneChestReveal() {
+  milestoneChestReveal.value = null
 }
 
 function requestReset() {
@@ -510,28 +554,34 @@ onUnmounted(() => {
       <section class="card milestones-card">
         <div class="section-head">
           <h2>{{ tx('milestones') }}</h2>
-          <span>{{ claimableMilestones.length }}</span>
+          <span class="ms-counter">{{ milestones.filter(m => m.claimed).length }} / {{ milestones.length }}</span>
         </div>
         <div class="milestone-list">
           <div
-            v-for="m in milestones"
+            v-for="(m, idx) in milestones"
             :key="m.fusion_goal"
             class="milestone-row"
             :class="{ ready: !m.claimed && Number(m.fusion_goal) <= totalGlobal, done: m.claimed }"
           >
+            <div class="milestone-icon">
+              <span v-if="m.claimed" class="ms-icon done">✓</span>
+              <span v-else-if="Number(m.fusion_goal) <= totalGlobal" class="ms-icon ready">★</span>
+              <span v-else class="ms-icon locked">{{ idx + 1 }}</span>
+            </div>
             <div class="milestone-body">
               <div class="milestone-title">{{ m.title }}</div>
-              <div class="milestone-meta">{{ formatCoins(m.fusion_goal) }} · {{ rewardParts(m.reward).join(' · ') }}</div>
+              <div class="milestone-goal">{{ formatCoins(m.fusion_goal) }} {{ tx('fusions') }}</div>
+              <div class="milestone-reward">{{ rewardParts(m.reward).join(' · ') }}</div>
             </div>
             <Button
               v-if="!m.claimed && Number(m.fusion_goal) <= totalGlobal"
-              class="btn small"
+              class="btn small ms-claim-btn"
               :disabled="busy"
               @click="claimMilestone(m.fusion_goal)"
             >
               {{ tx('claim') }}
             </Button>
-            <span v-else-if="m.claimed" class="claimed">{{ tx('claimed') }}</span>
+            <span v-else-if="m.claimed" class="ms-claimed">✓</span>
           </div>
         </div>
       </section>
@@ -547,6 +597,60 @@ onUnmounted(() => {
           </div>
         </div>
       </section>
+
+      <div
+        v-if="milestoneChestReveal"
+        class="milestone-chest-modal"
+        @click.self="milestoneChestReveal.phase === 'reveal' && closeMilestoneChestReveal()"
+      >
+        <div
+          v-if="milestoneChestReveal.phase !== 'reveal'"
+          class="milestone-chest-stage"
+        >
+          <div
+            class="milestone-chest-box"
+            :class="{
+              shake: milestoneChestReveal.phase === 'shake',
+              opening: milestoneChestReveal.phase === 'open'
+            }"
+          >🎁</div>
+          <div class="milestone-chest-glow"></div>
+        </div>
+
+        <div v-if="milestoneChestReveal.phase === 'reveal'" class="milestone-chest-reveal">
+          <h3>{{ tx('milestoneChestTitle') }}</h3>
+          <p>{{ tx('milestoneChestSub') }}</p>
+          <div class="milestone-chest-items">
+            <template v-if="milestoneChestReveal.species.length > 0">
+              <div
+                v-for="(item, i) in milestoneChestReveal.species"
+                :key="item.species + '-' + i"
+                class="milestone-chest-item"
+                :style="{ animationDelay: (i * 0.12) + 's' }"
+              >
+                <span>{{ item.emoji }}</span>
+                <b>{{ item.name }}</b>
+              </div>
+            </template>
+            <template v-else>
+              <div
+                v-for="(part, i) in milestoneChestReveal.rewardItems"
+                :key="i"
+                class="milestone-chest-item reward-text-item"
+                :style="{ animationDelay: (i * 0.15) + 's' }"
+              >
+                <b>{{ part }}</b>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <Button
+          v-if="milestoneChestReveal.phase === 'reveal'"
+          class="btn"
+          @click="closeMilestoneChestReveal"
+        >{{ tx('continue') }}</Button>
+      </div>
 
       <div v-if="showResetConfirm" class="confirm-backdrop" @click.self="showResetConfirm = false">
         <div class="confirm-dialog card">
@@ -870,9 +974,14 @@ onUnmounted(() => {
   font-size: 16px;
   font-weight: 900;
 }
-.section-head span {
+.ms-counter {
+  background: rgba(255, 209, 102, 0.15);
+  border: 1px solid rgba(255, 209, 102, 0.35);
   color: var(--accent);
   font-weight: 900;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
 }
 .milestone-list {
   display: flex;
@@ -884,19 +993,58 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid var(--border);
   transition: border-color 0.2s, background 0.2s;
 }
 .milestone-row.ready {
-  border-color: rgba(255, 209, 102, 0.55);
+  border-color: rgba(255, 209, 102, 0.6);
   background:
-    radial-gradient(circle at 0% 50%, rgba(255, 209, 102, 0.12), transparent 60%),
-    rgba(255, 209, 102, 0.06);
+    radial-gradient(circle at 0% 50%, rgba(255, 209, 102, 0.14), transparent 65%),
+    rgba(255, 209, 102, 0.05);
 }
 .milestone-row.done {
-  opacity: 0.55;
+  opacity: 0.45;
+}
+.milestone-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ms-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 900;
+}
+.ms-icon.done {
+  background: rgba(6, 214, 160, 0.18);
+  border: 1px solid rgba(6, 214, 160, 0.4);
+  color: var(--accent-2);
+}
+.ms-icon.ready {
+  background: rgba(255, 209, 102, 0.22);
+  border: 1px solid rgba(255, 209, 102, 0.55);
+  color: var(--accent);
+  animation: msPulse 1.8s ease-in-out infinite;
+}
+.ms-icon.locked {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+@keyframes msPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.4); }
+  50% { box-shadow: 0 0 0 5px rgba(255, 209, 102, 0); }
 }
 .milestone-body {
   flex: 1;
@@ -905,16 +1053,40 @@ onUnmounted(() => {
 .milestone-title {
   font-size: 13px;
   font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.milestone-meta {
+.milestone-goal {
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
-  margin-top: 2px;
+  margin-top: 1px;
 }
-.claimed {
+.milestone-reward {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ms-claim-btn {
+  flex-shrink: 0;
+}
+.ms-claimed {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(6, 214, 160, 0.14);
+  border: 1px solid rgba(6, 214, 160, 0.35);
   color: var(--accent-2);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
 }
 .mapping-strip {
@@ -946,6 +1118,107 @@ onUnmounted(() => {
 .mapping-chip b {
   font-size: 10px;
   color: var(--muted);
+}
+.milestone-chest-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(6px);
+}
+.milestone-chest-stage {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.milestone-chest-box {
+  position: relative;
+  z-index: 2;
+  font-size: 100px;
+  line-height: 1;
+  filter: drop-shadow(0 0 28px rgba(255, 209, 102, 0.5));
+}
+.milestone-chest-box.shake {
+  animation: milestoneChestShake 0.72s ease-in-out infinite;
+}
+.milestone-chest-box.opening {
+  animation: milestoneChestOpen 0.42s ease-out forwards;
+}
+.milestone-chest-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 209, 102, 0.5), transparent 70%);
+  animation: milestoneChestGlow 0.9s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.milestone-chest-reveal {
+  width: min(360px, 100%);
+  border-radius: 18px;
+  padding: 22px;
+  background:
+    linear-gradient(135deg, rgba(255, 209, 102, 0.14), rgba(6, 214, 160, 0.1)),
+    #111a30;
+  border: 1px solid rgba(255, 209, 102, 0.4);
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  animation: milestoneRevealIn 0.25s ease-out;
+}
+.milestone-chest-reveal h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+}
+.milestone-chest-reveal p {
+  margin: 6px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.milestone-chest-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.milestone-chest-item {
+  min-width: 0;
+  border-radius: 14px;
+  padding: 12px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: milestoneRevealIn 0.3s ease-out both;
+}
+.milestone-chest-item span {
+  display: block;
+  font-size: 36px;
+  line-height: 1;
+}
+.milestone-chest-item b {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reward-text-item span {
+  display: none;
+}
+.reward-text-item b {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--accent);
+  white-space: normal;
 }
 .confirm-backdrop {
   position: fixed;
@@ -998,6 +1271,27 @@ onUnmounted(() => {
 @keyframes confirmIn {
   from { transform: scale(0.9); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
+}
+@keyframes milestoneChestShake {
+  0%, 100% { transform: translate(0,0) rotate(0); }
+  15% { transform: translate(-4px,-2px) rotate(-4deg); }
+  30% { transform: translate(5px,2px) rotate(5deg); }
+  45% { transform: translate(-3px,1px) rotate(-3deg); }
+  60% { transform: translate(4px,-2px) rotate(4deg); }
+  75% { transform: translate(-2px,2px) rotate(-2deg); }
+}
+@keyframes milestoneChestOpen {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(255, 209, 102, 1)); }
+  100% { transform: scale(0.1); opacity: 0; }
+}
+@keyframes milestoneChestGlow {
+  from { opacity: 0.45; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1.12); }
+}
+@keyframes milestoneRevealIn {
+  from { transform: translateY(14px) scale(0.94); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 @media (max-width: 420px) {
   .merge-stats {
