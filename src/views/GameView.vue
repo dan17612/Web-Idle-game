@@ -75,6 +75,7 @@ const I18N = {
       animals: "{count} Tiere",
       animalsFood: "Tiere & Futter",
       tickets: "Tickets",
+      merge: "Merge",
       release: "Tier freilassen"
     },
     equipped: {
@@ -139,6 +140,10 @@ const I18N = {
       title: "🗺️ Boss-Pfad",
       sub: "Reise durch 15 Etappen - Truhen & Boosts als Belohnung",
       stage: "Etappe {n} / 15"
+    },
+    mergeLink: {
+      title: "🐾 Merge-Safari",
+      sub: "Fusioniere Tiere, erreiche Meilensteine & erhalte Truhen"
     }
   },
   en: {
@@ -192,6 +197,7 @@ const I18N = {
       animals: "{count} animals",
       animalsFood: "Animals & Food",
       tickets: "Tickets",
+      merge: "Merge",
       release: "Release pet"
     },
     equipped: {
@@ -256,6 +262,10 @@ const I18N = {
       title: "🗺️ Boss path",
       sub: "Journey through 15 stages - chests & boosts as rewards",
       stage: "Stage {n} / 15"
+    },
+    mergeLink: {
+      title: "🐾 Merge Safari",
+      sub: "Merge animals, reach milestones & earn chests"
     }
   },
   ru: {
@@ -309,6 +319,7 @@ const I18N = {
       animals: "{count} животных",
       animalsFood: "Животные и еда",
       tickets: "Тикеты",
+      merge: "Merge",
       release: "Отпустить питомца"
     },
     equipped: {
@@ -373,6 +384,10 @@ const I18N = {
       title: "🗺️ Путь босса",
       sub: "Путешествие по 15 этапам - сундуки и бусты в награду",
       stage: "Этап {n} / 15"
+    },
+    mergeLink: {
+      title: "🐾 Merge-Сафари",
+      sub: "Объединяй животных, достигай этапов и получай сундуки"
     }
   }
 };
@@ -1149,6 +1164,11 @@ async function doSplit(animalId) {
         <span class="qa-label">{{ tx("quick.tickets") }}</span>
         <span class="qa-sub">{{ tx("quick.release") }}</span>
       </router-link>
+      <router-link to="/merge" class="qa-btn">
+        <span class="qa-icon">🐾</span>
+        <span class="qa-label">{{ tx("quick.merge") }}</span>
+        <span class="qa-sub">2048</span>
+      </router-link>
     </div>
 
     <div class="card equip-card">
@@ -1638,6 +1658,15 @@ async function doSplit(animalId) {
         <div v-if="game.bossPathHighest > 0" class="bpl-progress">
           {{ tx("bossPath.stage", { n: game.bossPathHighest }) }}
         </div>
+      </div>
+      <div class="bpl-arrow">›</div>
+    </router-link>
+
+    <router-link to="/merge" class="card merge-link">
+      <div class="ml-icon">🐾</div>
+      <div class="bpl-body">
+        <div class="ml-title">{{ tx("mergeLink.title") }}</div>
+        <div class="bpl-sub">{{ tx("mergeLink.sub") }}</div>
       </div>
       <div class="bpl-arrow">›</div>
     </router-link>
@@ -2784,5 +2813,42 @@ async function doSplit(animalId) {
   font-weight: 800;
   line-height: 1;
   flex-shrink: 0;
+}
+.merge-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(6, 214, 160, 0.18), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(72, 202, 228, 0.16), transparent 60%),
+    linear-gradient(135deg, #122436, #0d1628);
+  border: 1px solid rgba(6, 214, 160, 0.3);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.merge-link:hover {
+  transform: translateY(-2px);
+  border-color: #06d6a0;
+  box-shadow: 0 12px 28px rgba(6, 214, 160, 0.15);
+}
+.ml-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+  flex-shrink: 0;
+  animation: mlFloat 3.4s ease-in-out infinite;
+}
+@keyframes mlFloat {
+  0%, 100% { transform: translateY(0) rotate(3deg); }
+  50% { transform: translateY(-3px) rotate(-3deg); }
+}
+.ml-title {
+  font-weight: 800;
+  font-size: 16px;
+  background: linear-gradient(90deg, #06d6a0, #48cae4, #c77dff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 </style>
