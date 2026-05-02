@@ -24,7 +24,8 @@
       "Bash(grep -nE \"v-if=\\\\\"error\\\\\"|v-if=\\\\\"success\\\\\"|class=\\\\\"error\\\\\"|class=\\\\\"success\\\\\"|\\\\\\\\{\\\\\\\\{ error \\\\\\\\}\\\\\\\\}|\\\\\\\\{\\\\\\\\{ success \\\\\\\\}\\\\\\\\}\" src/views/InventoryView.vue)",
       "Bash(grep -n \"v-for=\\\\\"f in floats\\\\\\\\|floats =\\\\\\\\|class=\\\\\"float\\\\\\\\|float-num\" src/views/GameView.vue)",
       "Bash(grep -nE \"setTimeout|TransitionGroup|<Transition\\\\\\\\b|name=\\\\\"boss-cell\\\\\"\" src/components/BossFight.vue)",
-      "mcp__39f9b29a-4fe7-4328-a4b5-61d3acecc78c__deploy_edge_function"
+      "mcp__39f9b29a-4fe7-4328-a4b5-61d3acecc78c__deploy_edge_function",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }
