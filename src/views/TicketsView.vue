@@ -595,7 +595,7 @@ onUnmounted(() => {
       class="chest-modal"
       @click.self="chestAnim.phase === 'reveal' && closeChestAnim()"
     >
-      <div class="chest-stage">
+      <div class="chest-stage" :class="{ 'revealing': chestAnim.phase === 'reveal' }">
         <div
           class="chest-box"
           :class="{
@@ -825,6 +825,10 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
 }
+.chest-stage.revealing {
+  height: auto;
+  width: min(340px, 90vw);
+}
 .chest-box {
   font-size: 110px;
   filter: drop-shadow(0 0 30px rgba(255, 209, 102, 0.5));
@@ -837,8 +841,7 @@ onUnmounted(() => {
   animation: chest-pop 0.5s ease-out forwards;
 }
 .chest-box.gone {
-  opacity: 0;
-  transform: scale(0.2) rotate(20deg);
+  display: none;
 }
 .chest-glow {
   position: absolute;
@@ -848,13 +851,13 @@ onUnmounted(() => {
   pointer-events: none;
 }
 .chest-reveal {
-  position: absolute;
-  inset: 0;
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: center;
   justify-content: center;
+  padding: 8px;
 }
 .reveal-animal {
   font-size: 56px;
