@@ -806,7 +806,7 @@ declare
   i int; new_animal public.animals%rowtype;
 begin
   if uid is null then raise exception 'not authenticated'; end if;
-  if p_qty is null or p_qty < 1 or p_qty > 3 then raise exception 'qty must be 1, 2 or 3'; end if;
+  if p_qty is null or p_qty < 1 or p_qty > 5 then raise exception 'qty must be 1, 2 or 5'; end if;
   select * into cfg from public.chest_config where id = 1;
   if cfg is null then raise exception 'chest config missing'; end if;
   state := public._rotate_if_needed();

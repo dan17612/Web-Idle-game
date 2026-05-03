@@ -565,7 +565,7 @@ onUnmounted(() => {
           <label class="hint" style="margin:0">{{ tx("qty") }}</label>
           <div class="fusion-tiers">
             <Button
-              v-for="q in [1,2,3].filter(n => n <= Math.max(chestRemaining, 1))"
+              v-for="q in [1,2,5].filter(n => n <= Math.max(chestRemaining, 1))"
               :key="q"
               class="fusion-sp"
               :class="{ active: chestQty === q }"
