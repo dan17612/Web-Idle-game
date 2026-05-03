@@ -537,7 +537,7 @@ function closeAnimalLimitWarning() {
       </div>
       <div class="row" style="gap:6px;margin-top:10px">
         <Button
-          v-for="n in [1, 2, 3]"
+          v-for="n in [1, 2, 5]"
           :key="n"
           class="btn secondary small qty-pick"
           :class="{ active: chestQty === n }"
