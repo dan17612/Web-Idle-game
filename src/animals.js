@@ -107,7 +107,7 @@ export function compareAnimalsByRate(a, b) {
 }
 
 export function isUpgrading(a) {
-  if (!a.upgrade_ready_at) return false
+  if (!a?.upgrade_ready_at) return false
   return new Date(a.upgrade_ready_at).getTime() > Date.now()
 }
 
@@ -118,7 +118,9 @@ export function formatCoins(n) {
   let i = 0
   let v = n
   while (v >= 1000 && i < units.length - 1) { v /= 1000; i++ }
-  return v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0) + units[i]
+  const decimals = v < 10 ? 2 : v < 100 ? 1 : 0
+  const factor = 10 ** decimals
+  return (Math.floor(v * factor) / factor).toFixed(decimals) + units[i]
 }
 
 export function parseCoinInput(input) {

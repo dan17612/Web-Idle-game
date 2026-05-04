@@ -103,6 +103,7 @@ export const useGameStore = defineStore('game', {
     },
     rateForAnimal(state) {
       return (a) => {
+        if (!a) return 0
         if (isUpgrading(a)) return 0
         const r = animalRate(a)
         const isFav = state.favoriteAnimalId === a.id
@@ -135,7 +136,7 @@ export const useGameStore = defineStore('game', {
     },
     craftJobReady(state) {
       const job = state.craftJob
-      if (!job || !job.active) return false
+      if (!job || !job.active || !job.ready_at) return false
       const ready = new Date(job.ready_at).getTime()
       return Date.now() + state.serverOffset >= ready
     }
