@@ -125,14 +125,16 @@ export function parseCoinInput(input) {
   if (input == null) return null
   let s = String(input).trim().toLowerCase().replace(/\s|_/g, '')
   if (!s) return 0
-  s = s.replace(',', '.')
-  const m = s.match(/^(\d+(?:\.\d+)?)([kmbtq]?)$/)
-  if (!m) {
-    const alt = s.match(/^(\d{1,3}(?:\.\d{3})+)$/)
-    if (!alt) return null
-    const n = parseInt(alt[1].replace(/\./g, ''), 10)
+  // German/European thousand-dot format must be checked first: "1.000" or "1.000.000"
+  // because the main regex would otherwise parse "1.000" as the decimal value 1.0
+  const altMatch = s.match(/^(\d{1,3}(?:\.\d{3})+)$/)
+  if (altMatch) {
+    const n = parseInt(altMatch[1].replace(/\./g, ''), 10)
     return isFinite(n) ? n : null
   }
+  s = s.replace(',', '.')
+  const m = s.match(/^(\d+(?:\.\d+)?)([kmbtq]?)$/)
+  if (!m) return null
   const mult = { '': 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12, q: 1e15 }[m[2]]
   const n = parseFloat(m[1]) * mult
   if (!isFinite(n) || n < 0) return null

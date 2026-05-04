@@ -140,6 +140,7 @@ export const useAuthStore = defineStore('auth', {
     async changeUsername(newName) {
       const name = String(newName || '').trim()
       if (name.length < 3) throw new Error(t('storeErrors.usernameMin'))
+      if (name.length > 20) throw new Error(t('storeErrors.usernameMax'))
       const escaped = name.replace(/[\\_%]/g, '\\$&')
       const { data: existing } = await supabase.from('profiles')
         .select('id, username').ilike('username', escaped).maybeSingle()
