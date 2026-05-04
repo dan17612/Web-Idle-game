@@ -116,7 +116,7 @@ const messages = {
       exportHint: 'Lade deine gespeicherten Kontodaten als JSON-Datei herunter.',
       exportAction: 'Meine Daten herunterladen',
       deleteTitle: 'Account löschen',
-      deleteHint: 'Diese Aktion ist endgültig. Gib zur Bestätigung LÖSCHEN ein.',
+      deleteHint: 'Diese Aktion ist endgültig. Gib zur Bestätigung LOESCHEN ein.',
       deleteAction: 'Account endgültig löschen',
       logout: 'Abmelden',
       supportTitle: 'Support kontaktieren',
@@ -161,7 +161,7 @@ const messages = {
       redirectToGoogle: 'Weiterleitung zu Google gestartet ...',
       googleUnlinked: 'Google-Verknüpfung entfernt.',
       dataExportDownloaded: 'Datenexport heruntergeladen.',
-      typeDeleteToConfirm: 'Bitte zur Bestätigung LÖSCHEN eingeben.',
+      typeDeleteToConfirm: 'Bitte zur Bestätigung LOESCHEN eingeben.',
       accountDeleted: 'Account gelöscht.'
     },
     friends: {
