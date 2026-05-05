@@ -306,6 +306,34 @@ async function loadGlobal(admin: ReturnType<typeof createClient>) {
   return inserted as Record<string, unknown>
 }
 
+async function loadEventSchedule(admin: ReturnType<typeof createClient>) {
+  const { data, error } = await admin
+    .from('event_schedule')
+    .select('key, starts_at, ends_at, enabled, show_countdown')
+  if (error) throw error
+  const map: Record<string, { starts_at: string | null; ends_at: string | null; enabled: boolean; show_countdown: boolean }> = {}
+  for (const row of data || []) {
+    const r = row as Record<string, unknown>
+    map[String(r.key)] = {
+      starts_at: r.starts_at as string | null,
+      ends_at: r.ends_at as string | null,
+      enabled: !!r.enabled,
+      show_countdown: r.show_countdown === false ? false : true,
+    }
+  }
+  return map
+}
+
+function eventActive(schedule: Record<string, { starts_at: string | null; ends_at: string | null; enabled: boolean; show_countdown: boolean }>, key: string) {
+  const entry = schedule[key]
+  if (!entry) return true
+  if (!entry.enabled) return false
+  const now = Date.now()
+  if (entry.starts_at && new Date(entry.starts_at).getTime() > now) return false
+  if (entry.ends_at && new Date(entry.ends_at).getTime() <= now) return false
+  return true
+}
+
 async function loadMilestones(admin: ReturnType<typeof createClient>, userId: string) {
   const [{ data: milestones, error: milestonesError }, { data: claims, error: claimsError }] = await Promise.all([
     admin.from('merge_milestones').select('*').eq('is_active', true).order('fusion_goal', { ascending: true }),
@@ -356,12 +384,15 @@ function buildPayload(
   globalState: Record<string, unknown>,
   milestones: Record<string, unknown>[],
   speciesRows: SpeciesRow[],
+  schedule: Record<string, { starts_at: string | null; ends_at: string | null; enabled: boolean; show_countdown: boolean }>,
   turn: Record<string, unknown> = {},
 ) {
   const board = normalizeBoard(state.board)
-  const total = Number(globalState.total_fusions || 0)
-  const claimable = milestones.filter((m) => !m.claimed && Number(m.fusion_goal || 0) <= total)
-  const nextMilestone = milestones.find((m) => !m.claimed && Number(m.fusion_goal || 0) > total) || null
+  const playerTotal = Number(state.total_fusions || 0)
+  const claimable = milestones.filter((m) => !m.claimed && Number(m.fusion_goal || 0) <= playerTotal)
+  const nextMilestone = milestones.find((m) => !m.claimed && Number(m.fusion_goal || 0) > playerTotal) || null
+  const mergeEvent = schedule['merge_game'] || null
+  const eventActiveFlag = eventActive(schedule, 'merge_game')
   return {
     state: {
       ...state,
@@ -385,6 +416,14 @@ function buildPayload(
     claimable_milestones: claimable,
     next_milestone: nextMilestone,
     mapping: decoratedMapping(speciesRows),
+    event: {
+      key: 'merge_game',
+      starts_at: mergeEvent?.starts_at || null,
+      ends_at: mergeEvent?.ends_at || null,
+      enabled: mergeEvent ? mergeEvent.enabled : true,
+      show_countdown: mergeEvent ? mergeEvent.show_countdown : true,
+      active: eventActiveFlag,
+    },
     turn,
     server_now: new Date().toISOString(),
   }
@@ -405,8 +444,11 @@ Deno.serve(async (req) => {
     const action = String(body.action || 'status')
     const speciesRows = await loadCatalog(admin)
     const globalState = await loadGlobal(admin)
+    const schedule = await loadEventSchedule(admin)
+    const mergeActive = eventActive(schedule, 'merge_game')
 
     if (action === 'reset') {
+      if (!mergeActive) return json({ error: 'event ended' }, 423)
       const board = createInitialBoard(speciesRows, globalState)
       let { data, error } = await admin
         .from('merge_player_states')
@@ -437,12 +479,13 @@ Deno.serve(async (req) => {
         data = inserted.data
       }
       const milestones = await loadMilestones(admin, user.id)
-      return json(buildPayload(data, globalState, milestones, speciesRows, { reset: true }))
+      return json(buildPayload(data, globalState, milestones, speciesRows, schedule, { reset: true }))
     }
 
     const state = await ensureState(admin, user.id, speciesRows, globalState)
 
     if (action === 'claim') {
+      if (!mergeActive) return json({ error: 'event ended' }, 423)
       const fusionGoal = Math.floor(Number(body.fusion_goal || 0))
       if (fusionGoal <= 0) return json({ error: 'invalid milestone' }, 400)
       const { data, error } = await admin.rpc('merge_claim_milestone', {
@@ -455,12 +498,13 @@ Deno.serve(async (req) => {
         loadGlobal(admin),
         loadMilestones(admin, user.id),
       ])
-      return json(buildPayload(freshState, freshGlobal, milestones, speciesRows, {
+      return json(buildPayload(freshState, freshGlobal, milestones, speciesRows, schedule, {
         claimed: data,
       }))
     }
 
     if (action === 'move') {
+      if (!mergeActive) return json({ error: 'event ended' }, 423)
       const direction = String(body.direction || '') as Direction
       if (!['up', 'down', 'left', 'right'].includes(direction)) {
         return json({ error: 'invalid direction' }, 400)
@@ -470,7 +514,7 @@ Deno.serve(async (req) => {
       const moved = moveBoard(board, direction, speciesRows, globalState)
       if (!moved.moved) {
         const milestones = await loadMilestones(admin, user.id)
-        return json(buildPayload(state, globalState, milestones, speciesRows, { moved: false }))
+        return json(buildPayload(state, globalState, milestones, speciesRows, schedule, { moved: false }))
       }
 
       const spawn = spawnTile(moved.board, speciesRows, globalState)
@@ -495,7 +539,7 @@ Deno.serve(async (req) => {
             loadGlobal(admin),
             loadMilestones(admin, user.id),
           ])
-          return json(buildPayload(freshState, freshGlobal, milestones, speciesRows, {
+          return json(buildPayload(freshState, freshGlobal, milestones, speciesRows, schedule, {
             conflict: true,
           }), 409)
         }
@@ -506,7 +550,7 @@ Deno.serve(async (req) => {
       const appliedState = applied.state as Record<string, unknown>
       const appliedGlobal = applied.global as Record<string, unknown>
       const milestones = await loadMilestones(admin, user.id)
-      return json(buildPayload(appliedState, appliedGlobal, milestones, speciesRows, {
+      return json(buildPayload(appliedState, appliedGlobal, milestones, speciesRows, schedule, {
         moved: true,
         fusions: moved.fusions,
         score_delta: moved.scoreDelta,
@@ -518,7 +562,7 @@ Deno.serve(async (req) => {
     }
 
     const milestones = await loadMilestones(admin, user.id)
-    return json(buildPayload(state, globalState, milestones, speciesRows))
+    return json(buildPayload(state, globalState, milestones, speciesRows, schedule))
   } catch (err) {
     if (err instanceof Response) return err
     const message = err instanceof Error ? err.message : String(err)

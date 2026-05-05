@@ -8,12 +8,16 @@ import { animationsEnabled } from "../composables/useAnimations";
 const props = defineProps({
   stageConfig: { type: Object, default: null },
   autoStart: { type: Boolean, default: false },
+  endlessMode: { type: Boolean, default: false },
+  endlessRunId: { type: Number, default: null },
+  endlessEndsAt: { type: Number, default: 0 },
 });
 
-const emit = defineEmits(["victory", "exit", "timeout"]);
+const emit = defineEmits(["victory", "exit", "timeout", "endless-finish"]);
 
 const game = useGameStore();
 const isStageMode = computed(() => !!props.stageConfig);
+const isEndless = computed(() => props.endlessMode);
 
 const I18N = {
   de: {
@@ -141,7 +145,7 @@ onMounted(() => {
   clockTimer = setInterval(() => {
     now.value = Date.now();
   }, 250);
-  if (props.autoStart && isStageMode.value) {
+  if (props.autoStart && (isStageMode.value || isEndless.value)) {
     setTimeout(() => startBossFight(), 50);
   }
 });
@@ -170,6 +174,9 @@ const stageBossInfo = computed(() => {
 });
 
 const fightDurationMs = computed(() => {
+  if (isEndless.value && props.endlessEndsAt) {
+    return Math.max(0, Number(props.endlessEndsAt) - Date.now());
+  }
   if (props.stageConfig?.time_seconds)
     return Number(props.stageConfig.time_seconds) * 1000;
   return BOSS_FIGHT_MS_DEFAULT;
@@ -314,6 +321,7 @@ function createBossBoard() {
 }
 
 function bossTargetPoints() {
+  if (isEndless.value) return Number.MAX_SAFE_INTEGER;
   if (props.stageConfig?.hp) return Number(props.stageConfig.hp);
   const rosterBonus = bossRoster.value.length * 80;
   const rateBonus = Math.min(800, Math.floor(Math.max(0, game.baseRate) * 15));
@@ -331,7 +339,11 @@ function startBossFight() {
   );
   bossScore.value = 0;
   bossTarget.value = bossTargetPoints();
-  bossEndsAt.value = Date.now() + game.serverOffset + fightDurationMs.value;
+  if (isEndless.value && props.endlessEndsAt) {
+    bossEndsAt.value = Number(props.endlessEndsAt);
+  } else {
+    bossEndsAt.value = Date.now() + game.serverOffset + fightDurationMs.value;
+  }
   bossSelected.value = null;
   bossMatched.value = new Set();
   bossDrag.value = null;
@@ -691,6 +703,14 @@ function finishBossTimeout() {
   bossSelected.value = null;
   bossDrag.value = null;
   bossSwap.value = null;
+  if (isEndless.value) {
+    showBossMessage("claiming", "success", {}, true);
+    emit("endless-finish", {
+      damage: bossScore.value,
+      runId: props.endlessRunId,
+    });
+    return;
+  }
   defeatVisible.value = true;
   showBossMessage("timeout", "error", {}, true);
   if (isStageMode.value) emit("timeout");

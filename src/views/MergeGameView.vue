@@ -24,10 +24,15 @@ const I18N = {
     bonus: 'Global-Bonus',
     bonusInactive: 'Kein Bonus aktiv',
     milestones: 'Meilensteine',
+    milestonesSub: 'Deine persönlichen Fusionen schalten Belohnungen frei.',
+    yourProgress: 'Dein Fortschritt',
     next: 'Nächstes Ziel',
     claim: 'Abholen',
     claimed: 'Abgeholt',
     reset: 'Brett neu',
+    eventEndsIn: 'Verschwindet in {time}',
+    eventEnded: 'Ereignis beendet',
+    eventEndedSub: 'Das Merge-Safari-Ereignis ist vorbei. Es können keine Züge oder Belohnungen mehr abgeholt werden.',
     loading: 'Lade Merge-Safari...',
     empty: 'Leer',
     gameOver: 'Keine Züge mehr',
@@ -68,10 +73,15 @@ const I18N = {
     bonus: 'Global bonus',
     bonusInactive: 'No bonus active',
     milestones: 'Milestones',
+    milestonesSub: 'Your personal merges unlock rewards.',
+    yourProgress: 'Your progress',
     next: 'Next goal',
     claim: 'Claim',
     claimed: 'Claimed',
     reset: 'New board',
+    eventEndsIn: 'Disappears in {time}',
+    eventEnded: 'Event ended',
+    eventEndedSub: 'The Merge Safari event is over. Moves and rewards can no longer be claimed.',
     loading: 'Loading Merge Safari...',
     empty: 'Empty',
     gameOver: 'No moves left',
@@ -112,10 +122,15 @@ const I18N = {
     bonus: 'Глобальный бонус',
     bonusInactive: 'Бонус не активен',
     milestones: 'Этапы',
+    milestonesSub: 'Твои личные слияния открывают награды.',
+    yourProgress: 'Твой прогресс',
     next: 'Следующая цель',
     claim: 'Забрать',
     claimed: 'Получено',
     reset: 'Новое поле',
+    eventEndsIn: 'Исчезнет через {time}',
+    eventEnded: 'Событие завершено',
+    eventEndedSub: 'Событие Merge-Сафари завершено. Ходы и награды больше недоступны.',
     loading: 'Загрузка Merge-Сафари...',
     empty: 'Пусто',
     gameOver: 'Ходов нет',
@@ -186,11 +201,50 @@ const board = computed(() => data.value?.state?.board || Array.from({ length: 16
 const globalState = computed(() => data.value?.global || null)
 const milestones = computed(() => data.value?.milestones || [])
 const totalGlobal = computed(() => Number(globalState.value?.total_fusions || 0))
+const playerFusions = computed(() => Number(data.value?.state?.total_fusions || 0))
+const eventInfo = computed(() => data.value?.event || null)
+const eventActive = computed(() => {
+  void now.value
+  const evt = eventInfo.value
+  if (!evt) return true
+  if (evt.enabled === false) return false
+  if (evt.ends_at && new Date(evt.ends_at).getTime() <= Date.now()) return false
+  if (evt.starts_at && new Date(evt.starts_at).getTime() > Date.now()) return false
+  return true
+})
+const eventShowCountdown = computed(() => {
+  const evt = eventInfo.value
+  return !!(evt && evt.show_countdown !== false && evt.ends_at)
+})
+const eventRemaining = computed(() => {
+  void now.value
+  if (!eventShowCountdown.value) return 0
+  const ends = eventInfo.value?.ends_at ? new Date(eventInfo.value.ends_at).getTime() : 0
+  return Math.max(0, ends - Date.now())
+})
+function formatCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const days = Math.floor(total / 86400)
+  const hours = Math.floor((total % 86400) / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  const loc = locale.value
+  if (days > 0) {
+    if (loc === 'de') return `${days} ${days === 1 ? 'Tag' : 'Tagen'} ${hours}h`
+    if (loc === 'ru') return `${days} ${days === 1 ? 'день' : 'дн.'} ${hours}ч`
+    return `${days}d ${hours}h`
+  }
+  if (hours > 0) {
+    if (loc === 'ru') return `${hours}ч ${minutes}м`
+    return `${hours}h ${minutes}m`
+  }
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
 const claimableMilestones = computed(() =>
-  milestones.value.filter((m) => !m.claimed && Number(m.fusion_goal || 0) <= totalGlobal.value)
+  milestones.value.filter((m) => !m.claimed && Number(m.fusion_goal || 0) <= playerFusions.value)
 )
 const nextMilestone = computed(() =>
-  milestones.value.find((m) => !m.claimed && Number(m.fusion_goal || 0) > totalGlobal.value) || null
+  milestones.value.find((m) => !m.claimed && Number(m.fusion_goal || 0) > playerFusions.value) || null
 )
 const progressPct = computed(() => {
   const next = Number(nextMilestone.value?.fusion_goal || 0)
@@ -199,7 +253,7 @@ const progressPct = computed(() => {
     .filter((m) => Number(m.fusion_goal || 0) < next)
     .reduce((max, m) => Math.max(max, Number(m.fusion_goal || 0)), 0)
   const span = Math.max(1, next - previous)
-  return Math.max(0, Math.min(100, ((totalGlobal.value - previous) / span) * 100))
+  return Math.max(0, Math.min(100, ((playerFusions.value - previous) / span) * 100))
 })
 const bonusRemaining = computed(() => {
   void now.value
@@ -300,7 +354,7 @@ async function loadGame() {
 }
 
 async function move(direction) {
-  if (busy.value || loading.value) return
+  if (busy.value || loading.value || !eventActive.value) return
   busy.value = true
   try {
     const result = await callMerge('move', { direction })
@@ -346,7 +400,7 @@ function closeMilestoneChestReveal() {
 }
 
 function requestReset() {
-  if (busy.value) return
+  if (busy.value || !eventActive.value) return
   showResetConfirm.value = true
 }
 
@@ -476,6 +530,21 @@ onUnmounted(() => {
         </div>
       </section>
 
+      <section
+        v-if="eventShowCountdown && (eventRemaining > 0 || !eventActive)"
+        class="card event-banner"
+        :class="{ ended: !eventActive }"
+      >
+        <span class="event-banner-icon">{{ eventActive ? '⏳' : '⏰' }}</span>
+        <div class="event-banner-body">
+          <div class="event-banner-title">
+            <template v-if="eventActive">{{ tx('eventEndsIn', { time: formatCountdown(eventRemaining) }) }}</template>
+            <template v-else>{{ tx('eventEnded') }}</template>
+          </div>
+          <div v-if="!eventActive" class="event-banner-sub">{{ tx('eventEndedSub') }}</div>
+        </div>
+      </section>
+
       <section class="card global-card" :class="{ active: bonusRemaining > 0 }">
         <div class="global-top">
           <div>
@@ -494,7 +563,7 @@ onUnmounted(() => {
         </div>
         <div class="next-line">
           <template v-if="nextMilestone">
-            {{ tx('next') }}: {{ formatCoins(nextMilestone.fusion_goal) }}
+            {{ tx('yourProgress') }}: {{ formatCoins(playerFusions) }} / {{ formatCoins(nextMilestone.fusion_goal) }}
           </template>
           <template v-else>{{ tx('milestones') }} · 100%</template>
         </div>
@@ -530,22 +599,22 @@ onUnmounted(() => {
 
       <section class="merge-controls">
         <Button class="ctrl spacer" disabled></Button>
-        <Button class="ctrl" :title="tx('controls.up')" :disabled="busy" @click="move('up')">
+        <Button class="ctrl" :title="tx('controls.up')" :disabled="busy || !eventActive" @click="move('up')">
           <i class="pi pi-arrow-up"></i>
         </Button>
         <Button class="ctrl spacer" disabled></Button>
-        <Button class="ctrl" :title="tx('controls.left')" :disabled="busy" @click="move('left')">
+        <Button class="ctrl" :title="tx('controls.left')" :disabled="busy || !eventActive" @click="move('left')">
           <i class="pi pi-arrow-left"></i>
         </Button>
-        <Button class="ctrl reset" :disabled="busy" @click="requestReset">
+        <Button class="ctrl reset" :disabled="busy || !eventActive" @click="requestReset">
           <i class="pi pi-refresh"></i>
           <span>{{ tx('reset') }}</span>
         </Button>
-        <Button class="ctrl" :title="tx('controls.right')" :disabled="busy" @click="move('right')">
+        <Button class="ctrl" :title="tx('controls.right')" :disabled="busy || !eventActive" @click="move('right')">
           <i class="pi pi-arrow-right"></i>
         </Button>
         <Button class="ctrl spacer" disabled></Button>
-        <Button class="ctrl" :title="tx('controls.down')" :disabled="busy" @click="move('down')">
+        <Button class="ctrl" :title="tx('controls.down')" :disabled="busy || !eventActive" @click="move('down')">
           <i class="pi pi-arrow-down"></i>
         </Button>
         <Button class="ctrl spacer" disabled></Button>
@@ -556,27 +625,30 @@ onUnmounted(() => {
           <h2>{{ tx('milestones') }}</h2>
           <span class="ms-counter">{{ milestones.filter(m => m.claimed).length }} / {{ milestones.length }}</span>
         </div>
+        <p class="milestones-sub">{{ tx('milestonesSub') }}</p>
         <div class="milestone-list">
           <div
             v-for="(m, idx) in milestones"
             :key="m.fusion_goal"
             class="milestone-row"
-            :class="{ ready: !m.claimed && Number(m.fusion_goal) <= totalGlobal, done: m.claimed }"
+            :class="{ ready: !m.claimed && Number(m.fusion_goal) <= playerFusions, done: m.claimed }"
           >
             <div class="milestone-icon">
               <span v-if="m.claimed" class="ms-icon done">✓</span>
-              <span v-else-if="Number(m.fusion_goal) <= totalGlobal" class="ms-icon ready">★</span>
+              <span v-else-if="Number(m.fusion_goal) <= playerFusions" class="ms-icon ready">★</span>
               <span v-else class="ms-icon locked">{{ idx + 1 }}</span>
             </div>
             <div class="milestone-body">
               <div class="milestone-title">{{ m.title }}</div>
-              <div class="milestone-goal">{{ formatCoins(m.fusion_goal) }} {{ tx('fusions') }}</div>
+              <div class="milestone-goal">
+                {{ formatCoins(Math.min(playerFusions, m.fusion_goal)) }} / {{ formatCoins(m.fusion_goal) }} {{ tx('fusions') }}
+              </div>
               <div class="milestone-reward">{{ rewardParts(m.reward).join(' · ') }}</div>
             </div>
             <Button
-              v-if="!m.claimed && Number(m.fusion_goal) <= totalGlobal"
+              v-if="!m.claimed && Number(m.fusion_goal) <= playerFusions"
               class="btn small ms-claim-btn"
-              :disabled="busy"
+              :disabled="busy || !eventActive"
               @click="claimMilestone(m.fusion_goal)"
             >
               {{ tx('claim') }}
@@ -744,6 +816,46 @@ onUnmounted(() => {
   margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+.event-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(72, 202, 228, 0.18), transparent 60%),
+    linear-gradient(135deg, #142244, #0d1730);
+  border: 1px solid rgba(72, 202, 228, 0.45);
+}
+.event-banner.ended {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(239, 71, 111, 0.22), transparent 60%),
+    linear-gradient(135deg, #2a1226, #1a0a1a);
+  border-color: rgba(239, 71, 111, 0.55);
+}
+.event-banner-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+.event-banner-body { min-width: 0; flex: 1; }
+.event-banner-title {
+  font-weight: 900;
+  font-size: 14px;
+  color: #48cae4;
+  font-variant-numeric: tabular-nums;
+}
+.event-banner.ended .event-banner-title { color: #ef476f; }
+.event-banner-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.milestones-sub {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
 }
 .global-card {
   background:

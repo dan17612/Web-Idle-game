@@ -84,6 +84,7 @@ const animalLimitWarning = ref(false);
 const stock = ref({});
 const forcedStock = ref({});
 const myPurchases = ref({});
+const speciesMeta = ref({});
 const rotatesAt = ref(0);
 const serverOffset = ref(0);
 const now = ref(Date.now());
@@ -118,6 +119,7 @@ async function loadShop() {
   stock.value = data?.stock || {};
   forcedStock.value = data?.forced_stock || {};
   myPurchases.value = data?.my_purchases || {};
+  speciesMeta.value = data?.species_meta || {};
   rotatesAt.value = data?.rotates_at ? new Date(data.rotates_at).getTime() : 0;
   if (data?.server_now)
     serverOffset.value = new Date(data.server_now).getTime() - Date.now();
@@ -196,6 +198,16 @@ function fmtMmSs(ms) {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
+function fmtDuration(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
 const countdown = computed(() => {
   if (!rotatesAt.value) return "—";
   const s = Math.max(0, Math.floor((rotatesAt.value - serverNow()) / 1000));
@@ -219,15 +231,24 @@ const boostRemaining = computed(() =>
   Math.max(0, game.petBoostUntil - (now.value + game.serverOffset)),
 );
 
-const speciesList = computed(() =>
-  Object.entries(SPECIES)
-    .filter(([, info]) => info.shop_visible !== false)
+const speciesList = computed(() => {
+  void now.value;
+  return Object.entries(SPECIES)
+    .filter(([key, info]) => {
+      const meta = speciesMeta.value[key] || {};
+      return info.shop_visible !== false || meta.craft_only;
+    })
     .map(([key, info]) => {
       const catalogQty = stock.value[key] || 0;
       const forcedQty = forcedStock.value[key] || 0;
       const randomQty = Math.max(0, catalogQty - forcedQty);
       const boughtQty = myPurchases.value[key] || 0;
       const remaining = Math.max(0, catalogQty - boughtQty);
+      const meta = speciesMeta.value[key] || {};
+      const disappearsAt = meta.disappears_at ? new Date(meta.disappears_at).getTime() : 0;
+      const disappeared = disappearsAt > 0 && disappearsAt <= now.value;
+      const disappearsInMs = disappearsAt > 0 ? Math.max(0, disappearsAt - now.value) : 0;
+      const craftOnly = !!meta.craft_only;
       return {
         key,
         info,
@@ -236,12 +257,16 @@ const speciesList = computed(() =>
         forcedQty,
         remaining,
         boughtQty,
-        inStock: remaining > 0,
+        inStock: remaining > 0 && !craftOnly && !disappeared,
         isForced: forcedQty > 0,
         enabled: enabledMap.value[key] !== false,
+        craftOnly,
+        disappearsAt,
+        disappeared,
+        disappearsInMs,
       };
-    }),
-);
+    });
+});
 const stockTotal = computed(() =>
   speciesList.value.reduce((s, x) => s + x.remaining, 0),
 );
@@ -595,13 +620,20 @@ function closeAnimalLimitWarning() {
         v-for="s in speciesList"
         :key="s.key"
         class="animal-card"
-        :class="{ 'out-of-stock': !s.inStock, 'is-forced': s.isForced }"
+        :class="{ 'out-of-stock': !s.inStock, 'is-forced': s.isForced, 'craft-only': s.craftOnly, 'disappeared': s.disappeared }"
       >
-        <div v-if="s.isForced" class="ribbon">⭐ {{ t("shop.restock") }}</div>
+        <div v-if="s.craftOnly" class="ribbon craft">🔧 {{ t("shop.craftOnly") }}</div>
+        <div v-else-if="s.isForced" class="ribbon">⭐ {{ t("shop.restock") }}</div>
         <div v-if="s.remaining > 1" class="qty-badge">×{{ s.remaining }}</div>
         <div class="animal-emoji">{{ s.info.emoji }}</div>
         <div class="animal-name">{{ speciesInfo(s.key).name }}</div>
         <div class="animal-meta">+{{ formatCoins(s.info.rate) }} / {{ t("shop.perSec") }}</div>
+        <div v-if="s.disappearsAt > 0 && !s.disappeared" class="disappears-chip">
+          ⏳ {{ t("shop.disappearsIn", { time: fmtDuration(s.disappearsInMs) }) }}
+        </div>
+        <div v-else-if="s.disappeared" class="disappears-chip ended">
+          ⏰ {{ t("shop.disappeared") }}
+        </div>
         <div class="animal-cost">🪙 {{ formatCoins(s.info.cost) }}</div>
         <Button
           v-if="s.inStock"
@@ -612,6 +644,8 @@ function closeAnimalLimitWarning() {
         >
           {{ busyKey === s.key ? t("common.loadingShort") : t("shop.buy") }}
         </Button>
+        <div v-else-if="s.craftOnly" class="stock-badge craft-badge">{{ t("shop.craftOnlyHint") }}</div>
+        <div v-else-if="s.disappeared" class="stock-badge">{{ t("shop.disappeared") }}</div>
         <div v-else-if="s.qty > 0" class="stock-badge">{{ t("shop.alreadyBought") }}</div>
         <div v-else class="stock-badge">{{ t("shop.soldOut") }}</div>
       </div>
@@ -753,6 +787,42 @@ function closeAnimalLimitWarning() {
   font-weight: 700;
   font-size: 12px;
   text-align: center;
+}
+.stock-badge.craft-badge {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c77dff;
+}
+.ribbon.craft {
+  background: linear-gradient(135deg, #a855f7, #7209b7);
+  color: #fff;
+}
+.craft-only {
+  border-color: rgba(168, 85, 247, 0.45);
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.25) inset;
+  opacity: 1;
+  filter: none;
+}
+.disappeared {
+  filter: grayscale(0.85);
+  opacity: 0.55;
+}
+.disappears-chip {
+  margin-top: 6px;
+  display: inline-block;
+  align-self: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(72, 202, 228, 0.15);
+  border: 1px solid rgba(72, 202, 228, 0.45);
+  color: #48cae4;
+  font-variant-numeric: tabular-nums;
+}
+.disappears-chip.ended {
+  background: rgba(239, 71, 111, 0.16);
+  border-color: rgba(239, 71, 111, 0.55);
+  color: #ef476f;
 }
 .admin-row {
   display: flex;

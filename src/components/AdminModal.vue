@@ -418,10 +418,19 @@ function flash(msg, isError = false) {
   }, 3000)
 }
 
+const craftOnlyDraft = ref({})
+const disappearsDaysDraft = ref({})
+
 async function loadSpecies() {
-  const { data } = await supabase.from('species_costs').select('species, enabled, weight').order('species')
+  const { data } = await supabase
+    .from('species_costs')
+    .select('species, enabled, weight, craft_only, disappears_at')
+    .order('species')
   speciesRows.value = data || []
-  for (const r of data || []) weightDraft.value[r.species] = r.weight
+  for (const r of data || []) {
+    weightDraft.value[r.species] = r.weight
+    craftOnlyDraft.value[r.species] = !!r.craft_only
+  }
 }
 
 async function loadUsers() {
@@ -507,9 +516,32 @@ async function callAdmin(rpc, args, key) {
   }
 }
 
-function restock(species) {
+async function restock(species) {
   const qty = Math.max(1, parseInt(restockQty.value[species] || 1, 10))
-  return callAdmin('admin_force_add', { p_species: species, p_qty: qty }, 'r-' + species)
+  const days = Math.max(0, parseFloat(disappearsDaysDraft.value[species] || 0))
+  const craftOnly = !!craftOnlyDraft.value[species]
+  await callAdmin('admin_force_add', { p_species: species, p_qty: qty }, 'r-' + species)
+  // Wenn craft_only oder Verschwindezeit gesetzt, zusätzlich admin_set_species_event aufrufen.
+  if (craftOnly || days > 0) {
+    const disappearsAt = days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : null
+    await callAdmin('admin_set_species_event', {
+      p_species: species,
+      p_craft_only: craftOnly,
+      p_disappears_at: disappearsAt,
+      p_clear_disappears: false
+    }, 'm-' + species)
+  }
+  disappearsDaysDraft.value[species] = ''
+}
+
+async function clearSpeciesEvent(species) {
+  craftOnlyDraft.value[species] = false
+  await callAdmin('admin_set_species_event', {
+    p_species: species,
+    p_craft_only: false,
+    p_disappears_at: null,
+    p_clear_disappears: true
+  }, 'm-' + species)
 }
 
 function stop(species) {
@@ -816,8 +848,17 @@ async function deleteUser(u) {
             <label class="weight"><span>+</span>
               <InputText type="number" min="1" max="99" v-model.number="restockQty[r.species]" placeholder="1" />
             </label>
-            <Button class="btn secondary small" :disabled="busy==='r-'+r.species" @click="restock(r.species)">{{ tx('shop.restock') }}</Button>
+            <label class="weight" :title="'Tage bis Verschwinden'">
+              <span>📅</span>
+              <InputText type="number" min="0" max="365" step="0.25" v-model="disappearsDaysDraft[r.species]" placeholder="0" />
+            </label>
+            <label class="toggle" :title="'Nur craftbar'">
+              <Checkbox :modelValue="craftOnlyDraft[r.species]" binary @update:modelValue="craftOnlyDraft[r.species] = $event" />
+              <span>🔧</span>
+            </label>
+            <Button class="btn secondary small" :disabled="busy==='r-'+r.species || busy==='m-'+r.species" @click="restock(r.species)">{{ tx('shop.restock') }}</Button>
             <Button class="btn danger small" :disabled="busy==='s-'+r.species" @click="stop(r.species)">{{ tx('shop.stop') }}</Button>
+            <Button v-if="r.craft_only || r.disappears_at" class="btn small btn-ghost" :disabled="busy==='m-'+r.species" @click="clearSpeciesEvent(r.species)" :title="'Verschwindezeit/Craftonly löschen'">↺</Button>
           </div>
         </div>
       </template>
