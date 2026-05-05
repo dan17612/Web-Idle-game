@@ -103,9 +103,11 @@ onMounted(async () => {
   setInterval(() => {
     if (document.visibilityState !== "visible") return;
     const now = performance.now();
-    const dt = (now - last) / 1000;
+    // Cap dt at 1s to prevent huge coin spikes when tab returns from hidden state.
+    // Offline earnings for longer absences are handled separately by applyOffline().
+    const dt = Math.min((now - last) / 1000, 1);
     last = now;
-    if (auth.isAuth) game.tick(dt);
+    try { if (auth.isAuth) game.tick(dt); } catch {}
   }, 500);
 
   setInterval(() => {
@@ -197,7 +199,7 @@ async function hardReload() {
           class="settings-link refresh-btn"
           :title="t('app.refreshData')"
           :disabled="reloading"
-          @click="softRefresh"
+          @click="hardReload"
         >
           <i :class="['pi', 'pi-refresh', { 'pi-spin': reloading }]" />
         </Button>

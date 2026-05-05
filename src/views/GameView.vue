@@ -481,7 +481,6 @@ const ownedAnimals = computed(() =>
 
 const giftClaimed = ref(null); // { species, emoji, name, bonusTaps } after reveal
 const giftBusy = ref(false);
-const giftError = ref("");
 
 const shouldShowGiftDialog = computed(
   () => game.newbieGiftAvailable && !giftClaimed.value,
@@ -490,7 +489,6 @@ const shouldShowGiftDialog = computed(
 async function openGift() {
   if (giftBusy.value) return;
   giftBusy.value = true;
-  giftError.value = "";
   try {
     const data = await game.claimNewbieGift();
     const info = speciesInfo(data.species);
@@ -510,7 +508,6 @@ async function openGift() {
 
 function closeGiftDialog() {
   giftClaimed.value = null;
-  giftError.value = "";
 }
 
 const equipBestWrap = ref(null);

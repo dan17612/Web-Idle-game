@@ -156,6 +156,7 @@ export const useGameStore = defineStore('game', {
     },
     rateForAnimal(state) {
       return (a) => {
+        if (!a) return 0
         if (isUpgrading(a)) return 0
         const r = animalRate(a)
         const isFav = state.favoriteAnimalId === a.id
@@ -188,7 +189,7 @@ export const useGameStore = defineStore('game', {
     },
     craftJobReady(state) {
       const job = state.craftJob
-      if (!job || !job.active) return false
+      if (!job || !job.active || !job.ready_at) return false
       const ready = new Date(job.ready_at).getTime()
       return Date.now() + state.serverOffset >= ready
     }
@@ -569,18 +570,18 @@ export const useGameStore = defineStore('game', {
       const toUnequip = this.animals.filter(a => a.equipped && !bestSet.has(a.id)).map(a => a.id)
       const toEquip = bestIds.filter(id => !this.animals.find(a => a.id === id)?.equipped)
 
-      for (const id of toUnequip) {
+      await Promise.all(toUnequip.map(async id => {
         const { error } = await supabase.rpc('unequip_animal', { p_animal_id: id })
         if (error) throw error
         const a = this.animals.find(x => x.id === id)
         if (a) a.equipped = false
-      }
-      for (const id of toEquip) {
+      }))
+      await Promise.all(toEquip.map(async id => {
         const { error } = await supabase.rpc('equip_animal', { p_animal_id: id })
         if (error) throw error
         const a = this.animals.find(x => x.id === id)
         if (a) a.equipped = true
-      }
+      }))
     },
     async unequipAnimal(animalId) {
       await this.persist()

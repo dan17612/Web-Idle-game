@@ -116,7 +116,7 @@ const messages = {
       exportHint: 'Lade deine gespeicherten Kontodaten als JSON-Datei herunter.',
       exportAction: 'Meine Daten herunterladen',
       deleteTitle: 'Account löschen',
-      deleteHint: 'Diese Aktion ist endgültig. Gib zur Bestätigung LÖSCHEN ein.',
+      deleteHint: 'Diese Aktion ist endgültig. Gib zur Bestätigung LOESCHEN ein.',
       deleteAction: 'Account endgültig löschen',
       logout: 'Abmelden',
       supportTitle: 'Support kontaktieren',
@@ -136,6 +136,7 @@ const messages = {
       accountBanned: 'Dein Account ist gebannt.',
       googleNotLinked: 'Google ist nicht verknüpft.',
       usernameMin: 'Username mind. 3 Zeichen',
+      usernameMax: 'Username max. 20 Zeichen',
       usernameTaken: 'Username ist bereits vergeben (Groß-/Kleinschreibung wird ignoriert).',
       tapLimit: 'Tap-Limit erreicht',
       notAuthenticated: 'Nicht angemeldet',
@@ -160,7 +161,7 @@ const messages = {
       redirectToGoogle: 'Weiterleitung zu Google gestartet ...',
       googleUnlinked: 'Google-Verknüpfung entfernt.',
       dataExportDownloaded: 'Datenexport heruntergeladen.',
-      typeDeleteToConfirm: 'Bitte zur Bestätigung LÖSCHEN eingeben.',
+      typeDeleteToConfirm: 'Bitte zur Bestätigung LOESCHEN eingeben.',
       accountDeleted: 'Account gelöscht.'
     },
     friends: {
@@ -248,6 +249,9 @@ const messages = {
       coinsAndAnimals: '🪙 {coins} · {animals} Tiere',
       send: 'Senden',
       trade: 'Trade',
+      addFriend: 'Freund hinzufügen',
+      friendRequestSent: 'Freundschaftsanfrage gesendet.',
+      friendRequestAccepted: 'Freundschaft bestätigt!',
       collectionByTier: 'Sammlung nach Tier',
       speciesIndex: 'Spezies-Index ({owned}/{total})',
       missing: 'fehlt',
@@ -338,7 +342,10 @@ const messages = {
       promoRewardTickets: '{tickets} Tickets',
       promoRewardSpecies: '{qty}× {emoji} ({tier})',
       promoRewardBoost: '×{mult} Boost für {minutes} Min',
-      promoRewardTaps: '+{taps} Bonus-Taps'
+      promoRewardTaps: '+{taps} Bonus-Taps',
+      animalLimitWarningTitle: 'Tier-Limit erreicht!',
+      animalLimitWarningMessage: 'Du hast 1000 Tiere erreicht. Bitte gehe zur Ticket-Ansicht und lasse einige Tiere frei, um Platz für neue zu schaffen.',
+      animalLimitWarningButton: 'Zur Ticket-Ansicht'
     }
   },
   en: {
@@ -466,6 +473,7 @@ const messages = {
       accountBanned: 'Your account is banned.',
       googleNotLinked: 'Google is not linked.',
       usernameMin: 'Username must be at least 3 characters',
+      usernameMax: 'Username must be at most 20 characters',
       usernameTaken: 'Username is already taken (case-insensitive).',
       tapLimit: 'Tap limit reached',
       notAuthenticated: 'Not authenticated',
@@ -578,6 +586,9 @@ const messages = {
       coinsAndAnimals: '🪙 {coins} · {animals} animals',
       send: 'Send',
       trade: 'Trade',
+      addFriend: 'Add Friend',
+      friendRequestSent: 'Friend request sent.',
+      friendRequestAccepted: 'Friendship confirmed!',
       collectionByTier: 'Collection by tier',
       speciesIndex: 'Species Index ({owned}/{total})',
       missing: 'missing',
@@ -668,7 +679,10 @@ const messages = {
       promoRewardTickets: '{tickets} tickets',
       promoRewardSpecies: '{qty}× {emoji} ({tier})',
       promoRewardBoost: '×{mult} boost for {minutes} min',
-      promoRewardTaps: '+{taps} bonus taps'
+      promoRewardTaps: '+{taps} bonus taps',
+      animalLimitWarningTitle: 'Animal limit reached!',
+      animalLimitWarningMessage: 'You have reached 1000 animals. Please go to the Tickets view and release some animals to make room for new ones.',
+      animalLimitWarningButton: 'Go to Tickets'
     }
   },
   ru: {
@@ -796,6 +810,7 @@ const messages = {
       accountBanned: 'Ваш аккаунт заблокирован.',
       googleNotLinked: 'Google не связан.',
       usernameMin: 'Имя пользователя должно быть не менее 3 символов',
+      usernameMax: 'Имя пользователя не более 20 символов',
       usernameTaken: 'Имя пользователя уже занято (без учета регистра).',
       tapLimit: 'Лимит нажатий достигнут',
       notAuthenticated: 'Не выполнен вход',
@@ -908,6 +923,9 @@ const messages = {
       coinsAndAnimals: '🪙 {coins} · животных: {animals}',
       send: 'Отправить',
       trade: 'Обмен',
+      addFriend: 'Добавить в друзья',
+      friendRequestSent: 'Запрос в друзья отправлен.',
+      friendRequestAccepted: 'Дружба подтверждена!',
       collectionByTier: 'Коллекция по тиру',
       speciesIndex: 'Индекс видов ({owned}/{total})',
       missing: 'нет',
@@ -998,7 +1016,10 @@ const messages = {
       promoRewardTickets: '{tickets} билетов',
       promoRewardSpecies: '{qty}× {emoji} ({tier})',
       promoRewardBoost: '×{mult} буст на {minutes} мин',
-      promoRewardTaps: '+{taps} бонус-тапов'
+      promoRewardTaps: '+{taps} бонус-тапов',
+      animalLimitWarningTitle: 'Достигнут лимит животных!',
+      animalLimitWarningMessage: 'У вас 1000 животных. Пожалуйста, перейдите в раздел Тикеты и освободите некоторых животных, чтобы освободить место для новых.',
+      animalLimitWarningButton: 'Перейти к тикетам'
     }
   }
 }

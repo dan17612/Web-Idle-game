@@ -118,7 +118,7 @@ function tx(key, vars = {}) {
 const BOSS_BOARD_SIZE = 7;
 const BOSS_FIGHT_MS_DEFAULT = 3 * 60 * 1000;
 const BOSS_MIN_ROSTER = 5;
-const BOSS_MATCH_POINTS = 20;
+const BOSS_MATCH_POINTS = 25;
 const SWAP_ANIMATION_MS = 180;
 
 const now = ref(Date.now());
@@ -804,7 +804,11 @@ function exitFight() {
         :name="animationsEnabled ? 'boss-cell' : undefined"
         :tag="animationsEnabled ? 'div' : undefined"
         class="boss-board"
-        :class="{ paused: !bossActive, busy: bossBusy, 'no-anim-board': !animationsEnabled }"
+        :class="{
+          paused: !bossActive,
+          busy: bossBusy,
+          'no-anim-board': !animationsEnabled,
+        }"
       >
         <Button
           v-for="cell in bossCells"
@@ -1065,7 +1069,7 @@ function exitFight() {
 }
 .boss-message-slot {
   position: relative;
-  height: 36px;        /* feste Hoehe → reserviert Platz, verhindert Layout-Shift */
+  height: 36px; /* feste Hoehe → reserviert Platz, verhindert Layout-Shift */
   flex: 0 0 auto;
 }
 .boss-message {
@@ -1102,7 +1106,9 @@ function exitFight() {
 }
 .boss-msg-fade-enter-active,
 .boss-msg-fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 .boss-msg-fade-enter-from,
 .boss-msg-fade-leave-to {
@@ -1188,8 +1194,7 @@ function exitFight() {
 .boss-tile-emoji {
   display: block;
   pointer-events: none;
-  filter:
-    drop-shadow(0 0 2px rgba(0, 0, 0, 0.85))
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.85))
     drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55));
 }
 .boss-cell-move {
