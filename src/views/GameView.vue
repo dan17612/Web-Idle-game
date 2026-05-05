@@ -137,13 +137,17 @@ const I18N = {
       loadingShort: "…"
     },
     bossPath: {
-      title: "🗺️ Boss-Pfad",
-      sub: "Reise durch 15 Etappen - Truhen & Boosts als Belohnung",
-      stage: "Etappe {n} / 15"
+      title: "👑 Boss-Kampf",
+      sub: "Bosspfad ({total} Etappen) und Endlessboss-Challenge",
+      stage: "Etappe {n} / {total}"
     },
     mergeLink: {
       title: "🐾 Merge-Safari",
       sub: "Fusioniere Tiere, erreiche Meilensteine & erhalte Truhen"
+    },
+    eventStatus: {
+      endsIn: "Verschwindet in {time}",
+      ended: "Ereignis beendet"
     }
   },
   en: {
@@ -259,13 +263,17 @@ const I18N = {
       loadingShort: "…"
     },
     bossPath: {
-      title: "🗺️ Boss path",
-      sub: "Journey through 15 stages - chests & boosts as rewards",
-      stage: "Stage {n} / 15"
+      title: "👑 Boss fight",
+      sub: "Boss path ({total} stages) and endless boss challenge",
+      stage: "Stage {n} / {total}"
     },
     mergeLink: {
       title: "🐾 Merge Safari",
       sub: "Merge animals, reach milestones & earn chests"
+    },
+    eventStatus: {
+      endsIn: "Disappears in {time}",
+      ended: "Event ended"
     }
   },
   ru: {
@@ -381,13 +389,17 @@ const I18N = {
       loadingShort: "…"
     },
     bossPath: {
-      title: "🗺️ Путь босса",
-      sub: "Путешествие по 15 этапам - сундуки и бусты в награду",
-      stage: "Этап {n} / 15"
+      title: "👑 Бой с боссами",
+      sub: "Путь босса ({total} этапов) и эндлесс-челлендж",
+      stage: "Этап {n} / {total}"
     },
     mergeLink: {
       title: "🐾 Merge-Сафари",
       sub: "Объединяй животных, достигай этапов и получай сундуки"
+    },
+    eventStatus: {
+      endsIn: "Исчезнет через {time}",
+      ended: "Событие завершено"
     }
   }
 };
@@ -559,6 +571,35 @@ const bossBoostLabel = computed(() => {
   if (locale.value === "ru") return "Босс-буст активен";
   return "Boss boost active";
 });
+
+function fmtCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (days > 0) {
+    if (locale.value === "de") return `${days} ${days === 1 ? "Tag" : "Tagen"} ${hours}h`;
+    if (locale.value === "ru") return `${days} ${days === 1 ? "день" : "дн."} ${hours}ч`;
+    return `${days}d ${hours}h`;
+  }
+  if (hours > 0) {
+    if (locale.value === "ru") return `${hours}ч ${minutes}м`;
+    return `${hours}h ${minutes}m`;
+  }
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+const bossPathRemaining = computed(() => {
+  void now.value;
+  return Math.max(0, game.bossPathEndsAt - Date.now());
+});
+const mergeRemaining = computed(() => {
+  void now.value;
+  return Math.max(0, game.mergeEndsAt - Date.now());
+});
+const bossPathEnded = computed(() => game.bossPathShowCountdown && (bossPathRemaining.value <= 0 || !game.bossPathActive));
+const mergeEnded = computed(() => game.mergeShowCountdown && (mergeRemaining.value <= 0 || !game.mergeActive));
 
 const tapLimitReached = computed(
   () => game.tapsUsed >= game.tapsMax && game.bonusTaps <= 0,
@@ -1650,26 +1691,47 @@ async function doSplit(animalId) {
       </div>
     </div>
 
-    <router-link to="/boss-path" class="card boss-path-link">
-      <div class="bpl-icon">🗺️</div>
+    <router-link to="/boss-fight" class="card boss-path-link">
+      <div class="bpl-icon">👑</div>
       <div class="bpl-body">
         <div class="bpl-title">{{ tx("bossPath.title") }}</div>
-        <div class="bpl-sub">{{ tx("bossPath.sub") }}</div>
+        <div class="bpl-sub">{{ tx("bossPath.sub", { total: game.bossPathMaxStage }) }}</div>
         <div v-if="game.bossPathHighest > 0" class="bpl-progress">
-          {{ tx("bossPath.stage", { n: game.bossPathHighest }) }}
+          {{ tx("bossPath.stage", { n: game.bossPathHighest, total: game.bossPathMaxStage }) }}
         </div>
+        <div
+          v-if="bossPathEnded"
+          class="bpl-event-status ended"
+        >⏰ {{ tx("eventStatus.ended") }}</div>
+        <div
+          v-else-if="game.bossPathEndsAt > 0"
+          class="bpl-event-status"
+        >⏳ {{ tx("eventStatus.endsIn", { time: fmtCountdown(bossPathRemaining) }) }}</div>
       </div>
       <div class="bpl-arrow">›</div>
     </router-link>
 
-    <router-link to="/merge" class="card merge-link">
+    <component
+      :is="mergeEnded ? 'div' : 'router-link'"
+      :to="mergeEnded ? undefined : '/merge'"
+      class="card merge-link"
+      :class="{ 'event-ended': mergeEnded }"
+    >
       <div class="ml-icon">🐾</div>
       <div class="bpl-body">
         <div class="ml-title">{{ tx("mergeLink.title") }}</div>
         <div class="bpl-sub">{{ tx("mergeLink.sub") }}</div>
+        <div
+          v-if="mergeEnded"
+          class="bpl-event-status ended"
+        >⏰ {{ tx("eventStatus.ended") }}</div>
+        <div
+          v-else-if="game.mergeEndsAt > 0"
+          class="bpl-event-status"
+        >⏳ {{ tx("eventStatus.endsIn", { time: fmtCountdown(mergeRemaining) }) }}</div>
       </div>
-      <div class="bpl-arrow">›</div>
-    </router-link>
+      <div class="bpl-arrow">{{ mergeEnded ? '🔒' : '›' }}</div>
+    </component>
   </div>
 </template>
 
@@ -2806,6 +2868,37 @@ async function doSplit(animalId) {
   color: var(--accent);
   margin-top: 4px;
   font-variant-numeric: tabular-nums;
+}
+.bpl-event-status {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(72, 202, 228, 0.14);
+  border: 1px solid rgba(72, 202, 228, 0.45);
+  color: #48cae4;
+  font-variant-numeric: tabular-nums;
+}
+.bpl-event-status.ended {
+  background: rgba(239, 71, 111, 0.16);
+  border-color: rgba(239, 71, 111, 0.55);
+  color: #ef476f;
+}
+.boss-path-link.event-ended,
+.merge-link.event-ended {
+  cursor: not-allowed;
+  filter: grayscale(0.65);
+  opacity: 0.7;
+  border-color: rgba(239, 71, 111, 0.45);
+}
+.boss-path-link.event-ended:hover,
+.merge-link.event-ended:hover {
+  transform: none;
+  box-shadow: none;
 }
 .bpl-arrow {
   font-size: 30px;

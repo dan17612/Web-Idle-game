@@ -39,6 +39,8 @@ export const useGameStore = defineStore('game', {
     tutorialStep: 5,
     bossPathHighest: 0,
     bossPathCurrent: 1,
+    bossPathMaxStage: 20,
+    eventSchedule: {},
     craftJob: null
   }),
   getters: {
@@ -76,6 +78,57 @@ export const useGameStore = defineStore('game', {
       return state.animals
         .filter(a => a.equipped && !isUpgrading(a))
         .reduce((sum, a) => sum + animalRate(a), 0)
+    },
+    bossPathEndsAt(state) {
+      const cfg = state.eventSchedule?.boss_path
+      if (!cfg || cfg.show_countdown === false) return 0
+      return cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+    },
+    mergeEndsAt(state) {
+      const cfg = state.eventSchedule?.merge_game
+      if (!cfg || cfg.show_countdown === false) return 0
+      return cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+    },
+    bossPathActive(state) {
+      const cfg = state.eventSchedule?.boss_path
+      if (!cfg) return true
+      if (cfg.enabled === false) return false
+      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
+      const now = Date.now()
+      if (starts && starts > now) return false
+      if (ends && ends <= now) return false
+      return true
+    },
+    bossPathShowCountdown(state) {
+      const cfg = state.eventSchedule?.boss_path
+      return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
+    },
+    mergeActive(state) {
+      const cfg = state.eventSchedule?.merge_game
+      if (!cfg) return true
+      if (cfg.enabled === false) return false
+      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
+      const now = Date.now()
+      if (starts && starts > now) return false
+      if (ends && ends <= now) return false
+      return true
+    },
+    mergeShowCountdown(state) {
+      const cfg = state.eventSchedule?.merge_game
+      return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
+    },
+    bossEndlessActive(state) {
+      const cfg = state.eventSchedule?.boss_endless
+      if (!cfg) return true
+      if (cfg.enabled === false) return false
+      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
+      const now = Date.now()
+      if (starts && starts > now) return false
+      if (ends && ends <= now) return false
+      return true
     },
     boostActive(state) {
       return (Date.now() + state.serverOffset) < state.petBoostUntil
@@ -194,6 +247,7 @@ export const useGameStore = defineStore('game', {
       this.loading = false
       this.claimPendingGifts().catch(() => {})
       this.loadBossPath().catch(() => {})
+      this.loadEventSchedule().catch(() => {})
       this.loadCraftStatus().catch(() => {})
       this.lastLoadedAt = Date.now()
     },
@@ -386,8 +440,19 @@ export const useGameStore = defineStore('game', {
       if (data) {
         this.bossPathHighest = Number(data.highest_stage || 0)
         this.bossPathCurrent = Number(data.current_stage || 1)
+        if (Number(data.max_stage || 0) > 0) this.bossPathMaxStage = Number(data.max_stage)
       }
       return data || null
+    },
+    async loadEventSchedule() {
+      try {
+        const { data, error } = await supabase.rpc('get_event_schedule')
+        if (error) throw error
+        this.eventSchedule = data && typeof data === 'object' ? data : {}
+      } catch {
+        this.eventSchedule = {}
+      }
+      return this.eventSchedule
     },
     async completeBossStage(stage, score, target) {
       await this.persist()

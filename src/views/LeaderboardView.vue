@@ -1,19 +1,23 @@
 <script setup>
-import { onMounted, ref, watch, computed } from 'vue'
+import { onMounted, onUnmounted, ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 import { formatCoins } from '../animals'
 import { useAuthStore } from '../stores/auth'
-import { t } from '../i18n'
+import { useGameStore } from '../stores/game'
+import { t, locale } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const game = useGameStore()
 const rows = ref([])
 const loading = ref(true)
 const error = ref('')
 const mode = ref('rate')
+const now = ref(Date.now())
+let clockTimer = null
 
 const myUsername = computed(() => auth.profile?.username || null)
 
@@ -38,6 +42,25 @@ async function load() {
         avatar_emoji: r.avatar_emoji,
         highest_stage: r.highest_stage,
         total_victories: r.total_victories
+      }))
+    } else if (mode.value === 'merge') {
+      const { data, error: e } = await supabase.rpc('get_merge_leaderboard', { p_limit: 50 })
+      if (e) throw e
+      rows.value = (data || []).map(r => ({
+        username: r.username,
+        avatar_emoji: r.avatar_emoji,
+        score: Number(r.score || 0),
+        total_fusions: Number(r.total_fusions || 0),
+        highest_rank: Number(r.highest_rank || 0)
+      }))
+    } else if (mode.value === 'endless') {
+      const { data, error: e } = await supabase.rpc('get_boss_endless_leaderboard', { p_limit: 50 })
+      if (e) throw e
+      rows.value = (data || []).map(r => ({
+        username: r.username,
+        avatar_emoji: r.avatar_emoji,
+        damage: Number(r.damage || 0),
+        finished_at: r.finished_at
       }))
     } else {
       const { data, error: e } = await supabase
@@ -70,7 +93,14 @@ function setMode(m) {
 watch(() => route.name, (name) => {
   if (name === 'leaderboard') load()
 })
-onMounted(load)
+onMounted(() => {
+  load()
+  game.loadEventSchedule().catch(() => {})
+  clockTimer = setInterval(() => { now.value = Date.now() }, 1000)
+})
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer)
+})
 useReturnRefresh(load)
 
 function openProfile(username) {
@@ -84,9 +114,63 @@ function formatRate(n) {
   return formatCoins(v)
 }
 
+function formatCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const days = Math.floor(total / 86400)
+  const hours = Math.floor((total % 86400) / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  const loc = locale.value
+  if (days > 0) {
+    if (loc === 'de') return `${days} ${days === 1 ? 'Tag' : 'Tagen'} ${hours}h`
+    if (loc === 'ru') return `${days} ${days === 1 ? 'день' : 'дн.'} ${hours}ч`
+    return `${days}d ${hours}h`
+  }
+  if (hours > 0) {
+    if (loc === 'ru') return `${hours}ч ${minutes}м`
+    return `${hours}h ${minutes}m`
+  }
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+const eventStatus = computed(() => {
+  void now.value
+  if (mode.value === 'boss') {
+    if (!game.bossPathShowCountdown) return null
+    const ms = Math.max(0, game.bossPathEndsAt - Date.now())
+    return { ended: !game.bossPathActive, remainingMs: ms }
+  }
+  if (mode.value === 'merge') {
+    if (!game.mergeShowCountdown) return null
+    const ms = Math.max(0, game.mergeEndsAt - Date.now())
+    return { ended: !game.mergeActive, remainingMs: ms }
+  }
+  return null
+})
+
+function tileLabel(rank) {
+  const r = Math.max(0, Math.floor(Number(rank) || 0))
+  if (r <= 50) {
+    const v = 2 ** r
+    if (v < 1000) return String(v)
+    const units = ['', 'K', 'M', 'B', 'T', 'Q']
+    let value = v
+    let unit = 0
+    while (value >= 1000 && unit < units.length - 1) {
+      value /= 1000
+      unit++
+    }
+    const decimals = value < 10 ? 2 : value < 100 ? 1 : 0
+    return `${value.toFixed(decimals)}${units[unit]}`
+  }
+  return `2^${r}`
+}
+
 const subtitle = computed(() => {
   if (mode.value === 'rate') return t('leaderboard.subtitleRate')
   if (mode.value === 'boss') return t('leaderboard.subtitleBoss')
+  if (mode.value === 'merge') return t('leaderboard.subtitleMerge')
+  if (mode.value === 'endless') return t('leaderboard.subtitleEndless')
   return t('leaderboard.subtitle')
 })
 </script>
@@ -117,6 +201,32 @@ const subtitle = computed(() => {
     >
       ⚔️ {{ t('leaderboard.byBoss') }}
     </Button>
+    <Button
+      class="lb-tab"
+      :class="{ active: mode === 'merge' }"
+      @click="setMode('merge')"
+    >
+      🐾 {{ t('leaderboard.byMerge') }}
+    </Button>
+    <Button
+      class="lb-tab"
+      :class="{ active: mode === 'endless' }"
+      @click="setMode('endless')"
+    >
+      ⏱️ {{ t('leaderboard.byEndless') }}
+    </Button>
+  </div>
+
+  <div
+    v-if="eventStatus"
+    class="lb-event-banner"
+    :class="{ ended: eventStatus.ended }"
+  >
+    <span class="lb-event-icon">{{ eventStatus.ended ? '⏰' : '⏳' }}</span>
+    <span class="lb-event-text">
+      <template v-if="eventStatus.ended">{{ t('leaderboard.eventEnded') }}</template>
+      <template v-else>{{ t('leaderboard.eventEndsIn', { time: formatCountdown(eventStatus.remainingMs) }) }}</template>
+    </span>
   </div>
 
   <div class="card">
@@ -162,6 +272,14 @@ const subtitle = computed(() => {
               <span class="primary">⚔️ {{ t('leaderboard.bossStage') }} {{ r.highest_stage }}</span>
               <span class="secondary">🏅 {{ r.total_victories }} {{ t('leaderboard.bossVictories') }}</span>
             </template>
+            <template v-else-if="mode === 'merge'">
+              <span class="primary">🐾 {{ t('leaderboard.mergeHighestTile') }}: {{ tileLabel(r.highest_rank) }}</span>
+              <span class="secondary">⭐ {{ formatCoins(r.score) }} {{ t('leaderboard.mergeScore') }}</span>
+              <span class="secondary">🔁 {{ formatCoins(r.total_fusions) }} {{ t('leaderboard.mergeFusions') }}</span>
+            </template>
+            <template v-else-if="mode === 'endless'">
+              <span class="primary">💥 {{ formatCoins(r.damage) }} {{ t('leaderboard.endlessDamage') }}</span>
+            </template>
             <template v-else-if="mode === 'rate'">
               <span class="primary">⚡ {{ formatRate(r.rate_per_sec) }}/s</span>
               <span class="secondary">🪙 {{ formatCoins(r.coins) }}</span>
@@ -188,9 +306,11 @@ const subtitle = computed(() => {
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 .lb-tab {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 100px;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--muted);
@@ -202,6 +322,31 @@ const subtitle = computed(() => {
   border-color: var(--gold, #ffd166);
   color: var(--text);
 }
+.lb-event-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(72, 202, 228, 0.18), transparent 60%),
+    linear-gradient(135deg, #142244, #0d1730);
+  border: 1px solid rgba(72, 202, 228, 0.45);
+  color: #48cae4;
+  font-weight: 800;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.lb-event-banner.ended {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(239, 71, 111, 0.22), transparent 60%),
+    linear-gradient(135deg, #2a1226, #1a0a1a);
+  border-color: rgba(239, 71, 111, 0.55);
+  color: #ef476f;
+}
+.lb-event-icon { font-size: 18px; flex-shrink: 0; }
+.lb-event-text { min-width: 0; }
 .lb-row {
   display: flex; align-items: center; gap: 10px;
   width: 100%; padding: 8px;
