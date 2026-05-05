@@ -6,6 +6,7 @@ import { useAuthStore } from "../stores/auth";
 import {
   speciesInfo,
   formatCoins,
+  formatDuration,
   TIERS,
   tierInfo,
   isUpgrading,
@@ -917,6 +918,25 @@ async function doSplit(animalId) {
       </div>
     </div>
 
+    <div class="stats-strip">
+      <div class="stat-chip">
+        <span class="stat-icon">🐾</span>
+        <span>{{ game.animals.length }}</span>
+      </div>
+      <div class="stat-chip">
+        <span class="stat-icon">⚡</span>
+        <span>+{{ formatCoins(game.ratePerSec) }}/s</span>
+      </div>
+      <div v-if="game.bossPathHighest > 0" class="stat-chip">
+        <span class="stat-icon">🗺️</span>
+        <span>{{ tx("bossPath.stageLabel") || ("Stage " + game.bossPathHighest) }}</span>
+      </div>
+      <div v-if="game.boostActive" class="stat-chip boost">
+        <span class="stat-icon">🚀</span>
+        <span>×{{ game.petBoostMultiplier }} · {{ formatDuration(boostRemaining) }}</span>
+      </div>
+    </div>
+
     <div class="card tap-card">
       <div class="row between" style="margin-bottom: 4px">
         <div>
@@ -1676,6 +1696,32 @@ async function doSplit(animalId) {
 </template>
 
 <style scoped>
+/* Stats strip */
+.stats-strip {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--subtitle);
+}
+.stat-chip.boost {
+  border-color: rgba(255,209,102,.4);
+  color: var(--accent);
+  background: rgba(255,209,102,.08);
+}
+.stat-icon { font-size: 13px; }
+
 .welcome {
   display: flex;
   justify-content: space-between;

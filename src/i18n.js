@@ -45,7 +45,12 @@ const messages = {
         rank: 'Rang',
         tickets: 'Tickets'
       },
-      admin: 'Admin'
+      admin: 'Admin',
+      streak: {
+        newDay: '🔥 Tag {n} in Folge!',
+        comeback: '👋 Wieder da!',
+        first: '🌟 Erstes Login!'
+      }
     },
     tutorial: {
       tap: 'Tippe das Tier!',
@@ -267,7 +272,9 @@ const messages = {
       equipAll: 'Alle anlegen',
       unequipAll: 'Alle abziehen',
       equip: 'Ausrüsten',
-      unequip: 'Abziehen'
+      unequip: 'Abziehen',
+      search: 'Tiere suchen…',
+      noResults: 'Keine Tiere gefunden.'
     },
     shop: {
       title: 'Shop',
@@ -357,7 +364,12 @@ const messages = {
         rank: 'Rank',
         tickets: 'Tickets'
       },
-      admin: 'Admin'
+      admin: 'Admin',
+      streak: {
+        newDay: '🔥 Day {n} streak!',
+        comeback: '👋 Welcome back!',
+        first: '🌟 First login!'
+      }
     },
     tutorial: {
       tap: 'Tap the animal!',
@@ -579,7 +591,9 @@ const messages = {
       equipAll: 'Equip all',
       unequipAll: 'Unequip all',
       equip: 'Equip',
-      unequip: 'Unequip'
+      unequip: 'Unequip',
+      search: 'Search animals…',
+      noResults: 'No animals found.'
     },
     shop: {
       title: 'Shop',
@@ -669,7 +683,12 @@ const messages = {
         rank: 'Рейтинг',
         tickets: 'Тикеты'
       },
-      admin: 'Admin'
+      admin: 'Admin',
+      streak: {
+        newDay: '🔥 {n}-й день подряд!',
+        comeback: '👋 С возвращением!',
+        first: '🌟 Первый вход!'
+      }
     },
     tutorial: {
       tap: 'Нажми на животное!',
@@ -891,7 +910,9 @@ const messages = {
       equipAll: 'Надеть все',
       unequipAll: 'Снять все',
       equip: 'Надеть',
-      unequip: 'Снять'
+      unequip: 'Снять',
+      search: 'Поиск животных…',
+      noResults: 'Животных не найдено.'
     },
     shop: {
       title: 'Магазин',

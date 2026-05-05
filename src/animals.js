@@ -114,11 +114,25 @@ export function isUpgrading(a) {
 export function formatCoins(n) {
   n = Math.floor(Number(n) || 0)
   if (n < 1000) return n.toString()
-  const units = ['', 'K', 'M', 'B', 'T']
+  const units = ['', 'K', 'M', 'B', 'T', 'Q']
   let i = 0
   let v = n
   while (v >= 1000 && i < units.length - 1) { v /= 1000; i++ }
   return v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0) + units[i]
+}
+
+/**
+ * Format a duration in milliseconds to a human-readable string.
+ * Examples: 3723000 → "1h 2m 3s", 90000 → "1m 30s", 45000 → "45s"
+ */
+export function formatDuration(ms) {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000))
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (h > 0) return `${h}h ${m}m ${s}s`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
 }
 
 export function parseCoinInput(input) {

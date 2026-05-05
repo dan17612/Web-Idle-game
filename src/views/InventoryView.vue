@@ -13,6 +13,7 @@ const error = ref("");
 const busy = ref("");
 const slotInfo = ref({ current_slots: 1, next_slot: 2, next_cost: null });
 const filter = ref("all");
+const search = ref("");
 
 async function loadSlot() {
   const { data } = await supabase.rpc("get_next_slot_cost");
@@ -40,16 +41,18 @@ const enriched = computed(() =>
   })),
 );
 
-const filteredAnimals = computed(() =>
-  enriched.value
+const filteredAnimals = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  return enriched.value
     .filter((a) => {
-      if (filter.value === "all") return true;
-      if (filter.value === "equipped") return a.equipped;
-      return a.t === filter.value;
+      if (filter.value !== "all" && filter.value !== "equipped" && a.t !== filter.value) return false;
+      if (filter.value === "equipped" && !a.equipped) return false;
+      if (q && !a.info.name.toLowerCase().includes(q) && !a.species.toLowerCase().includes(q)) return false;
+      return true;
     })
     .slice()
-    .sort(compareAnimalsByRate),
-);
+    .sort(compareAnimalsByRate);
+});
 
 const groupedAnimals = computed(() => {
   const map = new Map();
@@ -131,9 +134,7 @@ async function equipAll(group) {
   if (!toEquip.length) return;
   busy.value = `eq-${group.key}`;
   try {
-    for (const id of toEquip) {
-      await game.equipAnimal(id);
-    }
+    await Promise.all(toEquip.map(id => game.equipAnimal(id)));
   } catch (e) {
     appToast.err(e);
   } finally {
@@ -158,9 +159,7 @@ async function unequipAll(group) {
   if (!group.equippedIds.length) return;
   busy.value = `uneq-${group.key}`;
   try {
-    for (const id of group.equippedIds) {
-      await game.unequipAnimal(id);
-    }
+    await Promise.all(group.equippedIds.map(id => game.unequipAnimal(id)));
   } catch (e) {
     appToast.err(e);
   } finally {
@@ -250,10 +249,24 @@ const filters = computed(() => [
         <span class="filter-count">{{ counts[f.k] || 0 }}</span>
       </Button>
     </div>
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input
+        v-model="search"
+        class="search-input"
+        type="text"
+        :placeholder="t('inventory.search')"
+        autocomplete="off"
+      />
+      <button v-if="search" class="search-clear" @click="search = ''">✕</button>
+    </div>
   </div>
 
   <div v-if="!enriched.length" class="card subtitle">
     {{ t("inventory.empty") }}
+  </div>
+  <div v-else-if="!groupedAnimals.length" class="card subtitle">
+    {{ t("inventory.noResults") }}
   </div>
 
   <div v-else>
@@ -401,7 +414,7 @@ const filters = computed(() => [
 }
 
 /* Filter */
-.filter-card { padding: 8px; }
+.filter-card { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .filter-bar {
   display: flex;
   gap: 6px;
@@ -409,6 +422,39 @@ const filters = computed(() => [
   padding: 2px;
   scrollbar-width: thin;
 }
+
+/* Search */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.search-icon { font-size: 14px; flex: 0 0 auto; opacity: .6; }
+.search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+.search-input::placeholder { color: var(--subtitle); opacity: .7; }
+.search-clear {
+  background: none;
+  border: none;
+  color: var(--subtitle);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 2px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.search-clear:hover { color: inherit; }
 .filter-chip {
   flex: 0 0 auto;
   display: inline-flex;

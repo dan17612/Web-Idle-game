@@ -250,9 +250,12 @@ export const useGameStore = defineStore('game', {
     },
     tick(dt) {
       this.tickCoins += this.ratePerSec * dt
-      if (this.tapsNextReset && Date.now() + this.serverOffset >= this.tapsNextReset) {
-        this.tapsUsed = 0
-        this.tapsNextReset = this.tapsNextReset + 5 * 60 * 1000
+      if (this.tapsNextReset) {
+        const now = Date.now() + this.serverOffset
+        while (now >= this.tapsNextReset) {
+          this.tapsUsed = 0
+          this.tapsNextReset += 5 * 60 * 1000
+        }
       }
     },
     async persist() {
@@ -503,18 +506,20 @@ export const useGameStore = defineStore('game', {
       const toUnequip = this.animals.filter(a => a.equipped && !bestSet.has(a.id)).map(a => a.id)
       const toEquip = bestIds.filter(id => !this.animals.find(a => a.id === id)?.equipped)
 
-      for (const id of toUnequip) {
-        const { error } = await supabase.rpc('unequip_animal', { p_animal_id: id })
-        if (error) throw error
-        const a = this.animals.find(x => x.id === id)
-        if (a) a.equipped = false
-      }
-      for (const id of toEquip) {
-        const { error } = await supabase.rpc('equip_animal', { p_animal_id: id })
-        if (error) throw error
-        const a = this.animals.find(x => x.id === id)
-        if (a) a.equipped = true
-      }
+      await Promise.all([
+        ...toUnequip.map(async id => {
+          const { error } = await supabase.rpc('unequip_animal', { p_animal_id: id })
+          if (error) throw error
+          const a = this.animals.find(x => x.id === id)
+          if (a) a.equipped = false
+        }),
+        ...toEquip.map(async id => {
+          const { error } = await supabase.rpc('equip_animal', { p_animal_id: id })
+          if (error) throw error
+          const a = this.animals.find(x => x.id === id)
+          if (a) a.equipped = true
+        })
+      ])
     },
     async unequipAnimal(animalId) {
       await this.persist()

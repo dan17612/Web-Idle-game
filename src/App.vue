@@ -9,6 +9,8 @@ import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
 import TutorialBubble from "./components/TutorialBubble.vue";
 import { t } from "./i18n";
+import { useLoginStreak } from "./composables/useLoginStreak";
+import { useAppToast } from "./composables/useAppToast";
 
 const adminOpen = ref(false);
 
@@ -25,6 +27,19 @@ function formatDuration(sec) {
 const auth = useAuthStore();
 const game = useGameStore();
 const route = useRoute();
+const appToast = useAppToast();
+
+function checkLoginStreak() {
+  const userId = auth.user?.id;
+  if (!userId) return;
+  const { streak, isNewDay } = useLoginStreak(userId);
+  if (!isNewDay.value) return;
+  const n = streak.value;
+  let msg;
+  if (n <= 1) msg = t('app.streak.comeback');
+  else msg = t('app.streak.newDay', { n });
+  appToast.info(msg);
+}
 
 const STALE_MS = 90_000; // 90s – Route-Wechsel: nur neu laden, wenn lange nicht aktualisiert.
 const RETURN_THROTTLE_MS = 4_000; // Tab/Fokus-Rückkehr: max alle 4s erneut laden.
@@ -78,7 +93,7 @@ watch(
   (v, prev) => {
     if (v) {
       subscribeBroadcasts();
-      if (!prev) game.load().catch(() => {});
+      if (!prev) game.load().then(() => checkLoginStreak()).catch(() => {});
     } else if (broadcastChannel) {
       supabase.removeChannel(broadcastChannel);
       broadcastChannel = null;
@@ -95,6 +110,7 @@ onMounted(async () => {
   if (auth.isAuth) {
     await game.load();
     subscribeBroadcasts();
+    checkLoginStreak();
   }
 
   // Game-Tick: 500ms reicht fuer Tickcoin-Animation, halbiert den Re-render-Overhead
