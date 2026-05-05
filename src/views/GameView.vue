@@ -579,6 +579,7 @@ async function tap(e) {
     const f = floats.value.find((f) => f.id === id);
     if (f) f.v = "+" + formatCoins(data.earned);
   } catch (err) {
+    floats.value = floats.value.filter((f) => f.id !== id);
     appToast.err(err);
   }
 }
