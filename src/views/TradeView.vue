@@ -33,7 +33,6 @@ const I18N = {
       from: 'Von',
       to: 'An',
       expiresIn: 'Laeuft in',
-      hide: 'Ausblenden',
       yourOffer: 'Dein Angebot',
       offer: 'Bietet',
       asks: 'Verlangt',
@@ -117,7 +116,6 @@ const I18N = {
       from: 'From',
       to: 'To',
       expiresIn: 'Expires in',
-      hide: 'Hide',
       yourOffer: 'Your offer',
       offer: 'Offers',
       asks: 'Asks',
@@ -200,7 +198,6 @@ const I18N = {
       from: 'От',
       to: 'Кому',
       expiresIn: 'Истекает через',
-      hide: 'Скрыть',
       yourOffer: 'Ваше предложение',
       offer: 'Предлагает',
       asks: 'Просит',
@@ -285,7 +282,6 @@ const incoming = ref([])
 const outgoing = ref([])
 const history = ref([])
 const publicTrades = ref([])
-const hiddenTradeIds = ref(new Set())
 const isPublicOffer = ref(false)
 const confirmPublic = ref(null)
 const confirmPublicAnimals = ref([])
@@ -301,14 +297,7 @@ function fmtExpiry(t) {
   return `${h}h ${m}m`
 }
 
-async function hidePublicTrade(id) {
-  hiddenTradeIds.value = new Set([...hiddenTradeIds.value, id])
-  await supabase.rpc('hide_trade', { p_trade_id: id })
-}
-
-const visiblePublicTrades = computed(() =>
-  publicTrades.value.filter(t => !hiddenTradeIds.value.has(t.id))
-)
+const visiblePublicTrades = computed(() => publicTrades.value)
 
 // --- Partner + dessen Inventar
 const partnerUsername = ref('')
@@ -587,8 +576,6 @@ async function act(id, action) {
 
 async function loadTrades() {
   try { await supabase.rpc('expire_old_trades') } catch {}
-  const { data: hides } = await supabase.from('trade_hides').select('trade_id').eq('user_id', auth.user.id)
-  hiddenTradeIds.value = new Set((hides || []).map(h => h.trade_id))
   const [{ data: inc }, { data: out }, { data: hist }, { data: pub }] = await Promise.all([
     supabase.from('trades_view').select('*')
       .eq('addressee_id', auth.user.id).eq('status','pending')
@@ -894,12 +881,6 @@ function statusLabel(status) {
         <div style="font-weight:700">{{ tx('labels.from') }} {{ t.requester_username }}</div>
         <div class="row" style="gap:6px;align-items:center">
           <span v-if="t.expires_at" class="badge" :title="tx('labels.expiresIn')">⏳ {{ fmtExpiry(t) }}</span>
-          <Button
-            v-if="t.requester_id !== auth.user.id"
-            class="btn secondary small"
-            :title="tx('labels.hide')"
-            @click="hidePublicTrade(t.id)"
-          >🙈</Button>
           <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString(currentLocaleTag()) }}</span>
         </div>
       </div>
