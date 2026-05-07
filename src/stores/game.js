@@ -39,6 +39,8 @@ export const useGameStore = defineStore('game', {
     tutorialStep: 5,
     bossPathHighest: 0,
     bossPathCurrent: 1,
+    bossPathMaxStage: 20,
+    eventSchedule: {},
     craftJob: null
   }),
   getters: {
@@ -77,6 +79,57 @@ export const useGameStore = defineStore('game', {
         .filter(a => a.equipped && !isUpgrading(a))
         .reduce((sum, a) => sum + animalRate(a), 0)
     },
+    bossPathEndsAt(state) {
+      const cfg = state.eventSchedule?.boss_path
+      if (!cfg || cfg.show_countdown === false) return 0
+      return cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+    },
+    mergeEndsAt(state) {
+      const cfg = state.eventSchedule?.merge_game
+      if (!cfg || cfg.show_countdown === false) return 0
+      return cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+    },
+    bossPathActive(state) {
+      const cfg = state.eventSchedule?.boss_path
+      if (!cfg) return true
+      if (cfg.enabled === false) return false
+      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
+      const now = Date.now()
+      if (starts && starts > now) return false
+      if (ends && ends <= now) return false
+      return true
+    },
+    bossPathShowCountdown(state) {
+      const cfg = state.eventSchedule?.boss_path
+      return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
+    },
+    mergeActive(state) {
+      const cfg = state.eventSchedule?.merge_game
+      if (!cfg) return true
+      if (cfg.enabled === false) return false
+      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
+      const now = Date.now()
+      if (starts && starts > now) return false
+      if (ends && ends <= now) return false
+      return true
+    },
+    mergeShowCountdown(state) {
+      const cfg = state.eventSchedule?.merge_game
+      return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
+    },
+    bossEndlessActive(state) {
+      const cfg = state.eventSchedule?.boss_endless
+      if (!cfg) return true
+      if (cfg.enabled === false) return false
+      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
+      const now = Date.now()
+      if (starts && starts > now) return false
+      if (ends && ends <= now) return false
+      return true
+    },
     boostActive(state) {
       return (Date.now() + state.serverOffset) < state.petBoostUntil
     },
@@ -103,6 +156,7 @@ export const useGameStore = defineStore('game', {
     },
     rateForAnimal(state) {
       return (a) => {
+        if (!a) return 0
         if (isUpgrading(a)) return 0
         const r = animalRate(a)
         const isFav = state.favoriteAnimalId === a.id
@@ -135,7 +189,7 @@ export const useGameStore = defineStore('game', {
     },
     craftJobReady(state) {
       const job = state.craftJob
-      if (!job || !job.active) return false
+      if (!job || !job.active || !job.ready_at) return false
       const ready = new Date(job.ready_at).getTime()
       return Date.now() + state.serverOffset >= ready
     }
@@ -194,6 +248,7 @@ export const useGameStore = defineStore('game', {
       this.loading = false
       this.claimPendingGifts().catch(() => {})
       this.loadBossPath().catch(() => {})
+      this.loadEventSchedule().catch(() => {})
       this.loadCraftStatus().catch(() => {})
       this.lastLoadedAt = Date.now()
     },
@@ -220,6 +275,7 @@ export const useGameStore = defineStore('game', {
     },
     applyOffline() {
       if (!this.lastCollected) return
+      if (this.pendingOfflineEarnings) return
       const capSec = this.maxOfflineHours * 3600
       const rawElapsed = Math.max(0, (Date.now() - this.lastCollected.getTime()) / 1000)
       const elapsed = Math.min(rawElapsed, capSec)
@@ -250,11 +306,9 @@ export const useGameStore = defineStore('game', {
     },
     tick(dt) {
       this.tickCoins += this.ratePerSec * dt
-      if (this.tapsNextReset) {
-        while (Date.now() + this.serverOffset >= this.tapsNextReset) {
-          this.tapsUsed = 0
-          this.tapsNextReset += 5 * 60 * 1000
-        }
+      while (this.tapsNextReset && Date.now() + this.serverOffset >= this.tapsNextReset) {
+        this.tapsUsed = 0
+        this.tapsNextReset = this.tapsNextReset + 5 * 60 * 1000
       }
     },
     async persist() {
@@ -387,8 +441,19 @@ export const useGameStore = defineStore('game', {
       if (data) {
         this.bossPathHighest = Number(data.highest_stage || 0)
         this.bossPathCurrent = Number(data.current_stage || 1)
+        if (Number(data.max_stage || 0) > 0) this.bossPathMaxStage = Number(data.max_stage)
       }
       return data || null
+    },
+    async loadEventSchedule() {
+      try {
+        const { data, error } = await supabase.rpc('get_event_schedule')
+        if (error) throw error
+        this.eventSchedule = data && typeof data === 'object' ? data : {}
+      } catch {
+        this.eventSchedule = {}
+      }
+      return this.eventSchedule
     },
     async completeBossStage(stage, score, target) {
       await this.persist()
@@ -505,18 +570,18 @@ export const useGameStore = defineStore('game', {
       const toUnequip = this.animals.filter(a => a.equipped && !bestSet.has(a.id)).map(a => a.id)
       const toEquip = bestIds.filter(id => !this.animals.find(a => a.id === id)?.equipped)
 
-      for (const id of toUnequip) {
+      await Promise.all(toUnequip.map(async id => {
         const { error } = await supabase.rpc('unequip_animal', { p_animal_id: id })
         if (error) throw error
         const a = this.animals.find(x => x.id === id)
         if (a) a.equipped = false
-      }
-      for (const id of toEquip) {
+      }))
+      await Promise.all(toEquip.map(async id => {
         const { error } = await supabase.rpc('equip_animal', { p_animal_id: id })
         if (error) throw error
         const a = this.animals.find(x => x.id === id)
         if (a) a.equipped = true
-      }
+      }))
     },
     async unequipAnimal(animalId) {
       await this.persist()

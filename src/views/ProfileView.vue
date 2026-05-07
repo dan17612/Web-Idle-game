@@ -6,10 +6,12 @@ import { useAuthStore } from '../stores/auth'
 import { SPECIES, tierInfo, loadCatalog, formatCoins } from '../animals'
 import { t } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
+import { useAppToast } from '../composables/useAppToast'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const appToast = useAppToast()
 
 const profile = ref(null)
 const animals = ref([])
@@ -18,6 +20,7 @@ const loading = ref(false)
 const error = ref('')
 const activeTier = reactive({})
 const filter = ref('all')
+const sendingFriendRequest = ref(false)
 
 const username = computed(() => String(route.query.u || auth.profile?.username || ''))
 
@@ -161,6 +164,20 @@ function openSend() {
   if (!profile.value || isSelf.value) return
   router.push({ name: 'trade', query: { send: profile.value.username } })
 }
+
+async function sendFriendRequest() {
+  if (!profile.value || isSelf.value || sendingFriendRequest.value) return
+  sendingFriendRequest.value = true
+  try {
+    const { data, error: e } = await supabase.rpc('friend_request', { p_username: profile.value.username })
+    if (e) throw e
+    appToast.ok(data?.status === 'accepted' ? t('profile.friendRequestAccepted') : t('profile.friendRequestSent'))
+  } catch (e) {
+    appToast.err(e)
+  } finally {
+    sendingFriendRequest.value = false
+  }
+}
 </script>
 
 <template>
@@ -187,6 +204,9 @@ function openSend() {
         </div>
       </div>
       <div v-if="!isSelf" class="actions-col">
+        <Button class="btn small" @click="sendFriendRequest" :disabled="sendingFriendRequest">
+          🤝 {{ t('profile.addFriend') }}
+        </Button>
         <Button class="btn small" @click="openSend">💸 {{ t('profile.send') }}</Button>
         <Button class="btn secondary small" @click="openTrade">🔄 {{ t('profile.trade') }}</Button>
       </div>

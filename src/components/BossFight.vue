@@ -8,12 +8,16 @@ import { animationsEnabled } from "../composables/useAnimations";
 const props = defineProps({
   stageConfig: { type: Object, default: null },
   autoStart: { type: Boolean, default: false },
+  endlessMode: { type: Boolean, default: false },
+  endlessRunId: { type: Number, default: null },
+  endlessEndsAt: { type: Number, default: 0 },
 });
 
-const emit = defineEmits(["victory", "exit", "timeout"]);
+const emit = defineEmits(["victory", "exit", "timeout", "endless-finish"]);
 
 const game = useGameStore();
 const isStageMode = computed(() => !!props.stageConfig);
+const isEndless = computed(() => props.endlessMode);
 
 const I18N = {
   de: {
@@ -114,7 +118,7 @@ function tx(key, vars = {}) {
 const BOSS_BOARD_SIZE = 7;
 const BOSS_FIGHT_MS_DEFAULT = 3 * 60 * 1000;
 const BOSS_MIN_ROSTER = 5;
-const BOSS_MATCH_POINTS = 20;
+const BOSS_MATCH_POINTS = 25;
 const SWAP_ANIMATION_MS = 180;
 
 const now = ref(Date.now());
@@ -141,7 +145,7 @@ onMounted(() => {
   clockTimer = setInterval(() => {
     now.value = Date.now();
   }, 250);
-  if (props.autoStart && isStageMode.value) {
+  if (props.autoStart && (isStageMode.value || isEndless.value)) {
     setTimeout(() => startBossFight(), 50);
   }
 });
@@ -170,6 +174,9 @@ const stageBossInfo = computed(() => {
 });
 
 const fightDurationMs = computed(() => {
+  if (isEndless.value && props.endlessEndsAt) {
+    return Math.max(0, Number(props.endlessEndsAt) - Date.now());
+  }
   if (props.stageConfig?.time_seconds)
     return Number(props.stageConfig.time_seconds) * 1000;
   return BOSS_FIGHT_MS_DEFAULT;
@@ -314,6 +321,7 @@ function createBossBoard() {
 }
 
 function bossTargetPoints() {
+  if (isEndless.value) return Number.MAX_SAFE_INTEGER;
   if (props.stageConfig?.hp) return Number(props.stageConfig.hp);
   const rosterBonus = bossRoster.value.length * 80;
   const rateBonus = Math.min(800, Math.floor(Math.max(0, game.baseRate) * 15));
@@ -331,7 +339,11 @@ function startBossFight() {
   );
   bossScore.value = 0;
   bossTarget.value = bossTargetPoints();
-  bossEndsAt.value = Date.now() + game.serverOffset + fightDurationMs.value;
+  if (isEndless.value && props.endlessEndsAt) {
+    bossEndsAt.value = Number(props.endlessEndsAt);
+  } else {
+    bossEndsAt.value = Date.now() + game.serverOffset + fightDurationMs.value;
+  }
   bossSelected.value = null;
   bossMatched.value = new Set();
   bossDrag.value = null;
@@ -691,6 +703,14 @@ function finishBossTimeout() {
   bossSelected.value = null;
   bossDrag.value = null;
   bossSwap.value = null;
+  if (isEndless.value) {
+    showBossMessage("claiming", "success", {}, true);
+    emit("endless-finish", {
+      damage: bossScore.value,
+      runId: props.endlessRunId,
+    });
+    return;
+  }
   defeatVisible.value = true;
   showBossMessage("timeout", "error", {}, true);
   if (isStageMode.value) emit("timeout");
@@ -784,7 +804,11 @@ function exitFight() {
         :name="animationsEnabled ? 'boss-cell' : undefined"
         :tag="animationsEnabled ? 'div' : undefined"
         class="boss-board"
-        :class="{ paused: !bossActive, busy: bossBusy, 'no-anim-board': !animationsEnabled }"
+        :class="{
+          paused: !bossActive,
+          busy: bossBusy,
+          'no-anim-board': !animationsEnabled,
+        }"
       >
         <Button
           v-for="cell in bossCells"
@@ -1045,7 +1069,7 @@ function exitFight() {
 }
 .boss-message-slot {
   position: relative;
-  height: 36px;        /* feste Hoehe → reserviert Platz, verhindert Layout-Shift */
+  height: 36px; /* feste Hoehe → reserviert Platz, verhindert Layout-Shift */
   flex: 0 0 auto;
 }
 .boss-message {
@@ -1082,7 +1106,9 @@ function exitFight() {
 }
 .boss-msg-fade-enter-active,
 .boss-msg-fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 .boss-msg-fade-enter-from,
 .boss-msg-fade-leave-to {
@@ -1168,8 +1194,7 @@ function exitFight() {
 .boss-tile-emoji {
   display: block;
   pointer-events: none;
-  filter:
-    drop-shadow(0 0 2px rgba(0, 0, 0, 0.85))
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.85))
     drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55));
 }
 .boss-cell-move {

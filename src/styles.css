@@ -19,6 +19,7 @@ html, body, #app { height: 100%; margin: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   background: radial-gradient(ellipse at top, #16213d 0%, var(--bg) 70%);
+  background-attachment: fixed;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
@@ -63,6 +64,8 @@ input:focus { border-color: var(--accent); }
   padding: 0 !important;
   color: var(--text) !important;
   font-size: 16px !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
 }
 .p-button.settings-link:not(:disabled):hover {
   background: rgba(255, 255, 255, 0.12) !important;
@@ -415,6 +418,18 @@ input:focus { border-color: var(--accent); }
 @keyframes tut-pulse {
   0%, 100% { box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.6), 0 0 24px 4px rgba(255, 209, 102, 0.4); }
   50% { box-shadow: 0 0 0 6px rgba(255, 209, 102, 0.8), 0 0 36px 10px rgba(255, 209, 102, 0.55); }
+}
+
+.p-toast {
+  max-width: calc(100vw - 24px);
+  width: 360px;
+}
+.p-toast .p-toast-message-content {
+  font-size: 14px;
+  padding: 10px 14px;
+}
+@media (max-width: 480px) {
+  .p-toast { width: calc(100vw - 24px); }
 }
 
 /* Animationen global ausschaltbar (Settings → "Animationen aus"). */

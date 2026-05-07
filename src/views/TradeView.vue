@@ -4,10 +4,11 @@ import { useRoute } from 'vue-router'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { useGameStore } from '../stores/game'
-import { speciesInfo, formatCoins, tierInfo, animalRate, compareAnimalsByRate } from '../animals'
+import { SPECIES, TIERS, speciesInfo, formatCoins, tierInfo, animalRate, compareAnimalsByRate } from '../animals'
 import CoinInput from '../components/CoinInput.vue'
 import { locale, currentLocaleTag } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
+import { hasWantedAnimals, pickWantedAnimals, wantedAnimalItems } from '../tradePublicWanted'
 
 const route = useRoute()
 
@@ -26,18 +27,21 @@ const I18N = {
       coinsOptional: 'Muenzen (optional)',
       noteOptional: 'Notiz (optional)',
       accept: 'Annehmen',
+      confirmAccept: 'Trade bestätigen',
       decline: 'Ablehnen',
       cancel: 'Zurueckziehen',
       from: 'Von',
       to: 'An',
       expiresIn: 'Laeuft in',
-      hide: 'Ausblenden',
       yourOffer: 'Dein Angebot',
       offer: 'Bietet',
       asks: 'Verlangt',
       nothing: 'nichts',
       freeOptionalAnimals: 'frei (optional Tiere)',
       optionalGiveAnimals: 'Optional: Tiere mitgeben',
+      wantedAnimals: 'Gewünschte Tiere',
+      wantedAnyAnimals: 'Beliebige Tiere optional',
+      confirmPublicTitle: 'Trade annehmen?',
       youGet: 'Du bekommst',
       youGive: 'Du gibst',
       tradePartner: 'Handelspartner',
@@ -49,16 +53,16 @@ const I18N = {
     },
     hints: {
       oneWaySend: 'Einseitige Muenz-Ueberweisung, kein Einverstaendnis noetig.',
-      publicPost: 'Oeffentlich posten',
+      publicPost: 'Öffentlich posten',
       anyoneCanAccept: 'Jeder kann akzeptieren',
-      publicCoinsOnly: 'Nenne nur Muenzen als Gegenleistung (keine konkreten Tier-IDs).',
+      publicCoinsOnly: 'Wähle Münzen oder gewünschte Tiere als Gegenleistung.',
       searching: 'Suche...',
       tradableAnimals: '{count} tauschbare Tiere',
       noMyTradable: 'Keine tauschbaren Tiere. Rueste sie zuerst ab.',
       noPartnerTradable: 'Dieser Spieler hat keine tauschbaren Tiere.',
       picker: 'Klick = +1 · Rechtsklick/Chip-Klick = -1',
-      publicList: 'Oeffentliche Angebote - jeder kann annehmen, der die verlangten Muenzen/Tiere hat.',
-      noPublic: 'Keine oeffentlichen Trades.',
+      publicList: 'Öffentliche Angebote - jeder kann annehmen, der die verlangten Muenzen/Tiere hat.',
+      noPublic: 'Keine öffentlichen Trades.',
       noIncoming: 'Keine offenen Anfragen.',
       noOutgoing: 'Keine gesendeten Anfragen offen.',
       noHistory: 'Noch keine abgeschlossenen Trades.',
@@ -69,22 +73,24 @@ const I18N = {
     },
     actions: {
       send: 'Senden',
-      publishPublic: 'Oeffentlich posten',
+      publishPublic: 'Öffentlich posten',
       sendTrade: 'Trade-Anfrage senden'
     },
     errors: {
       notFound: 'Nicht gefunden',
       isSelf: 'Das bist du selbst',
-      partnerOrPublic: 'Partner waehlen oder oeffentlich posten',
+      partnerOrPublic: 'Partner waehlen oder öffentlich posten',
       tradeEmpty: 'Trade ist komplett leer',
       notEnoughCoins: 'Nicht genug Muenzen',
-      publicNoSpecificAnimals: 'Oeffentliche Trades koennen keine konkreten Tiere vom Annehmer verlangen (nur Muenzen).',
+      publicNoSpecificAnimals: 'Öffentliche Trades können keine konkreten Tier-IDs vom Annehmer verlangen.',
+      publicWantedIncomplete: 'Wähle gewünschte Tiere aus.',
+      publicWantedNotMet: 'Wähle exakt die gewünschten Tiere für diesen öffentlichen Trade.',
       recipientRequired: 'Empfaenger angeben',
       amountMin: 'Betrag muss >= 1 sein',
       recipientNotFound: 'Empfaenger nicht gefunden'
     },
     success: {
-      publicPosted: 'Oeffentlicher Trade veroeffentlicht!',
+      publicPosted: 'Öffentlicher Trade veröffentlicht!',
       tradeSent: 'Trade-Anfrage gesendet!',
       coinsSent: '{amount} 🪙 gesendet',
       tradeAccepted: 'Trade angenommen!',
@@ -104,18 +110,21 @@ const I18N = {
       coinsOptional: 'Coins (optional)',
       noteOptional: 'Note (optional)',
       accept: 'Accept',
+      confirmAccept: 'Confirm trade',
       decline: 'Decline',
       cancel: 'Cancel',
       from: 'From',
       to: 'To',
       expiresIn: 'Expires in',
-      hide: 'Hide',
       yourOffer: 'Your offer',
       offer: 'Offers',
       asks: 'Asks',
       nothing: 'nothing',
       freeOptionalAnimals: 'free (optional animals)',
       optionalGiveAnimals: 'Optional: add animals',
+      wantedAnimals: 'Wanted animals',
+      wantedAnyAnimals: 'Any animals optional',
+      confirmPublicTitle: 'Accept trade?',
       youGet: 'You get',
       youGive: 'You give',
       tradePartner: 'Trade partner',
@@ -129,7 +138,7 @@ const I18N = {
       oneWaySend: 'One-way coin transfer, no consent required.',
       publicPost: 'Post publicly',
       anyoneCanAccept: 'Anyone can accept',
-      publicCoinsOnly: 'Only request coins as compensation (no specific animal IDs).',
+      publicCoinsOnly: 'Choose coins or wanted animals as compensation.',
       searching: 'Searching...',
       tradableAnimals: '{count} tradable animals',
       noMyTradable: 'No tradable animals. Unequip them first.',
@@ -156,7 +165,9 @@ const I18N = {
       partnerOrPublic: 'Choose a partner or post publicly',
       tradeEmpty: 'Trade is completely empty',
       notEnoughCoins: 'Not enough coins',
-      publicNoSpecificAnimals: 'Public trades cannot require specific animals from the accepter (coins only).',
+      publicNoSpecificAnimals: 'Public trades cannot require specific animal IDs from the accepter.',
+      publicWantedIncomplete: 'Choose wanted animals.',
+      publicWantedNotMet: 'Choose exactly the wanted animals for this public trade.',
       recipientRequired: 'Enter recipient',
       amountMin: 'Amount must be >= 1',
       recipientNotFound: 'Recipient not found'
@@ -187,7 +198,6 @@ const I18N = {
       from: 'От',
       to: 'Кому',
       expiresIn: 'Истекает через',
-      hide: 'Скрыть',
       yourOffer: 'Ваше предложение',
       offer: 'Предлагает',
       asks: 'Просит',
@@ -272,9 +282,9 @@ const incoming = ref([])
 const outgoing = ref([])
 const history = ref([])
 const publicTrades = ref([])
-const hiddenTradeIds = ref(new Set())
-const publicAccept = ref({})
 const isPublicOffer = ref(false)
+const confirmPublic = ref(null)
+const confirmPublicAnimals = ref([])
 
 function fmtExpiry(t) {
   if (!t.expires_at) return ''
@@ -287,14 +297,7 @@ function fmtExpiry(t) {
   return `${h}h ${m}m`
 }
 
-async function hidePublicTrade(id) {
-  hiddenTradeIds.value = new Set([...hiddenTradeIds.value, id])
-  await supabase.rpc('hide_trade', { p_trade_id: id })
-}
-
-const visiblePublicTrades = computed(() =>
-  publicTrades.value.filter(t => !hiddenTradeIds.value.has(t.id))
-)
+const visiblePublicTrades = computed(() => publicTrades.value)
 
 // --- Partner + dessen Inventar
 const partnerUsername = ref('')
@@ -310,6 +313,9 @@ const offer = reactive({
   theirAnimals: new Set(),
   theirCoins: 0,
   note: ''
+})
+const publicWanted = reactive({
+  items: {}
 })
 const mode = ref('trade')   // 'trade' | 'send'
 const sendForm = reactive({ username: '', amount: 0 })
@@ -331,6 +337,26 @@ function groupByKey(list) {
 
 const myGroups = computed(() => groupByKey(myTradableAnimals.value))
 const partnerGroups = computed(() => groupByKey(partnerAnimals.value))
+const tierOptions = computed(() =>
+  Object.entries(TIERS)
+    .map(([tier, td]) => ({ tier, ...td }))
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+)
+const publicWantedGroups = computed(() => {
+  const species = Object.values(SPECIES)
+    .filter(s => s.enabled !== false)
+    .slice()
+    .sort((a, b) => (a.cost || 0) - (b.cost || 0))
+
+  return species.flatMap(s => tierOptions.value.map(td => ({
+    key: `${s.key}|${td.tier}`,
+    species: s.key,
+    tier: td.tier,
+    info: speciesInfo(s.key),
+    td,
+    rate: (s.rate || 0) * (td.multiplier || 1)
+  })))
+})
 
 function selectedCount(selectedSet, groupList) {
   let n = 0
@@ -362,6 +388,62 @@ function toggleTheirsGroup(group, remove = false) {
 
 const mySelectedGroups = computed(() => myGroups.value.map(g => ({ ...g, selected: myGroupSelected(g) })).filter(g => g.selected > 0))
 const theirSelectedGroups = computed(() => partnerGroups.value.map(g => ({ ...g, selected: theirGroupSelected(g) })).filter(g => g.selected > 0))
+
+function publicWantedTrade() {
+  const wanted_animals = Object.entries(publicWanted.items)
+    .map(([key, qty]) => {
+      const [species, tier = 'normal'] = key.split('|')
+      return { species, tier, qty: Math.max(0, Math.floor(Number(qty) || 0)) }
+    })
+    .filter(item => item.species && item.qty > 0)
+
+  const first = wanted_animals[0]
+  return {
+    wanted_animals,
+    wanted_species: first?.species || null,
+    wanted_tier: first?.tier || 'normal',
+    wanted_qty: first?.qty || 0
+  }
+}
+
+function publicWantedGroupSelected(group) {
+  return Math.max(0, Math.floor(Number(publicWanted.items[group.key]) || 0))
+}
+
+function togglePublicWantedGroup(group, remove = false) {
+  const selected = publicWantedGroupSelected(group)
+  if (remove) {
+    if (!selected) return
+    if (selected <= 1) delete publicWanted.items[group.key]
+    else publicWanted.items[group.key] = selected - 1
+    return
+  }
+  publicWanted.items[group.key] = selected + 1
+}
+
+const publicWantedSelectedGroups = computed(() =>
+  publicWantedGroups.value
+    .map(g => ({ ...g, selected: publicWantedGroupSelected(g) }))
+    .filter(g => g.selected > 0)
+)
+
+function publicGiveAnimals(t) {
+  if (confirmPublic.value?.id === t?.id) return confirmPublicAnimals.value
+  return pickWantedAnimals(myTradableAnimals.value, t)
+}
+
+function publicAcceptDisabled(t) {
+  return busy.value || Number(t.addressee_coins) > game.displayCoins || (hasWantedAnimals(t) && publicGiveAnimals(t).length === 0)
+}
+
+function publicWantedText(t) {
+  if (!hasWantedAnimals(t)) return tx('labels.wantedAnyAnimals')
+  return wantedAnimalItems(t).map((item) => {
+    const info = speciesInfo(item.species)
+    const tier = tierInfo(item.tier)
+    return `${item.qty}× ${info.emoji} ${info.name}${tier.badge ? ` ${tier.badge}` : ''}`
+  }).join(' + ')
+}
 
 async function lookupPartner() {
   partnerError.value = ''
@@ -399,6 +481,7 @@ function resetForm() {
   offer.myCoins = 0
   offer.theirCoins = 0
   offer.note = ''
+  publicWanted.items = {}
   partnerUsername.value = ''
   partnerProfile.value = null
   partnerAnimals.value = []
@@ -421,6 +504,11 @@ async function propose() {
     error.value = tx('errors.publicNoSpecificAnimals')
     return
   }
+  const wanted = publicWantedTrade()
+  if (isPublicOffer.value && ((wanted.wanted_species && wanted.wanted_qty < 1) || (!wanted.wanted_species && wanted.wanted_qty > 0))) {
+    error.value = tx('errors.publicWantedIncomplete')
+    return
+  }
   busy.value = true
   try {
     await game.persist()
@@ -430,7 +518,11 @@ async function propose() {
       p_requester_coins: reqCoins,
       p_addressee_animals: isPublicOffer.value ? [] : addAnimals,
       p_addressee_coins: addCoins,
-      p_note: offer.note || null
+      p_note: offer.note || null,
+      p_wanted_species: isPublicOffer.value ? wanted.wanted_species : null,
+      p_wanted_tier: isPublicOffer.value ? wanted.wanted_tier : null,
+      p_wanted_qty: isPublicOffer.value ? wanted.wanted_qty : 0,
+      p_wanted_animals: isPublicOffer.value ? wanted.wanted_animals : []
     })
     if (e) throw e
     success.value = isPublicOffer.value ? tx('success.publicPosted') : tx('success.tradeSent')
@@ -484,8 +576,6 @@ async function act(id, action) {
 
 async function loadTrades() {
   try { await supabase.rpc('expire_old_trades') } catch {}
-  const { data: hides } = await supabase.from('trade_hides').select('trade_id').eq('user_id', auth.user.id)
-  hiddenTradeIds.value = new Set((hides || []).map(h => h.trade_id))
   const [{ data: inc }, { data: out }, { data: hist }, { data: pub }] = await Promise.all([
     supabase.from('trades_view').select('*')
       .eq('addressee_id', auth.user.id).eq('status','pending')
@@ -508,37 +598,35 @@ async function loadTrades() {
   publicTrades.value = pub || []
 }
 
-function togglePubAnimal(tradeId, animalId) {
-  const cur = publicAccept.value[tradeId] || new Set()
-  if (cur.has(animalId)) cur.delete(animalId); else cur.add(animalId)
-  publicAccept.value = { ...publicAccept.value, [tradeId]: cur }
+function openPublicConfirm(t) {
+  error.value = ''; success.value = ''
+  if (Number(t.addressee_coins) > game.displayCoins) { error.value = tx('errors.notEnoughCoins'); return }
+  const animals = publicGiveAnimals(t)
+  if (hasWantedAnimals(t) && animals.length === 0) { error.value = tx('errors.publicWantedNotMet'); return }
+  confirmPublicAnimals.value = animals
+  confirmPublic.value = t
 }
 
-function pubGroupSelected(tradeId, group) {
-  const set = publicAccept.value[tradeId]
-  if (!set) return 0
-  let n = 0
-  for (const a of group.list) if (set.has(a.id)) n++
-  return n
-}
-function togglePubGroup(tradeId, group, remove = false) {
-  const cur = publicAccept.value[tradeId] || new Set()
-  if (remove) removeFromGroup(cur, group.list)
-  else addFromGroup(cur, group.list)
-  publicAccept.value = { ...publicAccept.value, [tradeId]: cur }
+function closePublicConfirm() {
+  if (busy.value) return
+  confirmPublic.value = null
+  confirmPublicAnimals.value = []
 }
 
 async function acceptPublic(t) {
   error.value = ''; success.value = ''
-  const ids = [...(publicAccept.value[t.id] || [])]
+  const animals = publicGiveAnimals(t)
+  const ids = animals.map(a => a.id)
   if (Number(t.addressee_coins) > game.displayCoins) { error.value = tx('errors.notEnoughCoins'); return }
+  if (hasWantedAnimals(t) && animals.length === 0) { error.value = tx('errors.publicWantedNotMet'); return }
   busy.value = true
   try {
     await game.persist()
     const { error: e } = await supabase.rpc('accept_public_trade', { p_trade_id: t.id, p_my_animals: ids })
     if (e) throw e
     success.value = tx('success.tradeAccepted')
-    publicAccept.value = { ...publicAccept.value, [t.id]: new Set() }
+    confirmPublic.value = null
+    confirmPublicAnimals.value = []
     await Promise.all([loadTrades(), game.load()])
   } catch (e) { error.value = e.message }
   finally { busy.value = false; setTimeout(() => success.value = '', 2500) }
@@ -726,7 +814,34 @@ function statusLabel(status) {
             </div>
             <Button class="chip-add" @click="pickerOpen = pickerOpen==='theirs'?'':'theirs'">{{ tx('labels.addAnimal') }}</Button>
           </div>
+          <div v-else class="slots">
+            <div v-for="g in publicWantedSelectedGroups" :key="g.key" class="chip-anim" @click="togglePublicWantedGroup(g, true)">
+              <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
+              <span class="chip-count">×{{ g.selected }}</span>
+            </div>
+            <Button class="chip-add" @click="pickerOpen = pickerOpen==='publicWanted'?'':'publicWanted'">{{ tx('labels.addAnimal') }}</Button>
+          </div>
           <CoinInput v-model="offer.theirCoins" :placeholder="tx('labels.coinsOptional')" />
+
+          <div v-if="pickerOpen==='publicWanted'" class="picker">
+            <div class="picker-grid">
+              <div v-for="g in publicWantedGroups" :key="g.key"
+                   class="pick"
+                   :class="{ active: publicWantedGroupSelected(g) > 0, tiered: g.tier !== 'normal' }"
+                   :style="{ '--tb': g.td.color }"
+                   @click="togglePublicWantedGroup(g)"
+                   @contextmenu.prevent="togglePublicWantedGroup(g, true)">
+                <div class="pick-emoji">{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></div>
+                <div class="pick-name">{{ g.info.name }}</div>
+                <div class="pick-count">
+                  <span v-if="publicWantedGroupSelected(g) > 0" class="pick-selected">{{ publicWantedGroupSelected(g) }}/</span>∞
+                </div>
+              </div>
+            </div>
+            <div class="subtitle" style="margin-top:6px;font-size:11px">
+              {{ tx('hints.picker') }}
+            </div>
+          </div>
 
           <div v-if="pickerOpen==='theirs'" class="picker">
             <div v-if="!partnerGroups.length" class="subtitle">{{ tx('hints.noPartnerTradable') }}</div>
@@ -766,12 +881,6 @@ function statusLabel(status) {
         <div style="font-weight:700">{{ tx('labels.from') }} {{ t.requester_username }}</div>
         <div class="row" style="gap:6px;align-items:center">
           <span v-if="t.expires_at" class="badge" :title="tx('labels.expiresIn')">⏳ {{ fmtExpiry(t) }}</span>
-          <Button
-            v-if="t.requester_id !== auth.user.id"
-            class="btn secondary small"
-            :title="tx('labels.hide')"
-            @click="hidePublicTrade(t.id)"
-          >🙈</Button>
           <span class="subtitle" style="margin:0">{{ new Date(t.created_at).toLocaleString(currentLocaleTag()) }}</span>
         </div>
       </div>
@@ -789,28 +898,14 @@ function statusLabel(status) {
           <div class="mini-label">{{ tx('labels.asks') }}</div>
           <div class="mini-row">
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
-            <span v-else class="subtitle">{{ tx('labels.freeOptionalAnimals') }}</span>
+            <span v-if="hasWantedAnimals(t)" class="wanted-chip">{{ publicWantedText(t) }}</span>
+            <span v-if="!hasWantedAnimals(t) && Number(t.addressee_coins) === 0" class="subtitle">{{ tx('labels.freeOptionalAnimals') }}</span>
           </div>
         </div>
       </div>
       <div v-if="t.note" class="subtitle" style="margin:4px 0 0">„{{ t.note }}"</div>
       <template v-if="t.requester_id !== auth.user.id">
-        <div class="subtitle" style="margin:6px 0 4px">{{ tx('labels.optionalGiveAnimals') }}</div>
-        <div class="picker-grid">
-          <div v-for="g in myGroups" :key="g.key"
-               class="pick"
-               :class="{ active: pubGroupSelected(t.id, g) > 0, tiered: g.tier !== 'normal' }"
-               :style="{ '--tb': g.td.color }"
-               @click="togglePubGroup(t.id, g)"
-               @contextmenu.prevent="togglePubGroup(t.id, g, true)">
-            <div class="pick-emoji">{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></div>
-            <div class="pick-name">{{ g.info.name }}</div>
-            <div class="pick-count">
-              <span v-if="pubGroupSelected(t.id, g) > 0" class="pick-selected">{{ pubGroupSelected(t.id, g) }}/</span>{{ g.list.length }}
-            </div>
-          </div>
-        </div>
-        <Button class="btn full" style="margin-top:8px" :disabled="busy" @click="acceptPublic(t)">
+        <Button class="btn full" style="margin-top:8px" :disabled="publicAcceptDisabled(t)" @click="openPublicConfirm(t)">
           {{ busy ? '...' : tx('labels.accept') }}
         </Button>
       </template>
@@ -914,6 +1009,39 @@ function statusLabel(status) {
       </div>
     </div>
   </template>
+
+  <div v-if="confirmPublic" class="confirm-overlay" @click.self="closePublicConfirm">
+    <div class="confirm-dialog trade-confirm">
+      <div class="row between">
+        <h3>{{ tx('labels.confirmPublicTitle') }}</h3>
+        <Button class="btn secondary small" :disabled="busy" @click="closePublicConfirm">×</Button>
+      </div>
+      <div class="confirm-zones">
+        <div class="confirm-zone danger-zone">
+          <div class="mini-label">{{ tx('labels.youGive') }}</div>
+          <div class="mini-row">
+            <span v-for="a in confirmPublicAnimals" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
+            <span v-if="Number(confirmPublic.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(confirmPublic.addressee_coins) }}</span>
+            <span v-if="!confirmPublicAnimals.length && Number(confirmPublic.addressee_coins) === 0" class="subtitle">{{ tx('labels.nothing') }}</span>
+          </div>
+        </div>
+        <div class="confirm-zone success-zone">
+          <div class="mini-label">{{ tx('labels.youGet') }}</div>
+          <div class="mini-row">
+            <span v-for="a in confirmPublic.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
+            <span v-if="Number(confirmPublic.requester_coins) > 0" class="coins">🪙 {{ formatCoins(confirmPublic.requester_coins) }}</span>
+            <span v-if="!confirmPublic.requester_animal_details.length && Number(confirmPublic.requester_coins) === 0" class="subtitle">{{ tx('labels.nothing') }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="gap:8px;margin-top:12px">
+        <Button class="btn danger" :disabled="busy" @click="closePublicConfirm">{{ tx('labels.cancel') }}</Button>
+        <Button class="btn" :disabled="busy" @click="acceptPublic(confirmPublic)">
+          {{ busy ? '...' : tx('labels.confirmAccept') }}
+        </Button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -987,7 +1115,27 @@ function statusLabel(status) {
 .mini-label { font-size:10px; color: var(--muted); }
 .mini-row { display:flex; flex-wrap:wrap; gap:4px; align-items:center; font-size: 20px; }
 .mini-row .coins { font-size: 13px; color: var(--accent); font-weight: 700; }
+.wanted-chip { font-size: 13px; color: var(--accent); font-weight: 700; }
 .arrow-mini { font-size: 16px; color: var(--accent); font-weight: 800; }
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,0.58);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.trade-confirm {
+  width: min(520px, 100%);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px;
+  box-shadow: 0 16px 50px rgba(0,0,0,0.35);
+}
+.trade-confirm h3 { margin: 0; font-size: 18px; }
+.confirm-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.confirm-zone { border-radius: 10px; padding: 10px; min-height: 78px; }
+.danger-zone { border: 1px solid rgba(239,71,111,0.55); background: rgba(239,71,111,0.12); }
+.success-zone { border: 1px solid rgba(6,214,160,0.55); background: rgba(6,214,160,0.12); }
+.danger-zone .mini-label { color: #ff8aa3; }
+.success-zone .mini-label { color: var(--accent-2); }
 .tb {
   font-size: 0.55em; vertical-align: super; line-height: 1;
   margin-left: -2px;

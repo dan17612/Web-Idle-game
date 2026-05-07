@@ -174,6 +174,8 @@ create table if not exists public.trades (
   is_public boolean not null default false,
   wanted_species text,
   wanted_tier text,
+  wanted_qty int not null default 0 check (wanted_qty >= 0),
+  wanted_animals jsonb not null default '[]'::jsonb,
   expires_at timestamptz
 );
 
@@ -395,7 +397,9 @@ create or replace view public.trades_view as
     (select coalesce(jsonb_agg(
        jsonb_build_object('id', a.id, 'species', a.species, 'tier', a.tier)
        order by a.acquired_at), '[]'::jsonb)
-     from public.animals a where a.id = any(t.addressee_animals)) as addressee_animal_details
+     from public.animals a where a.id = any(t.addressee_animals)) as addressee_animal_details,
+    t.wanted_qty,
+    t.wanted_animals
   from public.trades t
   join public.profiles pr on pr.id = t.requester_id
   left join public.profiles pa on pa.id = t.addressee_id;
@@ -806,7 +810,7 @@ declare
   i int; new_animal public.animals%rowtype;
 begin
   if uid is null then raise exception 'not authenticated'; end if;
-  if p_qty is null or p_qty < 1 or p_qty > 3 then raise exception 'qty must be 1, 2 or 3'; end if;
+  if p_qty is null or p_qty < 1 or p_qty > 5 then raise exception 'qty must be 1, 2 or 5'; end if;
   select * into cfg from public.chest_config where id = 1;
   if cfg is null then raise exception 'chest config missing'; end if;
   state := public._rotate_if_needed();
@@ -1087,11 +1091,15 @@ create or replace function public.propose_trade(
   p_addressee_coins bigint,
   p_note text default null,
   p_wanted_species text default null,
-  p_wanted_tier text default null
+  p_wanted_tier text default null,
+  p_wanted_qty int default 0,
+  p_wanted_animals jsonb default '[]'::jsonb
 ) returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   uid uuid := auth.uid(); target uuid; new_id uuid;
   miss_count int; is_pub boolean := false;
+  wanted_items jsonb := '[]'::jsonb;
+  first_wanted jsonb;
 begin
   if uid is null then raise exception 'not authenticated'; end if;
   if p_addressee is null or trim(p_addressee) = '' then
@@ -1105,9 +1113,27 @@ begin
   p_addressee_animals := coalesce(p_addressee_animals, '{}');
   p_requester_coins   := coalesce(p_requester_coins, 0);
   p_addressee_coins   := coalesce(p_addressee_coins, 0);
+  p_wanted_qty         := greatest(coalesce(p_wanted_qty, 0), 0);
+  p_wanted_animals     := coalesce(p_wanted_animals, '[]'::jsonb);
+  select coalesce(jsonb_agg(
+    jsonb_build_object(
+      'species', item->>'species',
+      'tier', coalesce(nullif(item->>'tier', ''), 'normal'),
+      'qty', greatest(coalesce((item->>'qty')::int, 0), 0)
+    )
+  ), '[]'::jsonb) into wanted_items
+  from jsonb_array_elements(case when jsonb_typeof(p_wanted_animals) = 'array' then p_wanted_animals else '[]'::jsonb end) item
+  where coalesce(item->>'species', '') <> '' and greatest(coalesce((item->>'qty')::int, 0), 0) > 0;
+  if jsonb_array_length(wanted_items) = 0 and p_wanted_species is not null and trim(p_wanted_species) <> '' and p_wanted_qty > 0 then
+    wanted_items := jsonb_build_array(jsonb_build_object('species', p_wanted_species, 'tier', coalesce(nullif(p_wanted_tier, ''), 'normal'), 'qty', p_wanted_qty));
+  end if;
+  first_wanted := wanted_items->0;
+  p_wanted_species := first_wanted->>'species';
+  p_wanted_tier := coalesce(first_wanted->>'tier', 'normal');
+  p_wanted_qty := coalesce((first_wanted->>'qty')::int, 0);
   if p_requester_coins < 0 or p_addressee_coins < 0 then raise exception 'coins must be non-negative'; end if;
   if cardinality(p_requester_animals) + cardinality(p_addressee_animals) + p_requester_coins + p_addressee_coins = 0
-     and p_wanted_species is null then
+     and jsonb_array_length(wanted_items) = 0 then
     raise exception 'trade must contain something';
   end if;
   if cardinality(p_requester_animals) > 0 then
@@ -1140,17 +1166,17 @@ begin
     requester_id, addressee_id, is_public,
     requester_animals, addressee_animals,
     requester_coins, addressee_coins, note,
-    wanted_species, wanted_tier, expires_at
+    wanted_species, wanted_tier, wanted_qty, wanted_animals, expires_at
   ) values (
     uid, target, is_pub,
     p_requester_animals, p_addressee_animals,
     p_requester_coins, p_addressee_coins, nullif(p_note, ''),
-    nullif(p_wanted_species, ''), nullif(coalesce(p_wanted_tier, 'normal'), ''),
+    nullif(p_wanted_species, ''), nullif(coalesce(p_wanted_tier, 'normal'), ''), p_wanted_qty, wanted_items,
     now() + interval '7 days'
   ) returning id into new_id;
   return jsonb_build_object('trade_id', new_id, 'public', is_pub);
 end $$;
-grant execute on function public.propose_trade(text, uuid[], bigint, uuid[], bigint, text, text, text) to authenticated;
+grant execute on function public.propose_trade(text, uuid[], bigint, uuid[], bigint, text, text, text, int, jsonb) to authenticated;
 
 create or replace function public.accept_trade(p_trade_id uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -1246,7 +1272,7 @@ create or replace function public.accept_public_trade(p_trade_id uuid, p_my_anim
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   uid uuid := auth.uid(); t public.trades%rowtype;
-  req_bal bigint; add_bal bigint; miss_count int; match_count int;
+  req_bal bigint; add_bal bigint; miss_count int; match_count int; wanted jsonb; wanted_total int := 0;
 begin
   if uid is null then raise exception 'not authenticated'; end if;
   select * into t from public.trades where id = p_trade_id for update;
@@ -1266,13 +1292,33 @@ begin
       );
     if miss_count > 0 then raise exception 'some of your animals are not available'; end if;
   end if;
-  if t.wanted_species is not null then
+  if jsonb_array_length(coalesce(t.wanted_animals, '[]'::jsonb)) > 0 then
+    select coalesce(sum(greatest(coalesce((item->>'qty')::int, 0), 0)), 0)::int into wanted_total
+    from jsonb_array_elements(t.wanted_animals) item;
+    if cardinality(p_my_animals) <> wanted_total then
+      raise exception 'you must include exactly the requested animals';
+    end if;
+    for wanted in select * from jsonb_array_elements(t.wanted_animals) loop
+      select count(*) into match_count from public.animals
+        where id = any(p_my_animals) and owner_id = uid
+          and species = wanted->>'species'
+          and coalesce(tier, 'normal') = coalesce(nullif(wanted->>'tier', ''), 'normal');
+      if match_count <> greatest(coalesce((wanted->>'qty')::int, 1), 1) then
+        raise exception 'you must include exactly % % (%)', greatest(coalesce((wanted->>'qty')::int, 1), 1), wanted->>'species', coalesce(nullif(wanted->>'tier', ''), 'normal');
+      end if;
+    end loop;
+  elsif t.wanted_species is not null then
+    if cardinality(p_my_animals) <> greatest(coalesce(t.wanted_qty, 1), 1) then
+      raise exception 'you must include exactly the requested animals';
+    end if;
     select count(*) into match_count from public.animals
       where id = any(p_my_animals) and owner_id = uid
-        and species = t.wanted_species and tier = coalesce(t.wanted_tier, 'normal');
-    if match_count < 1 then
-      raise exception 'you must include at least one % (%)', t.wanted_species, coalesce(t.wanted_tier, 'normal');
+        and species = t.wanted_species and coalesce(tier, 'normal') = coalesce(t.wanted_tier, 'normal');
+    if match_count <> greatest(coalesce(t.wanted_qty, 1), 1) then
+      raise exception 'you must include exactly % % (%)', greatest(coalesce(t.wanted_qty, 1), 1), t.wanted_species, coalesce(t.wanted_tier, 'normal');
     end if;
+  elsif cardinality(p_my_animals) > 0 then
+    raise exception 'this trade does not request animals';
   end if;
   if cardinality(t.requester_animals) > 0 then
     select count(*) into miss_count from unnest(t.requester_animals) aid

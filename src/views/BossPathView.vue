@@ -8,6 +8,10 @@ import BossFight from "../components/BossFight.vue";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
 
+const props = defineProps({
+  embedded: { type: Boolean, default: false }
+});
+
 const game = useGameStore();
 const appToast = useAppToast();
 const router = useRouter();
@@ -52,7 +56,10 @@ const I18N = {
     confirmFight: "Bereit?",
     cancel: "Abbrechen",
     loading: "Lade Boss-Pfad…",
-    retry: "Erneut versuchen"
+    retry: "Erneut versuchen",
+    eventEndsIn: "Verschwindet in {time}",
+    eventEnded: "Ereignis beendet",
+    eventEndedSub: "Der Boss-Pfad ist vorbei. Es können keine Kämpfe mehr gestartet werden."
   },
   en: {
     title: "🗺️ Boss path",
@@ -93,7 +100,10 @@ const I18N = {
     confirmFight: "Ready?",
     cancel: "Cancel",
     loading: "Loading boss path…",
-    retry: "Retry"
+    retry: "Retry",
+    eventEndsIn: "Disappears in {time}",
+    eventEnded: "Event ended",
+    eventEndedSub: "The boss path is over. New fights cannot be started."
   },
   ru: {
     title: "🗺️ Путь босса",
@@ -134,7 +144,10 @@ const I18N = {
     confirmFight: "Готов?",
     cancel: "Отмена",
     loading: "Загрузка пути…",
-    retry: "Повторить"
+    retry: "Повторить",
+    eventEndsIn: "Исчезнет через {time}",
+    eventEnded: "Событие завершено",
+    eventEndedSub: "Босс-путь завершён. Новые бои больше нельзя начать."
   }
 };
 
@@ -256,6 +269,7 @@ onMounted(async () => {
     if (document.visibilityState !== "visible") return;
     tickNow.value = Date.now();
   }, 1000);
+  game.loadEventSchedule().catch(() => {});
   await refreshPath();
 });
 
@@ -329,8 +343,39 @@ const activeBoostText = computed(() => {
 
 void tickNow;
 
+const eventActive = computed(() => {
+  void tickNow.value;
+  return game.bossPathActive;
+});
+const eventRemaining = computed(() => {
+  void tickNow.value;
+  return Math.max(0, game.bossPathEndsAt - Date.now());
+});
+function fmtCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  const loc = locale.value;
+  if (days > 0) {
+    if (loc === "de") return `${days} ${days === 1 ? "Tag" : "Tagen"} ${hours}h`;
+    if (loc === "ru") return `${days} ${days === 1 ? "день" : "дн."} ${hours}ч`;
+    return `${days}d ${hours}h`;
+  }
+  if (hours > 0) {
+    if (loc === "ru") return `${hours}ч ${minutes}м`;
+    return `${hours}h ${minutes}m`;
+  }
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 function openFight(stage) {
   if (stage.status !== "current") return;
+  if (!eventActive.value) {
+    appToast.err(tx("eventEnded"));
+    return;
+  }
   fightStage.value = stage;
   victoryInfo.value = null;
   fightOpen.value = true;
@@ -442,8 +487,8 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 </script>
 
 <template>
-  <div class="boss-path-view">
-    <header class="bp-header">
+  <div class="boss-path-view" :class="{ embedded: props.embedded }">
+    <header v-if="!props.embedded" class="bp-header">
       <Button class="btn small btn-ghost back-btn" @click="backHome">
         <i class="pi pi-arrow-left"></i>
         <span>{{ tx("backHome") }}</span>
@@ -464,6 +509,21 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
     </div>
 
     <template v-else>
+    <div
+      v-if="game.bossPathShowCountdown"
+      class="bp-event-banner"
+      :class="{ ended: !eventActive }"
+    >
+      <span class="bp-event-icon">{{ eventActive ? '⏳' : '⏰' }}</span>
+      <div class="bp-event-body">
+        <div class="bp-event-title">
+          <template v-if="eventActive">{{ tx('eventEndsIn', { time: fmtCountdown(eventRemaining) }) }}</template>
+          <template v-else>{{ tx('eventEnded') }}</template>
+        </div>
+        <div v-if="!eventActive" class="bp-event-sub">{{ tx('eventEndedSub') }}</div>
+      </div>
+    </div>
+
     <div class="bp-stats">
       <div class="bp-stat">
         <div class="bp-stat-value">{{ Math.min(pathState.current_stage - 1, pathState.max_stage) }}/{{ pathState.max_stage }}</div>
@@ -544,9 +604,12 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
           <Button
             v-if="stage.status === 'current'"
             class="btn bp-fight-btn"
+            :disabled="!eventActive"
             @click="openFight(stage)"
           >
-            ⚔️ {{ tx("fight") }}
+            <template v-if="eventActive">⚔️ {{ tx("fight") }}</template>
+            <template v-else-if="game.bossPathShowCountdown">🔒 {{ tx("eventEnded") }}</template>
+            <template v-else>⚔️ {{ tx("fight") }}</template>
           </Button>
           <div v-else-if="stage.status === 'locked'" class="bp-locked-hint">
             🔒 {{ tx("locked") }}
@@ -673,6 +736,40 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   gap: 4px;
 }
 .back-btn { flex-shrink: 0; }
+
+.bp-event-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(72, 202, 228, 0.18), transparent 60%),
+    linear-gradient(135deg, #142244, #0d1730);
+  border: 1px solid rgba(72, 202, 228, 0.45);
+}
+.bp-event-banner.ended {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(239, 71, 111, 0.22), transparent 60%),
+    linear-gradient(135deg, #2a1226, #1a0a1a);
+  border-color: rgba(239, 71, 111, 0.55);
+}
+.bp-event-icon { font-size: 24px; flex-shrink: 0; }
+.bp-event-body { min-width: 0; flex: 1; }
+.bp-event-title {
+  font-weight: 900;
+  font-size: 14px;
+  color: #48cae4;
+  font-variant-numeric: tabular-nums;
+}
+.bp-event-banner.ended .bp-event-title { color: #ef476f; }
+.bp-event-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
 
 .bp-stats {
   display: grid;

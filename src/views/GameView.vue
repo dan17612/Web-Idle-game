@@ -12,7 +12,7 @@ import {
   compareAnimalsByRate,
 } from "../animals";
 import { locale, t as tGlobal } from "../i18n";
-import BossFight from "../components/BossFight.vue";
+
 import TutorialBubble from "../components/TutorialBubble.vue";
 import { supabase } from "../supabase";
 import { useAppToast } from "../composables/useAppToast";
@@ -75,6 +75,7 @@ const I18N = {
       animals: "{count} Tiere",
       animalsFood: "Tiere & Futter",
       tickets: "Tickets",
+      merge: "Merge",
       release: "Tier freilassen"
     },
     equipped: {
@@ -136,14 +137,17 @@ const I18N = {
       loadingShort: "…"
     },
     bossPath: {
-      title: "🗺️ Boss-Pfad",
-      sub: "Reise durch 15 Etappen - Truhen & Boosts als Belohnung"
+      title: "👑 Boss-Kampf",
+      sub: "Bosspfad ({total} Etappen) und Endlessboss-Challenge",
+      stage: "Etappe {n} / {total}"
     },
-    bossLock: {
-      title: "🔒 Bosskampf gesperrt",
-      sub: "Schaffe 3 Etappen auf dem Boss-Pfad, um den Bosskampf hier freizuschalten.",
-      progress: "Fortschritt: {n} / 3 Etappen",
-      goPath: "Zum Boss-Pfad"
+    mergeLink: {
+      title: "🐾 Merge-Safari",
+      sub: "Fusioniere Tiere, erreiche Meilensteine & erhalte Truhen"
+    },
+    eventStatus: {
+      endsIn: "Verschwindet in {time}",
+      ended: "Ereignis beendet"
     }
   },
   en: {
@@ -197,6 +201,7 @@ const I18N = {
       animals: "{count} animals",
       animalsFood: "Animals & Food",
       tickets: "Tickets",
+      merge: "Merge",
       release: "Release pet"
     },
     equipped: {
@@ -258,14 +263,17 @@ const I18N = {
       loadingShort: "…"
     },
     bossPath: {
-      title: "🗺️ Boss path",
-      sub: "Journey through 15 stages - chests & boosts as rewards"
+      title: "👑 Boss fight",
+      sub: "Boss path ({total} stages) and endless boss challenge",
+      stage: "Stage {n} / {total}"
     },
-    bossLock: {
-      title: "🔒 Boss fight locked",
-      sub: "Clear 3 stages on the Boss path to unlock the boss fight here.",
-      progress: "Progress: {n} / 3 stages",
-      goPath: "Go to boss path"
+    mergeLink: {
+      title: "🐾 Merge Safari",
+      sub: "Merge animals, reach milestones & earn chests"
+    },
+    eventStatus: {
+      endsIn: "Disappears in {time}",
+      ended: "Event ended"
     }
   },
   ru: {
@@ -319,6 +327,7 @@ const I18N = {
       animals: "{count} животных",
       animalsFood: "Животные и еда",
       tickets: "Тикеты",
+      merge: "Merge",
       release: "Отпустить питомца"
     },
     equipped: {
@@ -380,14 +389,17 @@ const I18N = {
       loadingShort: "…"
     },
     bossPath: {
-      title: "🗺️ Путь босса",
-      sub: "Путешествие по 15 этапам - сундуки и бусты в награду"
+      title: "👑 Бой с боссами",
+      sub: "Путь босса ({total} этапов) и эндлесс-челлендж",
+      stage: "Этап {n} / {total}"
     },
-    bossLock: {
-      title: "🔒 Бой с боссом закрыт",
-      sub: "Пройди 3 этапа на Пути босса, чтобы открыть бой здесь.",
-      progress: "Прогресс: {n} / 3 этапа",
-      goPath: "К Пути босса"
+    mergeLink: {
+      title: "🐾 Merge-Сафари",
+      sub: "Объединяй животных, достигай этапов и получай сундуки"
+    },
+    eventStatus: {
+      endsIn: "Исчезнет через {time}",
+      ended: "Событие завершено"
     }
   }
 };
@@ -469,7 +481,6 @@ const ownedAnimals = computed(() =>
 
 const giftClaimed = ref(null); // { species, emoji, name, bonusTaps } after reveal
 const giftBusy = ref(false);
-const giftError = ref("");
 
 const shouldShowGiftDialog = computed(
   () => game.newbieGiftAvailable && !giftClaimed.value,
@@ -478,7 +489,6 @@ const shouldShowGiftDialog = computed(
 async function openGift() {
   if (giftBusy.value) return;
   giftBusy.value = true;
-  giftError.value = "";
   try {
     const data = await game.claimNewbieGift();
     const info = speciesInfo(data.species);
@@ -498,7 +508,6 @@ async function openGift() {
 
 function closeGiftDialog() {
   giftClaimed.value = null;
-  giftError.value = "";
 }
 
 const equipBestWrap = ref(null);
@@ -516,6 +525,7 @@ watch(
 
 const floats = ref([]);
 let floatId = 0;
+const floatTimers = new Set();
 const error = ref("");
 const equipBestBusy = ref(false);
 
@@ -530,7 +540,11 @@ onMounted(() => {
 });
 
 useReturnRefresh(() => Promise.all([loadSlotInfo(), game.loadCraftStatus()]));
-onUnmounted(() => clearInterval(clockTimer));
+onUnmounted(() => {
+  clearInterval(clockTimer);
+  for (const t of floatTimers) clearTimeout(t);
+  floatTimers.clear();
+});
 
 function fmtTime(ms) {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -555,6 +569,35 @@ const bossBoostLabel = computed(() => {
   return "Boss boost active";
 });
 
+function fmtCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (days > 0) {
+    if (locale.value === "de") return `${days} ${days === 1 ? "Tag" : "Tagen"} ${hours}h`;
+    if (locale.value === "ru") return `${days} ${days === 1 ? "день" : "дн."} ${hours}ч`;
+    return `${days}d ${hours}h`;
+  }
+  if (hours > 0) {
+    if (locale.value === "ru") return `${hours}ч ${minutes}м`;
+    return `${hours}h ${minutes}m`;
+  }
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+const bossPathRemaining = computed(() => {
+  void now.value;
+  return Math.max(0, game.bossPathEndsAt - Date.now());
+});
+const mergeRemaining = computed(() => {
+  void now.value;
+  return Math.max(0, game.mergeEndsAt - Date.now());
+});
+const bossPathEnded = computed(() => game.bossPathShowCountdown && (bossPathRemaining.value <= 0 || !game.bossPathActive));
+const mergeEnded = computed(() => game.mergeShowCountdown && (mergeRemaining.value <= 0 || !game.mergeActive));
+
 const tapLimitReached = computed(
   () => game.tapsUsed >= game.tapsMax && game.bonusTaps <= 0,
 );
@@ -571,9 +614,11 @@ async function tap(e) {
   const id = ++floatId;
   const earnGuess = Math.max(1, Math.floor(game.ratePerSec));
   floats.value.push({ id, x, y, v: "+" + formatCoins(earnGuess) });
-  setTimeout(() => {
+  const ft = setTimeout(() => {
+    floatTimers.delete(ft);
     floats.value = floats.value.filter((f) => f.id !== id);
   }, 900);
+  floatTimers.add(ft);
   try {
     const data = await game.tapEarn();
     const f = floats.value.find((f) => f.id === id);
@@ -1158,6 +1203,11 @@ async function doSplit(animalId) {
         <span class="qa-label">{{ tx("quick.tickets") }}</span>
         <span class="qa-sub">{{ tx("quick.release") }}</span>
       </router-link>
+      <router-link to="/merge" class="qa-btn">
+        <span class="qa-icon">🐾</span>
+        <span class="qa-label">{{ tx("quick.merge") }}</span>
+        <span class="qa-sub">2048</span>
+      </router-link>
     </div>
 
     <div class="card equip-card">
@@ -1247,14 +1297,6 @@ async function doSplit(animalId) {
           <div class="farm-meta">{{ tx("equipped.buySlot") }}</div>
           <div class="farm-meta-sub coin-line">🪙 {{ formatCoins(slotInfo.next_cost) }}</div>
         </button>
-        <div
-          v-else-if="game.slotsMaxed"
-          class="farm-cell slot-maxed"
-          :aria-label="tx('equipped.slotMaxed')"
-        >
-          <div class="farm-plus">★</div>
-          <div class="farm-meta">{{ tx("equipped.slotMaxed") }}</div>
-        </div>
       </div>
     </div>
 
@@ -1647,32 +1689,47 @@ async function doSplit(animalId) {
       </div>
     </div>
 
-    <router-link to="/boss-path" class="card boss-path-link">
-      <div class="bpl-icon">🗺️</div>
+    <router-link to="/boss-fight" class="card boss-path-link">
+      <div class="bpl-icon">👑</div>
       <div class="bpl-body">
         <div class="bpl-title">{{ tx("bossPath.title") }}</div>
-        <div class="bpl-sub">{{ tx("bossPath.sub") }}</div>
+        <div class="bpl-sub">{{ tx("bossPath.sub", { total: game.bossPathMaxStage }) }}</div>
+        <div v-if="game.bossPathHighest > 0" class="bpl-progress">
+          {{ tx("bossPath.stage", { n: game.bossPathHighest, total: game.bossPathMaxStage }) }}
+        </div>
+        <div
+          v-if="bossPathEnded"
+          class="bpl-event-status ended"
+        >⏰ {{ tx("eventStatus.ended") }}</div>
+        <div
+          v-else-if="game.bossPathEndsAt > 0"
+          class="bpl-event-status"
+        >⏳ {{ tx("eventStatus.endsIn", { time: fmtCountdown(bossPathRemaining) }) }}</div>
       </div>
       <div class="bpl-arrow">›</div>
     </router-link>
 
-    <BossFight v-if="game.bossArenaUnlocked" />
-    <router-link v-else to="/boss-path" class="card boss-lock-card">
-      <div class="bl-icon">🔒</div>
-      <div class="bl-body">
-        <div class="bl-title">{{ tx("bossLock.title") }}</div>
-        <div class="bl-sub">{{ tx("bossLock.sub") }}</div>
-        <div class="bl-progress">
-          <div class="bl-progress-bar">
-            <span :style="{ width: Math.min(100, (game.bossPathHighest / 3) * 100) + '%' }"></span>
-          </div>
-          <div class="bl-progress-text">
-            {{ tx("bossLock.progress", { n: Math.min(3, game.bossPathHighest) }) }}
-          </div>
-        </div>
-        <div class="bl-cta">{{ tx("bossLock.goPath") }} →</div>
+    <component
+      :is="mergeEnded ? 'div' : 'router-link'"
+      :to="mergeEnded ? undefined : '/merge'"
+      class="card merge-link"
+      :class="{ 'event-ended': mergeEnded }"
+    >
+      <div class="ml-icon">🐾</div>
+      <div class="bpl-body">
+        <div class="ml-title">{{ tx("mergeLink.title") }}</div>
+        <div class="bpl-sub">{{ tx("mergeLink.sub") }}</div>
+        <div
+          v-if="mergeEnded"
+          class="bpl-event-status ended"
+        >⏰ {{ tx("eventStatus.ended") }}</div>
+        <div
+          v-else-if="game.mergeEndsAt > 0"
+          class="bpl-event-status"
+        >⏳ {{ tx("eventStatus.endsIn", { time: fmtCountdown(mergeRemaining) }) }}</div>
       </div>
-    </router-link>
+      <div class="bpl-arrow">{{ mergeEnded ? '🔒' : '›' }}</div>
+    </component>
   </div>
 </template>
 
@@ -2211,11 +2268,7 @@ async function doSplit(animalId) {
   opacity: 1;
   font-size: 12px;
 }
-.farm-cell.slot-maxed {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(255, 209, 102, 0.12));
-  border: 2px solid rgba(168, 85, 247, 0.5);
-  opacity: 0.85;
-}
+
 .craft-job {
   margin: 6px 0 10px;
   padding: 10px 12px;
@@ -2807,6 +2860,44 @@ async function doSplit(animalId) {
   font-weight: 700;
   margin-top: 2px;
 }
+.bpl-progress {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.bpl-event-status {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(72, 202, 228, 0.14);
+  border: 1px solid rgba(72, 202, 228, 0.45);
+  color: #48cae4;
+  font-variant-numeric: tabular-nums;
+}
+.bpl-event-status.ended {
+  background: rgba(239, 71, 111, 0.16);
+  border-color: rgba(239, 71, 111, 0.55);
+  color: #ef476f;
+}
+.boss-path-link.event-ended,
+.merge-link.event-ended {
+  cursor: not-allowed;
+  filter: grayscale(0.65);
+  opacity: 0.7;
+  border-color: rgba(239, 71, 111, 0.45);
+}
+.boss-path-link.event-ended:hover,
+.merge-link.event-ended:hover {
+  transform: none;
+  box-shadow: none;
+}
 .bpl-arrow {
   font-size: 30px;
   color: var(--accent);
@@ -2814,73 +2905,41 @@ async function doSplit(animalId) {
   line-height: 1;
   flex-shrink: 0;
 }
-.boss-lock-card {
+.merge-link {
   display: flex;
+  align-items: center;
   gap: 14px;
-  align-items: flex-start;
-  padding: 16px;
+  padding: 14px 16px;
   text-decoration: none;
   color: inherit;
   background:
-    radial-gradient(circle at 0% 0%, rgba(239, 71, 111, 0.18), transparent 55%),
-    linear-gradient(135deg, #1a1530, #0a0612);
-  border: 1px dashed rgba(239, 71, 111, 0.4);
-  transition: border-color 0.18s ease, transform 0.18s ease;
+    radial-gradient(circle at 0% 0%, rgba(6, 214, 160, 0.18), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(72, 202, 228, 0.16), transparent 60%),
+    linear-gradient(135deg, #122436, #0d1628);
+  border: 1px solid rgba(6, 214, 160, 0.3);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.boss-lock-card:hover {
-  border-color: var(--accent);
+.merge-link:hover {
   transform: translateY(-2px);
+  border-color: #06d6a0;
+  box-shadow: 0 12px 28px rgba(6, 214, 160, 0.15);
 }
-.bl-icon {
-  font-size: 38px;
+.ml-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
   flex-shrink: 0;
-  filter: grayscale(0.2) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+  animation: mlFloat 3.4s ease-in-out infinite;
 }
-.bl-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+@keyframes mlFloat {
+  0%, 100% { transform: translateY(0) rotate(3deg); }
+  50% { transform: translateY(-3px) rotate(-3deg); }
 }
-.bl-title {
+.ml-title {
   font-weight: 800;
   font-size: 16px;
-  color: var(--muted);
-}
-.bl-sub {
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.4;
-}
-.bl-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.bl-progress-bar {
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-.bl-progress-bar span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #ef476f, #ffd166);
-  transition: width 0.3s ease;
-}
-.bl-progress-text {
-  font-size: 11px;
-  color: var(--accent);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-.bl-cta {
-  margin-top: 2px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--accent);
+  background: linear-gradient(90deg, #06d6a0, #48cae4, #c77dff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 </style>
