@@ -1,6 +1,19 @@
 import { defineStore } from 'pinia'
+import { Capacitor } from '@capacitor/core'
 import { supabase, AUTH_REDIRECT_URL } from '../supabase'
 import { t } from '../i18n'
+
+const GOOGLE_WEB_CLIENT_ID = import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID
+
+let nativeSocialLoginInitialized = false
+async function ensureNativeSocialLogin() {
+  if (nativeSocialLoginInitialized) return
+  const { SocialLogin } = await import('@capgo/capacitor-social-login')
+  await SocialLogin.initialize({
+    google: { webClientId: GOOGLE_WEB_CLIENT_ID, mode: 'online' }
+  })
+  nativeSocialLoginInitialized = true
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -80,6 +93,16 @@ export const useAuthStore = defineStore('auth', {
       if (error) throw error
     },
     async signInWithGoogle() {
+      if (Capacitor.isNativePlatform()) {
+        await ensureNativeSocialLogin()
+        const { SocialLogin } = await import('@capgo/capacitor-social-login')
+        const res = await SocialLogin.login({ provider: 'google', options: {} })
+        const idToken = res?.result?.idToken
+        if (!idToken) throw new Error('Google ID token missing')
+        const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })
+        if (error) throw error
+        return
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -167,6 +190,12 @@ export const useAuthStore = defineStore('auth', {
       return data
     },
     async signOut() {
+      if (Capacitor.isNativePlatform() && nativeSocialLoginInitialized) {
+        try {
+          const { SocialLogin } = await import('@capgo/capacitor-social-login')
+          await SocialLogin.logout({ provider: 'google' })
+        } catch (e) { /* ignore native logout errors */ }
+      }
       await supabase.auth.signOut()
       this.profile = null
       this.identities = []

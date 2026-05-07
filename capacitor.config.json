@@ -1,0 +1,10 @@
+{
+  "appId": "pw.schiller.zooempire",
+  "appName": "Zoo Empire",
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorSocialLogin": {
+      "providers": ["google"]
+    }
+  }
+}

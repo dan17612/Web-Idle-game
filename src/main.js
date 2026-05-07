@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { Capacitor } from '@capacitor/core'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
@@ -42,19 +43,18 @@ function disableZoomGestures() {
 }
 
 // Supabase magic-link Redirects kommen als Fragment zurück.
-// Weil wir createWebHashHistory nutzen, können Tokens in einer der Formen landen:
+// Web: createWebHashHistory → Tokens landen im URL-Hash:
 //   https://host/#access_token=…&refresh_token=…
 //   https://host/#/access_token=…&refresh_token=…
-//   https://host/#/#access_token=…&refresh_token=…
+// Native (Android/iOS): Deep Link mit Custom-Scheme:
+//   pw.schiller.zooempire://auth/callback#access_token=…&refresh_token=…
 // Wir extrahieren access_token/refresh_token robust und setzen die Session manuell.
-async function consumeAuthRedirect() {
-  const raw = window.location.hash + window.location.search
-  if (!raw) return
-  const match = raw.match(/(access_token|error_description|error_code)=/)
-  if (!match) return
+async function applyTokensFromUrl(rawUrl) {
+  if (!rawUrl) return false
+  const match = rawUrl.match(/(access_token|error_description|error_code)=/)
+  if (!match) return false
 
-  // Ab der ersten Token-Position parsen, führende #/? trimmen.
-  const tail = raw.slice(match.index).replace(/^[#/?&]+/, '')
+  const tail = rawUrl.slice(match.index).replace(/^[#/?&]+/, '')
   const params = new URLSearchParams(tail)
 
   const errorDesc = params.get('error_description')
@@ -64,20 +64,37 @@ async function consumeAuthRedirect() {
   try {
     if (access_token && refresh_token) {
       await supabase.auth.setSession({ access_token, refresh_token })
+      return true
     } else if (errorDesc) {
       console.warn('Supabase auth redirect error:', errorDesc)
     }
   } catch (e) {
     console.error('setSession failed', e)
-  } finally {
-    // URL säubern, damit Router nicht „access_token=…“ als Pfad interpretiert.
+  }
+  return false
+}
+
+async function consumeAuthRedirect() {
+  const raw = window.location.hash + window.location.search
+  const ok = await applyTokensFromUrl(raw)
+  if (ok || raw.includes('access_token=') || raw.includes('error_description=')) {
     history.replaceState(null, '', window.location.pathname + '#/')
   }
+}
+
+async function registerNativeDeepLinkHandler() {
+  if (!Capacitor.isNativePlatform()) return
+  const { App: CapacitorApp } = await import('@capacitor/app')
+  CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+    if (!url) return
+    await applyTokensFromUrl(url)
+  })
 }
 
 async function bootstrap() {
   initLocale()
   await consumeAuthRedirect()
+  await registerNativeDeepLinkHandler()
 
   const app = createApp(App)
   const pinia = createPinia()
