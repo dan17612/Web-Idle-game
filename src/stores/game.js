@@ -63,6 +63,7 @@ export const useGameStore = defineStore('game', {
       return Math.min(8, 2 + (state.offlineLevel - 1) * 0.5)
     },
     nextOfflineCost(state) {
+      if (this.offlineMaxed) return null
       return Math.floor(500 * Math.pow(2.5, state.offlineLevel - 1))
     },
     offlineMaxed() {

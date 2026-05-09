@@ -199,7 +199,7 @@ async function hardReload() {
           class="settings-link refresh-btn"
           :title="t('app.refreshData')"
           :disabled="reloading"
-          @click="hardReload"
+          @click="softRefresh"
         >
           <i :class="['pi', 'pi-refresh', { 'pi-spin': reloading }]" />
         </Button>
