@@ -21,7 +21,8 @@ const messages = {
     common: {
       loading: 'Lädt...',
       loadingShort: '...',
-      back: 'Zurück'
+      back: 'Zurück',
+      error: 'Fehler'
     },
     coin: {
       invalid: 'Ungültig'
@@ -355,7 +356,8 @@ const messages = {
     common: {
       loading: 'Loading...',
       loadingShort: '...',
-      back: 'Back'
+      back: 'Back',
+      error: 'Error'
     },
     coin: {
       invalid: 'Invalid'
@@ -689,7 +691,8 @@ const messages = {
     common: {
       loading: 'Загрузка...',
       loadingShort: '...',
-      back: 'Назад'
+      back: 'Назад',
+      error: 'Ошибка'
     },
     coin: {
       invalid: 'Неверный формат'
@@ -748,9 +751,6 @@ const messages = {
       languageTitle: 'Язык',
       languageHint: 'Выберите язык приложения.',
       languageSaved: 'Язык обновлен.',
-      animationsTitle: 'Анимации',
-      animationsHint: 'Отключи анимации, если игра тормозит на твоём устройстве.',
-      animationsLabel: 'Включить анимации',
       account: 'Аккаунт',
       avatar: 'Аватар',
       username: 'Имя пользователя',

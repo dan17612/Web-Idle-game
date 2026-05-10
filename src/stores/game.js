@@ -315,7 +315,7 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user) return
       const pending = Math.max(0, Math.floor(this.tickCoins))
-      if (pending <= 0 && this.lastCollected && (Date.now() - this.lastCollected.getTime()) < 15000) return
+      if (pending <= 0) return
       this.coins += pending
       this.tickCoins -= pending
       try {
