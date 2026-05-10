@@ -45,6 +45,8 @@ function refreshOnReturn() {
 const broadcast = ref(null);
 let broadcastTimer = null;
 let broadcastChannel = null;
+let tickTimer = null;
+let persistTimer = null;
 
 function showBroadcast(msg) {
   broadcast.value = { id: Date.now(), text: msg };
@@ -87,6 +89,8 @@ watch(
 );
 
 onUnmounted(() => {
+  if (tickTimer) clearInterval(tickTimer);
+  if (persistTimer) clearInterval(persistTimer);
   if (broadcastTimer) clearTimeout(broadcastTimer);
   if (broadcastChannel) supabase.removeChannel(broadcastChannel);
 });
@@ -100,7 +104,7 @@ onMounted(async () => {
   // Game-Tick: 500ms reicht fuer Tickcoin-Animation, halbiert den Re-render-Overhead
   // gegenueber 250ms (alte Geraete spuerbar fluessiger).
   let last = performance.now();
-  setInterval(() => {
+  tickTimer = setInterval(() => {
     if (document.visibilityState !== "visible") return;
     const now = performance.now();
     // Cap dt at 1s to prevent huge coin spikes when tab returns from hidden state.
@@ -110,7 +114,7 @@ onMounted(async () => {
     try { if (auth.isAuth) game.tick(dt); } catch {}
   }, 500);
 
-  setInterval(() => {
+  persistTimer = setInterval(() => {
     if (auth.isAuth) game.persist();
   }, 15000);
   window.addEventListener("beforeunload", () => {

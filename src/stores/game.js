@@ -333,7 +333,7 @@ export const useGameStore = defineStore('game', {
       if (this.tapsUsed >= normalMax && !usingBonus) throw new Error(t('storeErrors.tapLimit'))
       this.tapsUsed += 1
       const effectiveMax = usingBonus
-        ? Math.max(this.tapsUsed + 1, normalMax + this.bonusTaps)
+        ? Math.max(this.tapsUsed, normalMax + this.bonusTaps)
         : normalMax
       const { data, error } = await supabase.rpc('tap_earn', { p_max: effectiveMax })
       if (error) {
