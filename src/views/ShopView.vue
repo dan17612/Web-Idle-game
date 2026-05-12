@@ -291,10 +291,6 @@ async function buy(key) {
 }
 
 async function feed(food) {
-  if (game.boostActive) {
-    appToast.err(t("storeErrors.boostAlreadyActive"));
-    return;
-  }
   busyKey.value = "food-" + food.food;
   try {
     const res = await game.feedPet(food.food);
@@ -682,7 +678,6 @@ function closeAnimalLimitWarning() {
         v-for="f in foods"
         :key="f.food"
         class="animal-card food-card"
-        :class="{ locked: game.boostActive }"
       >
         <div class="animal-emoji">{{ f.emoji }}</div>
         <div class="animal-name">{{ f.name }}</div>
@@ -696,8 +691,7 @@ function closeAnimalLimitWarning() {
           style="margin-top: 8px"
           :disabled="
             busyKey === 'food-' + f.food ||
-            game.displayCoins < f.cost ||
-            game.boostActive
+            game.displayCoins < f.cost
           "
           @click="feed(f)"
         >

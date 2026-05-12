@@ -47,6 +47,10 @@ let broadcastTimer = null;
 let broadcastChannel = null;
 let tickTimer = null;
 let persistTimer = null;
+let beforeUnloadHandler = null;
+let visibilityHandler = null;
+let focusHandler = null;
+let pageshowHandler = null;
 
 function showBroadcast(msg) {
   broadcast.value = { id: Date.now(), text: msg };
@@ -93,6 +97,10 @@ onUnmounted(() => {
   if (persistTimer) clearInterval(persistTimer);
   if (broadcastTimer) clearTimeout(broadcastTimer);
   if (broadcastChannel) supabase.removeChannel(broadcastChannel);
+  if (beforeUnloadHandler) window.removeEventListener("beforeunload", beforeUnloadHandler);
+  if (visibilityHandler) document.removeEventListener("visibilitychange", visibilityHandler);
+  if (focusHandler) window.removeEventListener("focus", focusHandler);
+  if (pageshowHandler) window.removeEventListener("pageshow", pageshowHandler);
 });
 
 onMounted(async () => {
@@ -117,21 +125,21 @@ onMounted(async () => {
   persistTimer = setInterval(() => {
     if (auth.isAuth) game.persist();
   }, 15000);
-  window.addEventListener("beforeunload", () => {
-    if (auth.isAuth) game.persist();
-  });
-  document.addEventListener("visibilitychange", () => {
+  beforeUnloadHandler = () => { if (auth.isAuth) game.persist(); };
+  visibilityHandler = () => {
     if (document.visibilityState === "hidden" && auth.isAuth) {
       game.persist();
     } else if (document.visibilityState === "visible") {
       refreshOnReturn();
     }
-  });
-  window.addEventListener("focus", refreshOnReturn);
-  window.addEventListener("pageshow", (e) => {
-    // bfcache-Wiederherstellung (mobile Safari, Firefox): Daten sind dann garantiert alt.
-    if (e.persisted) refreshOnReturn();
-  });
+  };
+  focusHandler = refreshOnReturn;
+  // bfcache-Wiederherstellung (mobile Safari, Firefox): Daten sind dann garantiert alt.
+  pageshowHandler = (e) => { if (e.persisted) refreshOnReturn(); };
+  window.addEventListener("beforeunload", beforeUnloadHandler);
+  document.addEventListener("visibilitychange", visibilityHandler);
+  window.addEventListener("focus", focusHandler);
+  window.addEventListener("pageshow", pageshowHandler);
 });
 
 // Bei Route-Wechsel prüfen ob Daten veraltet sind

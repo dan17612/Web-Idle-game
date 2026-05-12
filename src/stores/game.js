@@ -425,7 +425,6 @@ export const useGameStore = defineStore('game', {
       return data
     },
     async feedPet(foodKey) {
-      if (this.boostActive) throw new Error(t('storeErrors.boostAlreadyActive'))
       await this.persist()
       const { data, error } = await supabase.rpc('feed_pet', { p_food: foodKey })
       if (error) throw error
