@@ -10,6 +10,11 @@
     "preview": "vite preview --host"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "@primeuix/themes": "^2.0.3",
     "@supabase/supabase-js": "^2.45.4",
     "@vercel/speed-insights": "^2.0.0",
@@ -20,6 +25,7 @@
     "vue-router": "^4.4.5"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@vitejs/plugin-vue": "^6.0.6",
     "vite": "^8.0.8"
   }

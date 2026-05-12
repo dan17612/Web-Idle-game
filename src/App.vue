@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, computed, ref, watch } from "vue";
+import { Capacitor } from "@capacitor/core";
 import { useAuthStore } from "./stores/auth";
 import { useGameStore } from "./stores/game";
 import { useRoute } from "vue-router";
@@ -9,6 +10,7 @@ import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
 import TutorialBubble from "./components/TutorialBubble.vue";
 import { t } from "./i18n";
+import { onAppResume } from "./composables/useAppResume";
 
 const adminOpen = ref(false);
 
@@ -117,21 +119,29 @@ onMounted(async () => {
   persistTimer = setInterval(() => {
     if (auth.isAuth) game.persist();
   }, 15000);
+
+  // Sicherheitsnetz: regelmäßig prüfen, ob Daten alt sind (auch wenn resume-Events ausfallen).
+  setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    if (!auth.isAuth || game.loading) return;
+    if (Date.now() - game.lastLoadedAt > STALE_MS) {
+      game.load().catch(() => {});
+    }
+  }, 8000);
   window.addEventListener("beforeunload", () => {
     if (auth.isAuth) game.persist();
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden" && auth.isAuth) {
       game.persist();
-    } else if (document.visibilityState === "visible") {
-      refreshOnReturn();
     }
   });
-  window.addEventListener("focus", refreshOnReturn);
-  window.addEventListener("pageshow", (e) => {
-    // bfcache-Wiederherstellung (mobile Safari, Firefox): Daten sind dann garantiert alt.
-    if (e.persisted) refreshOnReturn();
-  });
+});
+
+// App-Rückkehr: Web (visibility/focus/pageshow/online) + Capacitor (appStateChange/resume).
+// Auf Android löst nur appStateChange beim Wiederöffnen aus dem Hintergrund zuverlässig aus.
+onAppResume(() => {
+  refreshOnReturn();
 });
 
 // Bei Route-Wechsel prüfen ob Daten veraltet sind
@@ -165,19 +175,35 @@ async function softRefresh() {
 }
 
 async function hardReload() {
-  try {
-    if (auth.isAuth) { try { await game.persist(); } catch {} }
+  if (reloading.value) return;
+  reloading.value = true;
+  // Persist als fire-and-forget — niemals den Reload blockieren, falls das Netz hängt
+  if (auth.isAuth) { try { game.persist(); } catch {} }
+
+  if (Capacitor.isNativePlatform()) {
+    // In Capacitor: WebView neu laden. caches/SW gibt's hier nicht.
+    window.location.reload();
+    return;
+  }
+
+  // Web: Cache-Storage + Service-Worker entfernen, dann mit Cache-Bust neu laden.
+  // Wir warten max. 1.5s auf das Aufräumen, dann reloaden wir trotzdem.
+  const cleanup = (async () => {
     if ("caches" in window) {
       try { await Promise.all((await caches.keys()).map((k) => caches.delete(k))); } catch {}
     }
     if (navigator.serviceWorker) {
-      try { await Promise.all((await navigator.serviceWorker.getRegistrations()).map((r) => r.update())); } catch {}
+      try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      } catch {}
     }
-  } finally {
+  })();
+  Promise.race([cleanup, new Promise((r) => setTimeout(r, 1500))]).finally(() => {
     const url = new URL(window.location.href);
     url.searchParams.set("_r", Date.now().toString());
     window.location.replace(url.toString());
-  }
+  });
 }
 </script>
 

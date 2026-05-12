@@ -1,6 +1,7 @@
 import { onMounted, onUnmounted, watch } from "vue"
 import { useGameStore } from "../stores/game"
 import { useAuthStore } from "../stores/auth"
+import { onAppResume } from "./useAppResume"
 
 const RETURN_THROTTLE_MS = 4_000
 
@@ -20,32 +21,21 @@ export function useReturnRefresh(loader) {
     finally { running = false }
   }
 
-  function onVisibility() {
-    if (document.visibilityState === "visible") run()
-  }
-  function onPageshow(e) {
-    if (e.persisted) run()
-  }
-
   let stopGameWatch = null
 
   onMounted(() => {
     lastRun = Date.now()
+    // View-Loader nochmal ausführen, sobald der zentrale game.load() durch ist
     stopGameWatch = watch(() => game.lastLoadedAt, (v, prev) => {
       if (prev && v && v !== prev) run()
     })
-    document.addEventListener("visibilitychange", onVisibility)
-    window.addEventListener("focus", run)
-    window.addEventListener("pageshow", onPageshow)
-    window.addEventListener("online", run)
   })
+
+  // App-Rückkehr (Web + Capacitor) – throttled in run() selbst
+  onAppResume(() => { run() })
 
   onUnmounted(() => {
     if (stopGameWatch) stopGameWatch()
-    document.removeEventListener("visibilitychange", onVisibility)
-    window.removeEventListener("focus", run)
-    window.removeEventListener("pageshow", onPageshow)
-    window.removeEventListener("online", run)
   })
 
   return { refresh: run }

@@ -5,3 +5,8 @@ dist
 .DS_Store
 *.log
 .vite
+
+# Android signing
+android/key.properties
+android/app/*.keystore
+android/app/*.jks

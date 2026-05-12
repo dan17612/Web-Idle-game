@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { Capacitor } from '@capacitor/core'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
@@ -17,6 +18,7 @@ import './styles.css'
 import 'primeicons/primeicons.css'
 import { initLocale, t } from './i18n'
 import './composables/useAnimations'
+import { fireAppResume } from './composables/useAppResume'
 // Zoom global deaktivieren (Pinch, Double-Tap, Gesture-Zoom).
 function disableZoomGestures() {
   let lastTouchEnd = 0
@@ -42,19 +44,18 @@ function disableZoomGestures() {
 }
 
 // Supabase magic-link Redirects kommen als Fragment zurück.
-// Weil wir createWebHashHistory nutzen, können Tokens in einer der Formen landen:
+// Web: createWebHashHistory → Tokens landen im URL-Hash:
 //   https://host/#access_token=…&refresh_token=…
 //   https://host/#/access_token=…&refresh_token=…
-//   https://host/#/#access_token=…&refresh_token=…
+// Native (Android/iOS): Deep Link mit Custom-Scheme:
+//   pw.schiller.zooempire://auth/callback#access_token=…&refresh_token=…
 // Wir extrahieren access_token/refresh_token robust und setzen die Session manuell.
-async function consumeAuthRedirect() {
-  const raw = window.location.hash + window.location.search
-  if (!raw) return
-  const match = raw.match(/(access_token|error_description|error_code)=/)
-  if (!match) return
+async function applyTokensFromUrl(rawUrl) {
+  if (!rawUrl) return false
+  const match = rawUrl.match(/(access_token|error_description|error_code)=/)
+  if (!match) return false
 
-  // Ab der ersten Token-Position parsen, führende #/? trimmen.
-  const tail = raw.slice(match.index).replace(/^[#/?&]+/, '')
+  const tail = rawUrl.slice(match.index).replace(/^[#/?&]+/, '')
   const params = new URLSearchParams(tail)
 
   const errorDesc = params.get('error_description')
@@ -64,20 +65,68 @@ async function consumeAuthRedirect() {
   try {
     if (access_token && refresh_token) {
       await supabase.auth.setSession({ access_token, refresh_token })
+      return true
     } else if (errorDesc) {
       console.warn('Supabase auth redirect error:', errorDesc)
     }
   } catch (e) {
     console.error('setSession failed', e)
-  } finally {
-    // URL säubern, damit Router nicht „access_token=…“ als Pfad interpretiert.
+  }
+  return false
+}
+
+async function consumeAuthRedirect() {
+  const raw = window.location.hash + window.location.search
+  const ok = await applyTokensFromUrl(raw)
+  if (ok || raw.includes('access_token=') || raw.includes('error_description=')) {
     history.replaceState(null, '', window.location.pathname + '#/')
+  }
+}
+
+async function registerNativeDeepLinkHandler() {
+  if (!Capacitor.isNativePlatform()) return
+  const { App: CapacitorApp } = await import('@capacitor/app')
+  CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+    if (!url) return
+    const handled = await applyTokensFromUrl(url)
+    if (handled) {
+      try {
+        const { Browser } = await import('@capacitor/browser')
+        await Browser.close()
+      } catch (e) { /* in-app browser may already be closed */ }
+    }
+  })
+}
+
+function registerAppResumeListeners() {
+  // Web-Events
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') fireAppResume('visibilitychange')
+  })
+  window.addEventListener('focus', () => fireAppResume('focus'))
+  window.addEventListener('pageshow', (e) => { if (e.persisted) fireAppResume('pageshow') })
+  window.addEventListener('online', () => fireAppResume('online'))
+}
+
+async function registerNativeAppResumeListeners() {
+  if (!Capacitor.isNativePlatform()) return
+  try {
+    const { App: CapacitorApp } = await import('@capacitor/app')
+    CapacitorApp.addListener('appStateChange', (state) => {
+      if (state?.isActive) fireAppResume('appStateChange')
+    })
+    CapacitorApp.addListener('resume', () => fireAppResume('resume'))
+  } catch (e) {
+    console.warn('Native app resume listener failed', e)
   }
 }
 
 async function bootstrap() {
   initLocale()
+  registerAppResumeListeners()
+  registerNativeAppResumeListeners() // fire-and-forget, läuft im Hintergrund weiter
   await consumeAuthRedirect()
+  await registerNativeDeepLinkHandler()
 
   const app = createApp(App)
   const pinia = createPinia()

@@ -1,6 +1,20 @@
 import { defineStore } from 'pinia'
+import { Capacitor } from '@capacitor/core'
 import { supabase, AUTH_REDIRECT_URL } from '../supabase'
 import { t } from '../i18n'
+
+// Native: OAuth-URL holen, im System-Browser/Custom-Tab öffnen,
+// Rückweg via Deep Link (siehe main.js applyTokensFromUrl).
+async function nativeOAuth(supabaseMethod, opts) {
+  const { data, error } = await supabaseMethod({
+    ...opts,
+    options: { ...opts.options, skipBrowserRedirect: true }
+  })
+  if (error) throw error
+  if (!data?.url) throw new Error('OAuth URL missing')
+  const { Browser } = await import('@capacitor/browser')
+  await Browser.open({ url: data.url, presentationStyle: 'popover' })
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -80,23 +94,33 @@ export const useAuthStore = defineStore('auth', {
       if (error) throw error
     },
     async signInWithGoogle() {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const opts = {
         provider: 'google',
         options: {
           redirectTo: AUTH_REDIRECT_URL,
           queryParams: { prompt: 'select_account' }
         }
-      })
+      }
+      if (Capacitor.isNativePlatform()) {
+        await nativeOAuth(supabase.auth.signInWithOAuth.bind(supabase.auth), opts)
+        return
+      }
+      const { error } = await supabase.auth.signInWithOAuth(opts)
       if (error) throw error
     },
     async linkGoogleIdentity() {
-      const { error } = await supabase.auth.linkIdentity({
+      const opts = {
         provider: 'google',
         options: {
           redirectTo: AUTH_REDIRECT_URL,
           queryParams: { prompt: 'select_account' }
         }
-      })
+      }
+      if (Capacitor.isNativePlatform()) {
+        await nativeOAuth(supabase.auth.linkIdentity.bind(supabase.auth), opts)
+        return
+      }
+      const { error } = await supabase.auth.linkIdentity(opts)
       if (error) throw error
     },
     async unlinkGoogleIdentity() {
