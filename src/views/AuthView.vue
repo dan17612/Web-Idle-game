@@ -43,36 +43,35 @@ async function signInOrSignUpWithPassword() {
 
   busy.value = true;
   try {
-    await auth.signInWithPassword(email, password);
-    info.value = t("auth.infoSignedIn");
-    return;
-  } catch (e) {
-    const msg = cleanMessage(e?.message || String(e));
+    try {
+      await auth.signInWithPassword(email, password);
+      info.value = t("auth.infoSignedIn");
+      return;
+    } catch (e) {
+      const msg = cleanMessage(e?.message || String(e));
+      const canTrySignUp =
+        msg.includes("invalid login credentials") ||
+        msg.includes("invalid credentials") ||
+        msg.includes("user not found");
+      if (!canTrySignUp) throw e;
+    }
 
-    const canTrySignUp =
-      msg.includes("invalid login credentials") ||
-      msg.includes("invalid credentials") ||
-      msg.includes("user not found");
-
-    if (!canTrySignUp) {
+    try {
+      await auth.signUpWithPassword(email, password);
+      info.value = t("auth.infoAccountCreated");
+    } catch (e) {
+      const msg = cleanMessage(e?.message || String(e));
+      if (
+        msg.includes("already registered") ||
+        msg.includes("already been registered")
+      ) {
+        error.value = t("auth.errors.emailExists");
+        return;
+      }
       throw e;
     }
-  }
-
-  try {
-    await auth.signUpWithPassword(email, password);
-    info.value = t("auth.infoAccountCreated");
   } catch (e) {
-    const msg = cleanMessage(e?.message || String(e));
-    if (
-      msg.includes("already registered") ||
-      msg.includes("already been registered")
-    ) {
-      error.value =
-        t("auth.errors.emailExists");
-      return;
-    }
-    throw e;
+    error.value = e?.message || String(e);
   } finally {
     busy.value = false;
   }
