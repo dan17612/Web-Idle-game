@@ -331,6 +331,7 @@ const chestRewards = computed(() => pathState.value.rewards.filter((r) => r.kind
 const boostRewards = computed(() => pathState.value.rewards.filter((r) => r.kind === "boost"));
 
 const activeBoostText = computed(() => {
+  void tickNow.value;
   if (!game.boostActive) return null;
   const remain = Math.max(0, game.petBoostUntil - (Date.now() + game.serverOffset));
   const m = Math.floor(remain / 60000);
@@ -340,8 +341,6 @@ const activeBoostText = computed(() => {
     time: `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
   });
 });
-
-void tickNow;
 
 const eventActive = computed(() => {
   void tickNow.value;
