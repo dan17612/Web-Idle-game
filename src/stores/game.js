@@ -306,9 +306,12 @@ export const useGameStore = defineStore('game', {
     },
     tick(dt) {
       this.tickCoins += this.ratePerSec * dt
-      while (this.tapsNextReset && Date.now() + this.serverOffset >= this.tapsNextReset) {
+      if (this.tapsNextReset && Date.now() + this.serverOffset >= this.tapsNextReset) {
+        const period = 5 * 60 * 1000
+        const now = Date.now() + this.serverOffset
+        const periods = Math.floor((now - this.tapsNextReset) / period) + 1
         this.tapsUsed = 0
-        this.tapsNextReset = this.tapsNextReset + 5 * 60 * 1000
+        this.tapsNextReset = this.tapsNextReset + periods * period
       }
     },
     async persist() {

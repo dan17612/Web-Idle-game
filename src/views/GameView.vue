@@ -139,7 +139,8 @@ const I18N = {
     bossPath: {
       title: "👑 Boss-Kampf",
       sub: "Bosspfad ({total} Etappen) und Endlessboss-Challenge",
-      stage: "Etappe {n} / {total}"
+      stage: "Etappe {n} / {total}",
+      bossBoostActive: "Boss-Boost aktiv"
     },
     mergeLink: {
       title: "🐾 Merge-Safari",
@@ -265,7 +266,8 @@ const I18N = {
     bossPath: {
       title: "👑 Boss fight",
       sub: "Boss path ({total} stages) and endless boss challenge",
-      stage: "Stage {n} / {total}"
+      stage: "Stage {n} / {total}",
+      bossBoostActive: "Boss boost active"
     },
     mergeLink: {
       title: "🐾 Merge Safari",
@@ -391,7 +393,8 @@ const I18N = {
     bossPath: {
       title: "👑 Бой с боссами",
       sub: "Путь босса ({total} этапов) и эндлесс-челлендж",
-      stage: "Этап {n} / {total}"
+      stage: "Этап {n} / {total}",
+      bossBoostActive: "Босс-буст активен"
     },
     mergeLink: {
       title: "🐾 Merge-Сафари",
@@ -526,7 +529,6 @@ watch(
 const floats = ref([]);
 let floatId = 0;
 const floatTimers = new Set();
-const error = ref("");
 const equipBestBusy = ref(false);
 
 const now = ref(Date.now());
@@ -563,11 +565,7 @@ const boostRemaining = computed(() => {
   return Math.max(0, game.petBoostUntil - (Date.now() + game.serverOffset));
 });
 
-const bossBoostLabel = computed(() => {
-  if (locale.value === "de") return "Boss-Boost aktiv";
-  if (locale.value === "ru") return "Босс-буст активен";
-  return "Boss boost active";
-});
+const bossBoostLabel = computed(() => tx("bossPath.bossBoostActive"));
 
 function fmtCountdown(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
