@@ -53,6 +53,16 @@ async function load() {
         total_fusions: Number(r.total_fusions || 0),
         highest_rank: Number(r.highest_rank || 0)
       }))
+    } else if (mode.value === 'memory') {
+      const { data, error: e } = await supabase.rpc('get_memory_leaderboard', { p_limit: 50 })
+      if (e) throw e
+      rows.value = (data || []).map(r => ({
+        username: r.username,
+        avatar_emoji: r.avatar_emoji,
+        highest_level: Number(r.highest_level || 0),
+        total_pairs: Number(r.total_pairs || 0),
+        total_levels_cleared: Number(r.total_levels_cleared || 0)
+      }))
     } else if (mode.value === 'endless') {
       const { data, error: e } = await supabase.rpc('get_boss_endless_leaderboard', { p_limit: 50 })
       if (e) throw e
@@ -145,6 +155,11 @@ const eventStatus = computed(() => {
     const ms = Math.max(0, game.mergeEndsAt - Date.now())
     return { ended: !game.mergeActive, remainingMs: ms }
   }
+  if (mode.value === 'memory') {
+    if (!game.memoryShowCountdown) return null
+    const ms = Math.max(0, game.memoryEndsAt - Date.now())
+    return { ended: !game.memoryActive, remainingMs: ms }
+  }
   return null
 })
 
@@ -170,6 +185,7 @@ const subtitle = computed(() => {
   if (mode.value === 'rate') return t('leaderboard.subtitleRate')
   if (mode.value === 'boss') return t('leaderboard.subtitleBoss')
   if (mode.value === 'merge') return t('leaderboard.subtitleMerge')
+  if (mode.value === 'memory') return t('leaderboard.subtitleMemory')
   if (mode.value === 'endless') return t('leaderboard.subtitleEndless')
   return t('leaderboard.subtitle')
 })
@@ -207,6 +223,13 @@ const subtitle = computed(() => {
       @click="setMode('merge')"
     >
       🐾 {{ t('leaderboard.byMerge') }}
+    </Button>
+    <Button
+      class="lb-tab"
+      :class="{ active: mode === 'memory' }"
+      @click="setMode('memory')"
+    >
+      🧠 {{ t('leaderboard.byMemory') }}
     </Button>
     <Button
       class="lb-tab"
@@ -276,6 +299,10 @@ const subtitle = computed(() => {
               <span class="primary">🐾 {{ t('leaderboard.mergeHighestTile') }}: {{ tileLabel(r.highest_rank) }}</span>
               <span class="secondary">⭐ {{ formatCoins(r.score) }} {{ t('leaderboard.mergeScore') }}</span>
               <span class="secondary">🔁 {{ formatCoins(r.total_fusions) }} {{ t('leaderboard.mergeFusions') }}</span>
+            </template>
+            <template v-else-if="mode === 'memory'">
+              <span class="primary">🧠 {{ t('leaderboard.memoryLevel') }} {{ r.highest_level }}</span>
+              <span class="secondary">🔁 {{ r.total_pairs }} {{ t('leaderboard.memoryPairs') }}</span>
             </template>
             <template v-else-if="mode === 'endless'">
               <span class="primary">💥 {{ formatCoins(r.damage) }} {{ t('leaderboard.endlessDamage') }}</span>
