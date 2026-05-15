@@ -385,3 +385,128 @@ end $$;
 
 revoke all on function public.memory_flip(uuid, uuid, int) from public, anon, authenticated;
 grant execute on function public.memory_flip(uuid, uuid, int) to service_role;
+
+-- Schliesst ein vollstaendig geloestes Level ab: Truhen-Reward (immer) +
+-- Tier-Reward (falls reward_species gesetzt) in memory_level_rewards,
+-- level + 1, naechstes Brett mischen.
+create or replace function public.memory_complete_level(p_user_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_st public.memory_player_states%rowtype;
+  v_cfg public.memory_level_configs%rowtype;
+  v_next_cfg public.memory_level_configs%rowtype;
+  v_matched_count int;
+  v_chest_id bigint;
+  v_animal_id bigint;
+  v_next_level int;
+  v_max_level int;
+begin
+  if p_user_id is null then raise exception 'missing user'; end if;
+  if not public.event_is_active('memory_game') then
+    raise exception 'event ended';
+  end if;
+
+  select * into v_st from public.memory_player_states
+   where user_id = p_user_id for update;
+  if not found then raise exception 'no state'; end if;
+
+  select * into v_cfg from public.memory_level_configs where level = v_st.level;
+  if not found then raise exception 'no level config'; end if;
+
+  select count(*) into v_matched_count
+    from jsonb_array_elements(v_st.board) e
+   where (e->>'matched')::boolean = true;
+  if v_matched_count <> jsonb_array_length(v_st.board)
+     or jsonb_array_length(v_st.board) = 0 then
+    raise exception 'level not cleared';
+  end if;
+
+  insert into public.memory_level_rewards(user_id, level, kind, payload)
+  values (p_user_id, v_st.level, 'chest',
+          jsonb_build_object('chest_qty', v_cfg.chest_qty))
+  returning id into v_chest_id;
+
+  if v_cfg.reward_species is not null and v_cfg.reward_qty > 0 then
+    insert into public.memory_level_rewards(user_id, level, kind, payload)
+    values (p_user_id, v_st.level, 'animal',
+            jsonb_build_object(
+              'species', v_cfg.reward_species,
+              'tier', v_cfg.reward_tier,
+              'qty', v_cfg.reward_qty))
+    returning id into v_animal_id;
+  end if;
+
+  select coalesce(max(level), 0) into v_max_level
+    from public.memory_level_configs;
+  v_next_level := least(v_st.level + 1, v_max_level);
+
+  select * into v_next_cfg from public.memory_level_configs
+   where level = v_next_level;
+
+  update public.memory_player_states
+     set level = v_next_level,
+         highest_level = greatest(highest_level, v_st.level),
+         total_levels_cleared = total_levels_cleared + 1,
+         board = public.memory_build_board(v_next_cfg.pairs),
+         revealed = '{}',
+         moves_used = 0,
+         level_started_at = now(),
+         version = gen_random_uuid(),
+         updated_at = now()
+   where user_id = p_user_id
+   returning * into v_st;
+
+  return jsonb_build_object(
+    'completed_level', v_cfg.level,
+    'chest_reward_id', v_chest_id,
+    'animal_reward_id', v_animal_id,
+    'state', public.get_memory_state(p_user_id)
+  );
+end $$;
+
+revoke all on function public.memory_complete_level(uuid) from public, anon, authenticated;
+grant execute on function public.memory_complete_level(uuid) to service_role;
+
+-- Aktuelles Level neu mischen (kein Fortschritt).
+create or replace function public.memory_reset_level(p_user_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_st public.memory_player_states%rowtype;
+  v_cfg public.memory_level_configs%rowtype;
+begin
+  if p_user_id is null then raise exception 'missing user'; end if;
+  if not public.event_is_active('memory_game') then
+    raise exception 'event ended';
+  end if;
+
+  select * into v_st from public.memory_player_states
+   where user_id = p_user_id for update;
+  if not found then raise exception 'no state'; end if;
+
+  select * into v_cfg from public.memory_level_configs where level = v_st.level;
+  if not found then raise exception 'no level config'; end if;
+
+  update public.memory_player_states
+     set board = public.memory_build_board(v_cfg.pairs),
+         revealed = '{}',
+         moves_used = 0,
+         level_started_at = now(),
+         version = gen_random_uuid(),
+         updated_at = now()
+   where user_id = p_user_id;
+
+  return jsonb_build_object('state', public.get_memory_state(p_user_id));
+end $$;
+
+revoke all on function public.memory_reset_level(uuid) from public, anon, authenticated;
+grant execute on function public.memory_reset_level(uuid) to service_role;
