@@ -119,6 +119,26 @@ export const useGameStore = defineStore('game', {
       const cfg = state.eventSchedule?.merge_game
       return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
     },
+    memoryEndsAt(state) {
+      const cfg = state.eventSchedule?.memory_game
+      if (!cfg || cfg.show_countdown === false) return 0
+      return cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+    },
+    memoryActive(state) {
+      const cfg = state.eventSchedule?.memory_game
+      if (!cfg) return true
+      if (cfg.enabled === false) return false
+      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
+      const now = Date.now()
+      if (starts && starts > now) return false
+      if (ends && ends <= now) return false
+      return true
+    },
+    memoryShowCountdown(state) {
+      const cfg = state.eventSchedule?.memory_game
+      return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
+    },
     bossEndlessActive(state) {
       const cfg = state.eventSchedule?.boss_endless
       if (!cfg) return true
