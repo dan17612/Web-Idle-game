@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 import { locale } from '../i18n'
+import { speciesInfo, tierInfo } from '../animals'
 import { useGameStore } from '../stores/game'
 import { useAppToast } from '../composables/useAppToast'
 
@@ -10,11 +11,14 @@ const router = useRouter()
 const game = useGameStore()
 const appToast = useAppToast()
 
+const TUT_KEY = 'memory_tutorial_v1'
+
 const I18N = {
   de: {
-    title: '🧠 Memory', sub: 'Finde alle Tier-Paare, bevor die Züge ausgehen.',
-    back: 'Zurück', level: 'Level', moves: 'Züge', best: 'Höchstes Level',
-    reset: 'Brett neu', loading: 'Lade Memory...', retry: 'Erneut versuchen',
+    title: '🧠 Memory-Pfad', sub: 'Eine Reise durch 20 Level. Finde alle Tier-Paare, bevor die Züge ausgehen.',
+    back: 'Zurück', level: 'Level', moves: 'Züge', best: 'Höchstes Level', progress: 'Fortschritt', pairsWord: 'Paare',
+    play: 'Spielen', replay: 'Nochmal', locked: 'Gesperrt', cleared: 'Geschafft', current: 'Aktuell',
+    reset: 'Brett neu', loading: 'Lade Memory...', retry: 'Erneut versuchen', close: 'Schließen',
     eventEndsIn: 'Verschwindet in {time}', eventEnded: 'Ereignis beendet',
     eventEndedSub: 'Das Memory-Ereignis ist vorbei. Es können keine Züge mehr gemacht werden.',
     matched: 'Paar gefunden!', failed: 'Zuglimit erreicht - Brett neu',
@@ -22,12 +26,20 @@ const I18N = {
     continue: 'Weiter', resetTitle: 'Brett zurücksetzen?',
     resetSub: 'Der aktuelle Fortschritt in diesem Level geht verloren.',
     resetCancel: 'Abbrechen', resetYes: 'Ja, neu mischen',
-    rewardChest: '🎁 Truhe ({qty})', rewardAnimal: '{qty}x {emoji} {name}'
+    rewardChest: '🎁 Truhe ({qty})', rewardAnimal: '{qty}× {emoji} {name}',
+    pathComplete: '🏆 Alle 20 Level geschafft! Du kannst Level 20 wiederholen.',
+    tutTitle: 'So funktioniert Memory',
+    tutStep1: 'Tippe eine Karte an - sie dreht sich um und zeigt ein Tier.',
+    tutStep2: 'Tippe eine zweite Karte. Zwei gleiche Tiere = Paar gefunden, sie bleiben offen.',
+    tutStep3: 'Decke alle Paare auf, bevor dein Zuglimit erreicht ist. Sonst wird das Brett neu gemischt.',
+    tutStep4: 'Jedes geschaffte Level bringt Truhen, alle 5 Level ein garantiertes Tier. Höhere Level sind größer.',
+    tutGot: 'Verstanden, los geht\'s!'
   },
   en: {
-    title: '🧠 Memory', sub: 'Find all animal pairs before you run out of moves.',
-    back: 'Back', level: 'Level', moves: 'Moves', best: 'Highest level',
-    reset: 'New board', loading: 'Loading Memory...', retry: 'Try again',
+    title: '🧠 Memory Path', sub: 'A journey through 20 levels. Find all animal pairs before you run out of moves.',
+    back: 'Back', level: 'Level', moves: 'Moves', best: 'Highest level', progress: 'Progress', pairsWord: 'pairs',
+    play: 'Play', replay: 'Replay', locked: 'Locked', cleared: 'Cleared', current: 'Current',
+    reset: 'New board', loading: 'Loading Memory...', retry: 'Try again', close: 'Close',
     eventEndsIn: 'Disappears in {time}', eventEnded: 'Event ended',
     eventEndedSub: 'The Memory event is over. No more moves can be made.',
     matched: 'Pair found!', failed: 'Move limit reached - new board',
@@ -35,12 +47,20 @@ const I18N = {
     continue: 'Continue', resetTitle: 'Reset board?',
     resetSub: 'Your current progress in this level will be lost.',
     resetCancel: 'Cancel', resetYes: 'Yes, reshuffle',
-    rewardChest: '🎁 Chest ({qty})', rewardAnimal: '{qty}x {emoji} {name}'
+    rewardChest: '🎁 Chest ({qty})', rewardAnimal: '{qty}× {emoji} {name}',
+    pathComplete: '🏆 All 20 levels cleared! You can replay level 20.',
+    tutTitle: 'How Memory works',
+    tutStep1: 'Tap a card - it flips over and shows an animal.',
+    tutStep2: 'Tap a second card. Two identical animals = pair found, they stay open.',
+    tutStep3: 'Reveal all pairs before your move limit runs out. Otherwise the board reshuffles.',
+    tutStep4: 'Each cleared level gives chests, every 5 levels a guaranteed animal. Higher levels are bigger.',
+    tutGot: 'Got it, let\'s go!'
   },
   ru: {
-    title: '🧠 Memory', sub: 'Найди все пары животных, пока не кончились ходы.',
-    back: 'Назад', level: 'Уровень', moves: 'Ходы', best: 'Лучший уровень',
-    reset: 'Новое поле', loading: 'Загрузка Memory...', retry: 'Повторить',
+    title: '🧠 Memory-путь', sub: 'Путешествие по 20 уровням. Найди все пары животных, пока не кончились ходы.',
+    back: 'Назад', level: 'Уровень', moves: 'Ходы', best: 'Лучший уровень', progress: 'Прогресс', pairsWord: 'пар',
+    play: 'Играть', replay: 'Снова', locked: 'Закрыто', cleared: 'Пройдено', current: 'Текущий',
+    reset: 'Новое поле', loading: 'Загрузка Memory...', retry: 'Повторить', close: 'Закрыть',
     eventEndsIn: 'Исчезнет через {time}', eventEnded: 'Событие завершено',
     eventEndedSub: 'Событие Memory завершено. Ходы больше недоступны.',
     matched: 'Пара найдена!', failed: 'Лимит ходов - новое поле',
@@ -48,7 +68,14 @@ const I18N = {
     continue: 'Дальше', resetTitle: 'Сбросить поле?',
     resetSub: 'Текущий прогресс на этом уровне будет потерян.',
     resetCancel: 'Отмена', resetYes: 'Да, заново',
-    rewardChest: '🎁 Сундук ({qty})', rewardAnimal: '{qty}x {emoji} {name}'
+    rewardChest: '🎁 Сундук ({qty})', rewardAnimal: '{qty}× {emoji} {name}',
+    pathComplete: '🏆 Все 20 уровней пройдены! Можно повторить уровень 20.',
+    tutTitle: 'Как играть в Memory',
+    tutStep1: 'Нажми на карту - она перевернётся и покажет животное.',
+    tutStep2: 'Нажми вторую карту. Два одинаковых животных = пара, они остаются открытыми.',
+    tutStep3: 'Открой все пары до конца лимита ходов. Иначе поле перемешается.',
+    tutStep4: 'Каждый пройденный уровень даёт сундуки, каждые 5 уровней - гарантированное животное. Уровни растут.',
+    tutGot: 'Понятно, поехали!'
   }
 }
 
@@ -68,6 +95,8 @@ const now = ref(Date.now())
 let clockTimer = null
 const showResetConfirm = ref(false)
 const chestReveal = ref(null)
+const playOpen = ref(false)
+const showTutorial = ref(false)
 
 const visibleCards = computed(() => data.value?.visible_cards || [])
 const cardCount = computed(() => Number(data.value?.card_count || 0))
@@ -81,6 +110,36 @@ const cardMap = computed(() => {
   for (const c of visibleCards.value) map[c.index] = c
   return map
 })
+
+const configs = computed(() => Array.isArray(data.value?.configs) ? data.value.configs : [])
+const maxLevel = computed(() => configs.value.reduce((m, c) => Math.max(m, Number(c.level || 0)), 0))
+const curLevel = computed(() => Number(data.value?.level || 1))
+const highest = computed(() => Number(data.value?.highest_level || 0))
+const allCleared = computed(() => maxLevel.value > 0 && highest.value >= maxLevel.value)
+const progressPct = computed(() => {
+  if (maxLevel.value <= 0) return 0
+  return Math.round((Math.min(highest.value, maxLevel.value) / maxLevel.value) * 100)
+})
+
+const levelNodes = computed(() =>
+  configs.value.map((c) => {
+    const lvl = Number(c.level || 0)
+    const status = lvl < curLevel.value ? 'cleared' : lvl === curLevel.value ? 'current' : 'locked'
+    const pet = c.reward_species && Number(c.reward_qty || 0) > 0
+      ? { info: speciesInfo(c.reward_species), tier: c.reward_tier || 'normal', qty: Number(c.reward_qty) }
+      : null
+    return {
+      level: lvl,
+      pairs: Number(c.pairs || 0),
+      move_limit: Number(c.move_limit || 0),
+      chest_qty: Number(c.chest_qty || 0),
+      pet,
+      status,
+      side: lvl % 2 === 0 ? 'right' : 'left',
+      replay: status === 'cleared' && allCleared.value && lvl === maxLevel.value
+    }
+  })
+)
 
 const eventActive = computed(() => {
   void now.value
@@ -107,6 +166,10 @@ function formatCountdown(ms) {
   }
   if (hours > 0) return loc === 'ru' ? `${hours}ч ${minutes}м` : `${hours}h ${minutes}m`
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function tierBadge(tier) {
+  return tierInfo(tier)?.badge || ''
 }
 
 function showFlash(text, kind = 'ok') {
@@ -136,6 +199,20 @@ async function loadGame() {
   } finally {
     loading.value = false
   }
+}
+
+function openPlay(node) {
+  if (node.status !== 'current' && !node.replay) return
+  if (!eventActive.value) {
+    appToast.err(tx('eventEnded'))
+    return
+  }
+  playOpen.value = true
+}
+
+function closePlay() {
+  if (busy.value) return
+  playOpen.value = false
 }
 
 async function flip(index) {
@@ -171,6 +248,7 @@ async function completeLevel() {
       opened.push(o)
     }
     await game.load()
+    playOpen.value = false
     chestReveal.value = { phase: 'shake', items: opened }
     await wait(650)
     chestReveal.value = { ...chestReveal.value, phase: 'open' }
@@ -206,9 +284,15 @@ async function confirmReset() {
 function rewardLabel(o) {
   const species = Array.isArray(o.species) ? o.species : []
   if (o.kind === 'animal' && species.length) {
-    return tx('rewardAnimal', { qty: o.qty, emoji: '🐾', name: species[0] })
+    const info = speciesInfo(species[0])
+    return tx('rewardAnimal', { qty: o.qty, emoji: info.emoji, name: info.name })
   }
   return tx('rewardChest', { qty: o.qty })
+}
+
+function dismissTutorial() {
+  showTutorial.value = false
+  try { localStorage.setItem(TUT_KEY, '1') } catch { /* ignore */ }
 }
 
 onMounted(() => {
@@ -216,6 +300,9 @@ onMounted(() => {
   if (!Object.keys(game.eventSchedule || {}).length) {
     game.loadEventSchedule?.().catch(() => {})
   }
+  let seen = false
+  try { seen = localStorage.getItem(TUT_KEY) === '1' } catch { seen = false }
+  if (!seen) showTutorial.value = true
   loadGame()
 })
 onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
@@ -231,6 +318,9 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
         <h1 class="memory-title">{{ tx('title') }}</h1>
         <p class="memory-sub">{{ tx('sub') }}</p>
       </div>
+      <Button class="btn small btn-ghost help-btn" @click="showTutorial = true">
+        <i class="pi pi-question-circle"></i>
+      </Button>
     </header>
 
     <div v-if="loading" class="card memory-state">
@@ -244,14 +334,14 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
     <template v-else>
       <section class="memory-stats">
         <div class="memory-stat">
-          <strong>{{ data.level }}</strong><span>{{ tx('level') }}</span>
+          <strong>{{ Math.min(curLevel, maxLevel) }} / {{ maxLevel }}</strong><span>{{ tx('level') }}</span>
         </div>
         <div class="memory-stat">
-          <strong>{{ data.moves_used }} / {{ data.move_limit }}</strong>
-          <span>{{ tx('moves') }}</span>
+          <strong>{{ highest }}</strong><span>{{ tx('best') }}</span>
         </div>
-        <div class="memory-stat">
-          <strong>{{ data.highest_level }}</strong><span>{{ tx('best') }}</span>
+        <div class="memory-stat stat-progress">
+          <div class="progress-bar"><span :style="{ width: progressPct + '%' }"></span></div>
+          <span>{{ tx('progress') }} · {{ progressPct }}%</span>
         </div>
       </section>
 
@@ -269,39 +359,89 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
         </div>
       </section>
 
-      <section class="memory-board-wrap">
-        <div
-          class="memory-board"
-          :class="{ busy }"
-          :style="{ gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' }"
-        >
-          <button
-            v-for="i in cardCount"
-            :key="i - 1"
-            class="memory-card"
-            :class="{
-              flipped: !!cardMap[i - 1],
-              matched: cardMap[i - 1]?.matched
-            }"
-            :disabled="busy || !eventActive || !!cardMap[i - 1]"
-            @click="flip(i - 1)"
-          >
-            <span class="card-inner">
-              <span class="card-face card-back">❓</span>
-              <span class="card-face card-front">{{ cardMap[i - 1]?.emoji || '' }}</span>
-            </span>
-          </button>
-        </div>
-        <Transition name="memory-flash">
-          <div v-if="flash" class="memory-flash" :class="flash.kind">{{ flash.text }}</div>
-        </Transition>
-      </section>
+      <div v-if="allCleared" class="path-complete">{{ tx('pathComplete') }}</div>
 
-      <section class="memory-controls">
-        <Button class="ctrl reset" :disabled="busy || !eventActive" @click="requestReset">
-          <i class="pi pi-refresh"></i><span>{{ tx('reset') }}</span>
-        </Button>
+      <section class="mem-path">
+        <div
+          v-for="(node, idx) in levelNodes"
+          :key="node.level"
+          class="mem-stage"
+          :class="['stage-' + node.status, 'side-' + node.side]"
+        >
+          <div v-if="idx > 0" class="mem-trail" :class="'side-' + node.side"></div>
+          <div class="mem-stage-card">
+            <div class="mem-stage-num">{{ tx('level') }} {{ node.level }}</div>
+            <div class="mem-node-circle" :class="'st-' + node.status">
+              <span class="mem-node-emoji">🧠</span>
+              <span v-if="node.status === 'cleared'" class="mem-badge cleared">✓</span>
+              <span v-else-if="node.status === 'locked'" class="mem-badge locked">🔒</span>
+              <span v-else class="mem-badge current">▶</span>
+            </div>
+            <div class="mem-stage-info">{{ node.pairs }} {{ tx('pairsWord') }} · {{ node.move_limit }} {{ tx('moves') }}</div>
+            <div class="mem-stage-rewards">
+              <span>🎁 {{ node.chest_qty }} 🐾</span>
+              <span v-if="node.pet">{{ tierBadge(node.pet.tier) }} {{ node.pet.info.emoji }} {{ node.pet.info.name }}</span>
+            </div>
+            <Button
+              v-if="node.status === 'current' || node.replay"
+              class="btn mem-play-btn"
+              :disabled="!eventActive"
+              @click="openPlay(node)"
+            >
+              <template v-if="!eventActive">🔒 {{ tx('eventEnded') }}</template>
+              <template v-else-if="node.replay">↻ {{ tx('replay') }}</template>
+              <template v-else>▶ {{ tx('play') }}</template>
+            </Button>
+            <div v-else-if="node.status === 'locked'" class="mem-hint">🔒 {{ tx('locked') }}</div>
+            <div v-else class="mem-hint cleared">🏆 {{ tx('cleared') }}</div>
+          </div>
+        </div>
       </section>
+    </template>
+
+    <Teleport to="body">
+      <div v-if="playOpen && data" class="play-overlay">
+        <div class="play-panel">
+          <div class="play-head">
+            <div class="play-title">{{ tx('level') }} {{ data.level }}</div>
+            <div class="play-moves" :class="{ low: (data.move_limit - data.moves_used) <= 3 }">
+              {{ data.moves_used }} / {{ data.move_limit }} {{ tx('moves') }}
+            </div>
+            <Button class="btn small btn-ghost" :disabled="busy" @click="closePlay">
+              <i class="pi pi-times"></i>
+            </Button>
+          </div>
+
+          <div class="memory-board-wrap">
+            <div
+              class="memory-board"
+              :class="{ busy }"
+              :style="{ gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' }"
+            >
+              <button
+                v-for="i in cardCount"
+                :key="i - 1"
+                class="memory-card"
+                :class="{ flipped: !!cardMap[i - 1], matched: cardMap[i - 1]?.matched }"
+                :disabled="busy || !eventActive || !!cardMap[i - 1]"
+                @click="flip(i - 1)"
+              >
+                <span class="card-inner">
+                  <span class="card-face card-back">❓</span>
+                  <span class="card-face card-front">{{ cardMap[i - 1]?.emoji || '' }}</span>
+                </span>
+              </button>
+            </div>
+            <Transition name="memory-flash">
+              <div v-if="flash" class="memory-flash" :class="flash.kind">{{ flash.text }}</div>
+            </Transition>
+          </div>
+
+          <Button class="ctrl reset" :disabled="busy || !eventActive" @click="requestReset">
+            <i class="pi pi-refresh"></i><span>{{ tx('reset') }}</span>
+          </Button>
+        </div>
+      </div>
 
       <div
         v-if="chestReveal"
@@ -340,7 +480,24 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
           </div>
         </div>
       </div>
-    </template>
+
+      <div v-if="showTutorial" class="tut-backdrop" @click.self="dismissTutorial">
+        <div class="tut-dialog card">
+          <h3 class="tut-title">{{ tx('tutTitle') }}</h3>
+          <div class="tut-demo">
+            <div class="tut-card d1"><span class="tc-back">❓</span><span class="tc-front">🐼</span></div>
+            <div class="tut-card d2"><span class="tc-back">❓</span><span class="tc-front">🐼</span></div>
+          </div>
+          <ol class="tut-steps">
+            <li>{{ tx('tutStep1') }}</li>
+            <li>{{ tx('tutStep2') }}</li>
+            <li>{{ tx('tutStep3') }}</li>
+            <li>{{ tx('tutStep4') }}</li>
+          </ol>
+          <Button class="btn tut-got" @click="dismissTutorial">{{ tx('tutGot') }}</Button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -349,8 +506,10 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .memory-header { display:flex; align-items:center; gap:10px; }
 .btn-ghost { background:rgba(255,255,255,0.06); color:var(--muted);
   display:inline-flex; align-items:center; gap:5px; flex-shrink:0; }
+.memory-title-block { flex:1; min-width:0; }
 .memory-title { margin:0; font-size:22px; font-weight:900; }
 .memory-sub { margin:2px 0 0; color:var(--muted); font-size:13px; }
+.help-btn { flex-shrink:0; }
 .memory-state { display:flex; align-items:center; justify-content:center; gap:10px;
   min-height:140px; color:var(--muted); font-weight:800; }
 .error-state { flex-direction:column; color:var(--danger); }
@@ -360,6 +519,11 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .memory-stat strong { display:block; color:var(--accent); font-weight:900; font-size:17px; }
 .memory-stat span { display:block; color:var(--muted); font-size:11px; font-weight:700;
   margin-top:4px; text-transform:uppercase; letter-spacing:0.03em; }
+.stat-progress { display:flex; flex-direction:column; justify-content:center; gap:6px; }
+.progress-bar { width:100%; height:9px; border-radius:999px; background:rgba(0,0,0,0.3);
+  overflow:hidden; border:1px solid var(--border); }
+.progress-bar span { display:block; height:100%;
+  background:linear-gradient(90deg,#06d6a0,#ffd166,#ef476f); transition:width 0.3s ease; }
 .event-banner { display:flex; align-items:center; gap:12px; padding:10px 14px;
   background:linear-gradient(135deg,#142244,#0d1730); border:1px solid rgba(72,202,228,0.45); }
 .event-banner.ended { background:linear-gradient(135deg,#2a1226,#1a0a1a);
@@ -368,6 +532,69 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .event-banner-title { font-weight:900; font-size:14px; color:#48cae4; }
 .event-banner.ended .event-banner-title { color:#ef476f; }
 .event-banner-sub { margin-top:2px; font-size:12px; color:var(--muted); font-weight:700; }
+.path-complete { text-align:center; padding:12px; border-radius:14px;
+  background:linear-gradient(90deg,rgba(255,209,102,0.2),rgba(199,125,255,0.2));
+  border:1px solid rgba(255,209,102,0.5); font-weight:800; }
+
+.mem-path { display:flex; flex-direction:column; gap:0; border-radius:18px;
+  overflow:hidden; border:1px solid var(--border);
+  background:linear-gradient(180deg,#0f1730,#0a0e1e); }
+.mem-stage { position:relative; min-height:150px; padding:18px 16px; display:flex;
+  align-items:center; }
+.mem-stage.side-left { justify-content:flex-start; }
+.mem-stage.side-right { justify-content:flex-end; }
+.mem-stage.stage-locked { filter:grayscale(0.5) brightness(0.72); }
+.mem-trail { position:absolute; top:-40px; width:6px; height:60px;
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,0.55) 0 8px,transparent 8px 16px);
+  border-radius:4px; z-index:1; }
+.mem-trail.side-left { left:22%; }
+.mem-trail.side-right { right:22%; }
+.mem-stage-card { position:relative; z-index:2; width:min(280px,72%);
+  background:rgba(10,14,30,0.82); backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,0.16); border-radius:16px; padding:14px;
+  display:flex; flex-direction:column; align-items:center; gap:7px;
+  box-shadow:0 14px 30px rgba(0,0,0,0.45); }
+.stage-current .mem-stage-card { border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(255,209,102,0.22),0 14px 30px rgba(0,0,0,0.55);
+  animation:cardPulse 2.4s ease-in-out infinite; }
+@keyframes cardPulse {
+  0%,100% { box-shadow:0 0 0 3px rgba(255,209,102,0.16),0 14px 30px rgba(0,0,0,0.55); }
+  50% { box-shadow:0 0 0 8px rgba(255,209,102,0.04),0 14px 30px rgba(0,0,0,0.55); } }
+.mem-stage-num { font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--muted); font-weight:800; }
+.mem-node-circle { width:74px; height:74px; border-radius:50%; display:grid;
+  place-items:center; font-size:40px; position:relative;
+  background:radial-gradient(circle at 40% 30%,rgba(255,255,255,0.18),rgba(0,0,0,0.4));
+  border:2px solid rgba(255,255,255,0.22); }
+.mem-node-circle.st-current { border-color:var(--accent);
+  box-shadow:0 0 22px rgba(255,209,102,0.5); }
+.mem-node-circle.st-cleared { border-color:var(--accent-2);
+  background:radial-gradient(circle at 40% 30%,rgba(6,214,160,0.4),rgba(0,0,0,0.3)); }
+.mem-node-emoji { filter:drop-shadow(0 4px 8px rgba(0,0,0,0.6)); }
+.mem-badge { position:absolute; bottom:-4px; right:-4px; width:26px; height:26px;
+  border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:900;
+  border:2px solid #0a0e1e; }
+.mem-badge.cleared { background:var(--accent-2); color:#0a0e1e; }
+.mem-badge.locked { background:rgba(0,0,0,0.6); color:var(--muted); }
+.mem-badge.current { background:var(--accent); color:#0a0e1e; }
+.mem-stage-info { font-size:12px; color:var(--muted); font-weight:800; text-align:center; }
+.mem-stage-rewards { display:flex; flex-direction:column; gap:2px; font-size:11px;
+  color:var(--accent); font-weight:800; text-align:center; }
+.mem-play-btn { width:100%; font-weight:900; margin-top:2px; }
+.mem-hint { font-size:12px; color:var(--muted); font-weight:700; }
+.mem-hint.cleared { color:var(--accent-2); }
+
+.play-overlay { position:fixed; inset:0; z-index:1100; display:flex;
+  align-items:center; justify-content:center; padding:14px;
+  background:rgba(0,0,0,0.82); backdrop-filter:blur(6px); overflow-y:auto; }
+.play-panel { width:100%; max-width:460px; margin:auto;
+  background:linear-gradient(135deg,#141d36,#0c1124); border:1px solid var(--border);
+  border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.play-head { display:flex; align-items:center; gap:10px; }
+.play-title { font-size:18px; font-weight:900; flex:1; }
+.play-moves { font-size:13px; font-weight:900; color:var(--accent);
+  font-variant-numeric:tabular-nums; }
+.play-moves.low { color:#ef476f; }
 .memory-board-wrap { position:relative; }
 .memory-board { display:grid; gap:8px; padding:10px; border-radius:18px;
   background:linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.15)),#0d1528;
@@ -394,12 +621,12 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .memory-flash.warn { background:rgba(255,209,102,0.95); color:#2a1b00; }
 .memory-flash-enter-active,.memory-flash-leave-active { transition:opacity 0.18s ease, transform 0.18s ease; }
 .memory-flash-enter-from,.memory-flash-leave-to { opacity:0; transform:translate(-50%,-42%) scale(0.92); }
-.memory-controls { display:flex; }
-.ctrl.reset { flex:1; min-height:46px; border-radius:14px;
+.ctrl.reset { min-height:46px; border-radius:14px;
   background:linear-gradient(135deg,#ffd166,#f4a261); color:#1b1300; border:none;
   font-weight:900; display:inline-flex; align-items:center; justify-content:center; gap:5px; }
 .ctrl.reset:active:not(:disabled) { transform:scale(0.97); }
-.chest-modal { position:fixed; inset:0; z-index:1100; display:flex; flex-direction:column;
+
+.chest-modal { position:fixed; inset:0; z-index:1200; display:flex; flex-direction:column;
   align-items:center; justify-content:center; gap:24px; padding:20px;
   background:rgba(0,0,0,0.78); backdrop-filter:blur(6px); }
 .chest-stage { width:200px; height:200px; display:flex; align-items:center; justify-content:center; }
@@ -416,7 +643,7 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
   border:1px solid rgba(255,255,255,0.1); animation:revealIn 0.3s ease-out both; }
 .chest-item b { font-size:15px; font-weight:900; color:var(--accent); }
 .confirm-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.65); display:flex;
-  align-items:center; justify-content:center; z-index:1000; padding:16px; backdrop-filter:blur(4px); }
+  align-items:center; justify-content:center; z-index:1300; padding:16px; backdrop-filter:blur(4px); }
 .confirm-dialog { max-width:340px; width:100%; display:flex; flex-direction:column;
   align-items:center; padding:24px; text-align:center; }
 .confirm-emoji { font-size:48px; margin-bottom:10px; }
@@ -426,6 +653,30 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
   border:1px solid var(--border) !important; }
 .confirm-yes { flex:1; background:linear-gradient(135deg,#ef476f,#d62850) !important;
   color:#fff !important; border:none !important; }
+
+.tut-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.8); display:flex;
+  align-items:center; justify-content:center; z-index:1400; padding:16px; backdrop-filter:blur(6px); }
+.tut-dialog { max-width:380px; width:100%; padding:22px; text-align:center;
+  display:flex; flex-direction:column; gap:14px; animation:revealIn 0.25s ease-out; }
+.tut-title { margin:0; font-size:20px; font-weight:900; }
+.tut-demo { display:flex; gap:14px; justify-content:center; perspective:700px; padding:6px 0; }
+.tut-card { position:relative; width:64px; height:64px; transform-style:preserve-3d;
+  animation:tutFlip 3.4s ease-in-out infinite; }
+.tut-card.d2 { animation-delay:0.5s; }
+.tut-card span { position:absolute; inset:0; display:flex; align-items:center;
+  justify-content:center; border-radius:12px; backface-visibility:hidden; font-size:34px; }
+.tc-back { background:linear-gradient(145deg,#48cae4,#115b73);
+  border:1px solid rgba(255,255,255,0.2); }
+.tc-front { background:linear-gradient(145deg,#06d6a0,#0b6b55);
+  border:1px solid rgba(255,255,255,0.28); transform:rotateY(180deg); }
+.tut-steps { text-align:left; margin:0; padding-left:20px; display:flex;
+  flex-direction:column; gap:8px; color:var(--text); font-size:13px; font-weight:600; }
+.tut-steps li { line-height:1.4; }
+.tut-got { width:100%; font-weight:900; }
+@keyframes tutFlip {
+  0%,18% { transform:rotateY(0deg); }
+  42%,72% { transform:rotateY(180deg); }
+  96%,100% { transform:rotateY(0deg); } }
 @keyframes chestShake { 0%,100%{transform:translate(0,0) rotate(0);}
   25%{transform:translate(-4px,-2px) rotate(-4deg);} 50%{transform:translate(5px,2px) rotate(5deg);}
   75%{transform:translate(-2px,2px) rotate(-2deg);} }
@@ -434,7 +685,10 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 @keyframes revealIn { from{transform:translateY(14px) scale(0.94); opacity:0;}
   to{transform:translateY(0) scale(1); opacity:1;} }
 @media (max-width:420px) {
-  .memory-stats { grid-template-columns:1fr; }
-  .memory-board { gap:6px; padding:8px; }
+  .memory-stats { grid-template-columns:1fr 1fr; }
+  .stat-progress { grid-column:span 2; }
+  .mem-stage { min-height:140px; padding:16px 12px; }
+  .mem-stage-card { width:min(260px,90%); }
+  .mem-node-circle { width:64px; height:64px; font-size:34px; }
 }
 </style>
