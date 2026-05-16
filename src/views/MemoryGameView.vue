@@ -277,14 +277,17 @@ async function confirmReset() {
   }
 }
 
-function rewardLabel(o) {
-  const species = Array.isArray(o.species) ? o.species : []
-  if (o.kind === 'animal' && species.length) {
-    const info = speciesInfo(species[0])
-    return tx('rewardAnimal', { qty: o.qty, emoji: info.emoji, name: info.name })
+const revealAnimals = computed(() => {
+  const out = []
+  for (const o of (chestReveal.value?.items || [])) {
+    const sp = Array.isArray(o.species) ? o.species : []
+    for (const s of sp) {
+      const info = speciesInfo(s)
+      out.push({ emoji: info.emoji || '❓', name: info.name })
+    }
   }
-  return tx('rewardChest', { qty: o.qty })
-}
+  return out
+})
 
 function dismissTutorial() {
   showTutorial.value = false
@@ -455,11 +458,14 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
           <p>{{ tx('chestSub') }}</p>
           <div class="chest-items">
             <div
-              v-for="(o, i) in chestReveal.items"
+              v-for="(a, i) in revealAnimals"
               :key="i"
-              class="chest-item"
+              class="chest-animal"
               :style="{ animationDelay: (i * 0.12) + 's' }"
-            ><b>{{ rewardLabel(o) }}</b></div>
+            >
+              <span class="ca-emoji">{{ a.emoji }}</span>
+              <b>{{ a.name }}</b>
+            </div>
           </div>
           <Button class="btn" @click="closeChestReveal">{{ tx('continue') }}</Button>
         </div>
@@ -634,10 +640,14 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
   border:1px solid rgba(255,209,102,0.4); text-align:center; }
 .chest-reveal h3 { margin:0; font-size:20px; font-weight:900; }
 .chest-reveal p { margin:6px 0 14px; color:var(--muted); font-size:13px; font-weight:700; }
-.chest-items { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
-.chest-item { border-radius:14px; padding:12px 8px; background:rgba(255,255,255,0.08);
-  border:1px solid rgba(255,255,255,0.1); animation:revealIn 0.3s ease-out both; }
-.chest-item b { font-size:15px; font-weight:900; color:var(--accent); }
+.chest-items { display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+  margin-bottom:14px; }
+.chest-animal { display:flex; flex-direction:column; align-items:center; gap:4px;
+  min-width:78px; border-radius:14px; padding:12px 10px; background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.1); animation:revealIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+.ca-emoji { font-size:42px; line-height:1;
+  filter:drop-shadow(0 0 12px rgba(255,209,102,0.6)); }
+.chest-animal b { font-size:12px; font-weight:800; color:#fff; text-align:center; }
 .confirm-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.65); display:flex;
   align-items:center; justify-content:center; z-index:1300; padding:16px; backdrop-filter:blur(4px); }
 .confirm-dialog { max-width:340px; width:100%; display:flex; flex-direction:column;
