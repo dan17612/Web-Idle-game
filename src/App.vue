@@ -47,6 +47,11 @@ function refreshOnReturn() {
 const broadcast = ref(null);
 let broadcastTimer = null;
 let broadcastChannel = null;
+let tickTimer = null;
+let persistTimer = null;
+let staleCheckTimer = null;
+let beforeUnloadHandler = null;
+let visibilityHandler = null;
 
 function showBroadcast(msg) {
   broadcast.value = { id: Date.now(), text: msg };
@@ -89,8 +94,13 @@ watch(
 );
 
 onUnmounted(() => {
+  if (tickTimer) clearInterval(tickTimer);
+  if (persistTimer) clearInterval(persistTimer);
+  if (staleCheckTimer) clearInterval(staleCheckTimer);
   if (broadcastTimer) clearTimeout(broadcastTimer);
   if (broadcastChannel) supabase.removeChannel(broadcastChannel);
+  if (beforeUnloadHandler) window.removeEventListener("beforeunload", beforeUnloadHandler);
+  if (visibilityHandler) document.removeEventListener("visibilitychange", visibilityHandler);
 });
 
 onMounted(async () => {
@@ -102,7 +112,7 @@ onMounted(async () => {
   // Game-Tick: 500ms reicht fuer Tickcoin-Animation, halbiert den Re-render-Overhead
   // gegenueber 250ms (alte Geraete spuerbar fluessiger).
   let last = performance.now();
-  setInterval(() => {
+  tickTimer = setInterval(() => {
     if (document.visibilityState !== "visible") return;
     const now = performance.now();
     // Cap dt at 1s to prevent huge coin spikes when tab returns from hidden state.
@@ -112,26 +122,28 @@ onMounted(async () => {
     try { if (auth.isAuth) game.tick(dt); } catch {}
   }, 500);
 
-  setInterval(() => {
+  persistTimer = setInterval(() => {
     if (auth.isAuth) game.persist();
   }, 15000);
 
   // Sicherheitsnetz: regelmäßig prüfen, ob Daten alt sind (auch wenn resume-Events ausfallen).
-  setInterval(() => {
+  staleCheckTimer = setInterval(() => {
     if (document.visibilityState !== 'visible') return;
     if (!auth.isAuth || game.loading) return;
     if (Date.now() - game.lastLoadedAt > STALE_MS) {
       game.load().catch(() => {});
     }
   }, 8000);
-  window.addEventListener("beforeunload", () => {
+  beforeUnloadHandler = () => {
     if (auth.isAuth) game.persist();
-  });
-  document.addEventListener("visibilitychange", () => {
+  };
+  window.addEventListener("beforeunload", beforeUnloadHandler);
+  visibilityHandler = () => {
     if (document.visibilityState === "hidden" && auth.isAuth) {
       game.persist();
     }
-  });
+  };
+  document.addEventListener("visibilitychange", visibilityHandler);
 });
 
 // App-Rückkehr: Web (visibility/focus/pageshow/online) + Capacitor (appStateChange/resume).
@@ -225,7 +237,7 @@ async function hardReload() {
           class="settings-link refresh-btn"
           :title="t('app.refreshData')"
           :disabled="reloading"
-          @click="hardReload"
+          @click="softRefresh"
         >
           <i :class="['pi', 'pi-refresh', { 'pi-spin': reloading }]" />
         </Button>

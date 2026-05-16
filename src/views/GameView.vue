@@ -269,7 +269,8 @@ const I18N = {
     },
     bossPath: {
       title: "👑 Boss fight",
-      sub: "Endless boss challenge: deal damage for 3 minutes"
+      sub: "Boss path ({total} stages) and endless boss challenge",
+      stage: "Stage {n} / {total}"
     },
     mergeLink: {
       title: "🐾 Merge Safari",
@@ -399,7 +400,8 @@ const I18N = {
     },
     bossPath: {
       title: "👑 Бой с боссами",
-      sub: "Эндлесс-челлендж: наноси урон 3 минуты"
+      sub: "Путь босса ({total} этапов) и эндлесс-челлендж",
+      stage: "Этап {n} / {total}"
     },
     mergeLink: {
       title: "🐾 Merge-Сафари",
@@ -538,7 +540,6 @@ watch(
 const floats = ref([]);
 let floatId = 0;
 const floatTimers = new Set();
-const error = ref("");
 const equipBestBusy = ref(false);
 
 const now = ref(Date.now());
@@ -575,11 +576,7 @@ const boostRemaining = computed(() => {
   return Math.max(0, game.petBoostUntil - (Date.now() + game.serverOffset));
 });
 
-const bossBoostLabel = computed(() => {
-  if (locale.value === "de") return "Boss-Boost aktiv";
-  if (locale.value === "ru") return "Босс-буст активен";
-  return "Boss boost active";
-});
+const bossBoostLabel = computed(() => tx("bossPath.bossBoostActive"));
 
 function fmtCountdown(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -636,6 +633,7 @@ async function tap(e) {
     const f = floats.value.find((f) => f.id === id);
     if (f) f.v = "+" + formatCoins(data.earned);
   } catch (err) {
+    floats.value = floats.value.filter((f) => f.id !== id);
     appToast.err(err);
   }
 }

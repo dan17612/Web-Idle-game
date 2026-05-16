@@ -19,8 +19,8 @@ const appToast = useAppToast();
 const tab = ref(route.query.tab === "food" ? "food" : "animals");
 watch(
   () => route.query.tab,
-  (t) => {
-    if (t === "food" || t === "animals") tab.value = t;
+  (newTab) => {
+    if (newTab === "food" || newTab === "animals") tab.value = newTab;
   },
 );
 
@@ -378,6 +378,10 @@ async function redeemPromo() {
 }
 
 function closeAnimalLimitWarning() {
+  animalLimitWarning.value = false;
+}
+
+function goToTickets() {
   animalLimitWarning.value = false;
   router.push('/tickets');
 }
@@ -740,7 +744,7 @@ function closeAnimalLimitWarning() {
       <div class="warning-icon">⚠️</div>
       <h2 class="warning-title">{{ t("shop.animalLimitWarningTitle") }}</h2>
       <p class="warning-message">{{ t("shop.animalLimitWarningMessage") }}</p>
-      <Button class="btn" @click="closeAnimalLimitWarning">
+      <Button class="btn" @click="goToTickets">
         {{ t("shop.animalLimitWarningButton") }}
       </Button>
     </div>

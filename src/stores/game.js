@@ -326,15 +326,18 @@ export const useGameStore = defineStore('game', {
     },
     tick(dt) {
       this.tickCoins += this.ratePerSec * dt
-      while (this.tapsNextReset && Date.now() + this.serverOffset >= this.tapsNextReset) {
+      if (this.tapsNextReset && Date.now() + this.serverOffset >= this.tapsNextReset) {
+        const period = 5 * 60 * 1000
+        const now = Date.now() + this.serverOffset
+        const periods = Math.floor((now - this.tapsNextReset) / period) + 1
         this.tapsUsed = 0
-        this.tapsNextReset = this.tapsNextReset + 5 * 60 * 1000
+        this.tapsNextReset = this.tapsNextReset + periods * period
       }
     },
     async persist() {
       const auth = useAuthStore()
       if (!auth.user) return
-      const pending = Math.floor(this.tickCoins)
+      const pending = Math.max(0, Math.floor(this.tickCoins))
       if (pending <= 0 && this.lastCollected && (Date.now() - this.lastCollected.getTime()) < 15000) return
       this.coins += pending
       this.tickCoins -= pending
@@ -353,7 +356,7 @@ export const useGameStore = defineStore('game', {
       if (this.tapsUsed >= normalMax && !usingBonus) throw new Error(t('storeErrors.tapLimit'))
       this.tapsUsed += 1
       const effectiveMax = usingBonus
-        ? Math.max(this.tapsUsed + 1, normalMax + this.bonusTaps)
+        ? Math.max(this.tapsUsed, normalMax + this.bonusTaps)
         : normalMax
       const { data, error } = await supabase.rpc('tap_earn', { p_max: effectiveMax })
       if (error) {
