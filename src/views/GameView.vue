@@ -149,6 +149,9 @@ const I18N = {
     eventStatus: {
       endsIn: "Verschwindet in {time}",
       ended: "Ereignis beendet"
+    },
+    time: {
+      daySingular: "Tag", dayPlural: "Tagen", hour: "h", minute: "m"
     }
   },
   en: {
@@ -276,6 +279,9 @@ const I18N = {
     eventStatus: {
       endsIn: "Disappears in {time}",
       ended: "Event ended"
+    },
+    time: {
+      daySingular: "d", dayPlural: "d", hour: "h", minute: "m"
     }
   },
   ru: {
@@ -403,6 +409,9 @@ const I18N = {
     eventStatus: {
       endsIn: "Исчезнет через {time}",
       ended: "Событие завершено"
+    },
+    time: {
+      daySingular: "день", dayPlural: "дн.", hour: "ч", minute: "м"
     }
   }
 };
@@ -573,15 +582,9 @@ function fmtCountdown(ms) {
   const hours = Math.floor((total % 86400) / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
-  if (days > 0) {
-    if (locale.value === "de") return `${days} ${days === 1 ? "Tag" : "Tagen"} ${hours}h`;
-    if (locale.value === "ru") return `${days} ${days === 1 ? "день" : "дн."} ${hours}ч`;
-    return `${days}d ${hours}h`;
-  }
-  if (hours > 0) {
-    if (locale.value === "ru") return `${hours}ч ${minutes}м`;
-    return `${hours}h ${minutes}m`;
-  }
+  const tm = (I18N[locale.value] || I18N.en).time || I18N.en.time;
+  if (days > 0) return `${days} ${days === 1 ? tm.daySingular : tm.dayPlural} ${hours}${tm.hour}`;
+  if (hours > 0) return `${hours}${tm.hour} ${minutes}${tm.minute}`;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
@@ -750,12 +753,26 @@ async function claimCraft() {
   crafterBusy.value = true
   try {
     const data = await game.claimCraftAnimal()
-    const outInfo = speciesInfo(data.animal.species)
-    appToast.ok(tx("crafter.crafted", { emoji: outInfo.emoji, name: outInfo.name }))
+    if (data?.animal?.species) {
+      const outInfo = speciesInfo(data.animal.species)
+      appToast.ok(tx("crafter.crafted", { emoji: outInfo.emoji, name: outInfo.name }))
+    } else {
+      appToast.ok(tx("crafter.ready"))
+    }
   } catch (e) {
     appToast.err(e)
   } finally {
     crafterBusy.value = false
+  }
+}
+
+function toggleCrafter() {
+  if (crafterOpen.value) {
+    crafterOpen.value = false
+    crafterLoaded.value = false
+  } else {
+    crafterOpen.value = true
+    loadCrafterRecipes()
   }
 }
 
@@ -1304,7 +1321,7 @@ async function doSplit(animalId) {
         <h2 class="title" style="margin: 0; font-size: 18px">{{ tx("crafter.title") }}</h2>
         <Button
           class="btn fusion-toggle"
-          @click="crafterOpen = !crafterOpen; if (crafterOpen) loadCrafterRecipes()"
+          @click="toggleCrafter"
         >
           {{ crafterOpen ? tx("crafter.toggleClose") : tx("crafter.toggleOpen") }}
         </Button>
@@ -1313,7 +1330,7 @@ async function doSplit(animalId) {
         {{ tx("crafter.hint") }}
       </p>
 
-      <Button v-if="!crafterOpen" class="fusion-preview" @click="crafterOpen = true; loadCrafterRecipes()">
+      <Button v-if="!crafterOpen" class="fusion-preview" @click="toggleCrafter">
         <span class="fusion-preview-emoji">⚗️</span>
         <span class="fusion-preview-label">{{ tx("crafter.pickRecipe") }}</span>
       </Button>
@@ -1460,14 +1477,14 @@ async function doSplit(animalId) {
           <Button
             class="fm-mode-btn"
             :class="{ active: fusionMode === 'fuse' }"
-            @click="fusionMode = 'fuse'"
+            @click="fusionMode = 'fuse'; splitAnimalId = ''"
           >
             {{ tx("fusion.modeFuse") }}
           </Button>
           <Button
             class="fm-mode-btn"
             :class="{ active: fusionMode === 'split' }"
-            @click="fusionMode = 'split'"
+            @click="fusionMode = 'split'; fusionSpecies = ''; fusionTier = ''"
           >
             {{ tx("fusion.modeSplit") }}
           </Button>
