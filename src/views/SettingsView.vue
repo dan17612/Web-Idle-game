@@ -35,6 +35,7 @@ const selectedLocale = computed({
     flash(t('settings.languageSaved'))
   }
 })
+const friendRequestsEnabled = computed(() => auth.profile?.friend_requests_enabled !== false)
 
 function flash(msg, isError = false) {
   if (isError) {
@@ -98,6 +99,19 @@ async function saveCustomAvatar() {
   if (!v) return flash(t('settingsFlash.enterEmoji'), true)
   await pickAvatar(v)
   newAvatar.value = ''
+}
+
+async function setFriendRequestsEnabled(value) {
+  if (!auth.profile || busy.value === 'friend-requests') return
+  busy.value = 'friend-requests'
+  try {
+    await auth.setFriendRequestsEnabled(value)
+    flash(t('settings.friendRequestsSaved'))
+  } catch (e) {
+    flash(e.message || String(e), true)
+  } finally {
+    busy.value = ''
+  }
 }
 
 async function changePassword() {
@@ -239,6 +253,21 @@ async function logout() {
     </section>
 
     <section class="card stack">
+      <h2 style="margin:0">{{ t('settings.friendRequestsTitle') }}</h2>
+      <p class="hint">{{ t('settings.friendRequestsHint') }}</p>
+      <label class="row friend-request-toggle">
+        <Checkbox
+          :modelValue="friendRequestsEnabled"
+          :binary="true"
+          inputId="friend-requests-enabled"
+          :disabled="busy==='friend-requests'"
+          @update:modelValue="setFriendRequestsEnabled"
+        />
+        <span>{{ t('settings.friendRequestsEnabled') }}</span>
+      </label>
+    </section>
+
+    <section class="card stack">
       <h2 style="margin:0">{{ t('settings.chooseAvatar') }}</h2>
       <p class="hint">{{ t('settings.chooseAvatarHint') }}</p>
       <div class="avatar-grid">
@@ -366,6 +395,12 @@ async function logout() {
 .linked-ok { color: #3a8; }
 .linked-no { color: #e90; }
 .account-actions { justify-content: flex-start; gap: 8px; }
+.friend-request-toggle {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
 .danger-zone { border-color: #a33; }
 .avatar-grid {
   display: grid;
