@@ -86,6 +86,10 @@ const messages = {
       email: 'E-Mail',
       pending: 'Ausstehend',
       privacy: 'Datenschutzerklärung',
+      friendRequestsTitle: 'Freundschaftsanfragen',
+      friendRequestsHint: 'Wenn deaktiviert, können dir andere Spieler keine neuen Freundschaftsanfragen senden.',
+      friendRequestsEnabled: 'Freundschaftsanfragen erlauben',
+      friendRequestsSaved: 'Einstellung gespeichert.',
       chooseAvatar: 'Avatar wählen',
       chooseAvatarHint: 'Wähle ein Emoji oder gib ein eigenes ein.',
       set: 'Setzen',
@@ -141,7 +145,8 @@ const messages = {
       notEnoughCoins: 'Nicht genug Münzen',
       offlineLimitMax: 'Maximales Offline-Limit erreicht',
       boostAlreadyActive: 'Boost ist bereits aktiv',
-      unknownSpecies: 'Unbekannte Spezies'
+      unknownSpecies: 'Unbekannte Spezies',
+      friendRequestsDisabled: 'Diese Person nimmt aktuell keine Freundschaftsanfragen an.'
     },
     settingsFlash: {
       enterEmail: 'E-Mail eingeben',
@@ -424,6 +429,10 @@ const messages = {
       email: 'Email',
       pending: 'Pending',
       privacy: 'Privacy policy',
+      friendRequestsTitle: 'Friend requests',
+      friendRequestsHint: 'When disabled, other players cannot send you new friend requests.',
+      friendRequestsEnabled: 'Allow friend requests',
+      friendRequestsSaved: 'Setting saved.',
       chooseAvatar: 'Choose avatar',
       chooseAvatarHint: 'Pick an emoji or enter your own.',
       set: 'Set',
@@ -479,7 +488,8 @@ const messages = {
       notEnoughCoins: 'Not enough coins',
       offlineLimitMax: 'Maximum offline limit reached',
       boostAlreadyActive: 'Boost is already active',
-      unknownSpecies: 'Unknown species'
+      unknownSpecies: 'Unknown species',
+      friendRequestsDisabled: 'This person is not accepting friend requests right now.'
     },
     settingsFlash: {
       enterEmail: 'Enter email',
@@ -765,6 +775,10 @@ const messages = {
       email: 'Email',
       pending: 'Ожидает подтверждения',
       privacy: 'Политика конфиденциальности',
+      friendRequestsTitle: 'Запросы в друзья',
+      friendRequestsHint: 'Если отключено, другие игроки не смогут отправлять вам новые запросы в друзья.',
+      friendRequestsEnabled: 'Разрешить запросы в друзья',
+      friendRequestsSaved: 'Настройка сохранена.',
       chooseAvatar: 'Выбор аватара',
       chooseAvatarHint: 'Выберите эмодзи или введите свой.',
       set: 'Сохранить',
@@ -820,7 +834,8 @@ const messages = {
       notEnoughCoins: 'Недостаточно монет',
       offlineLimitMax: 'Достигнут максимальный офлайн-лимит',
       boostAlreadyActive: 'Буст уже активен',
-      unknownSpecies: 'Неизвестный вид'
+      unknownSpecies: 'Неизвестный вид',
+      friendRequestsDisabled: 'Этот игрок сейчас не принимает запросы в друзья.'
     },
     settingsFlash: {
       enterEmail: 'Введите email',

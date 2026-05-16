@@ -154,6 +154,16 @@ export const useAuthStore = defineStore('auth', {
       if (this.profile) this.profile.avatar_emoji = data?.avatar_emoji ?? null
       return data
     },
+    async setFriendRequestsEnabled(enabled) {
+      const { data, error } = await supabase.rpc('set_friend_requests_enabled', {
+        p_enabled: !!enabled
+      })
+      if (error) throw error
+      if (this.profile) {
+        this.profile.friend_requests_enabled = data?.friend_requests_enabled !== false
+      }
+      return data
+    },
     async updateEmail(newEmail) {
       const { error } = await supabase.auth.updateUser(
         { email: newEmail },
