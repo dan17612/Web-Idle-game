@@ -294,7 +294,7 @@ export const useGameStore = defineStore('game', {
       if (data.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
     },
     applyOffline() {
-      if (!this.lastCollected) return
+      if (!this.lastCollected || !(this.lastCollected instanceof Date) || isNaN(this.lastCollected.getTime())) return
       if (this.pendingOfflineEarnings) return
       const capSec = this.maxOfflineHours * 3600
       const rawElapsed = Math.max(0, (Date.now() - this.lastCollected.getTime()) / 1000)
@@ -563,7 +563,7 @@ export const useGameStore = defineStore('game', {
     },
     async buyAnimal(speciesKey) {
       const info = SPECIES[speciesKey]
-      if (!info) throw new Error(t('storeErrors.unknownSpecies'))
+      if (!info || info.enabled === false) throw new Error(t('storeErrors.unknownSpecies'))
       await this.persist()
       if (this.displayCoins < info.cost) throw new Error(t('storeErrors.notEnoughCoins'))
       const { data, error } = await supabase.rpc('buy_animal', { p_species: speciesKey, p_cost: info.cost })
@@ -628,10 +628,15 @@ export const useGameStore = defineStore('game', {
       return data
     },
     async sendCoins(recipientUsername, amount) {
+      if (!recipientUsername || typeof recipientUsername !== 'string' || !recipientUsername.trim()) {
+        throw new Error(t('storeErrors.recipientRequired'))
+      }
+      const floorAmount = Math.floor(Number(amount) || 0)
+      if (!isFinite(floorAmount) || floorAmount < 1) throw new Error(t('storeErrors.amountMin'))
       await this.persist()
       const { data, error } = await supabase.rpc('send_coins', {
-        p_recipient: recipientUsername,
-        p_amount: Math.floor(amount)
+        p_recipient: recipientUsername.trim(),
+        p_amount: floorAmount
       })
       if (error) throw error
       this.coins = Number(data?.sender_balance ?? this.coins - amount)

@@ -175,7 +175,7 @@ const stageBossInfo = computed(() => {
 
 const fightDurationMs = computed(() => {
   if (isEndless.value && props.endlessEndsAt) {
-    return Math.max(0, Number(props.endlessEndsAt) - Date.now());
+    return Math.max(0, Number(props.endlessEndsAt) - (Date.now() + game.serverOffset));
   }
   if (props.stageConfig?.time_seconds)
     return Number(props.stageConfig.time_seconds) * 1000;
