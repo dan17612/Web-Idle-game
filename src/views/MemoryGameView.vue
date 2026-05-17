@@ -15,9 +15,10 @@ const TUT_KEY = 'memory_tutorial_v1'
 
 const I18N = {
   de: {
-    title: '🧠 Memory-Pfad', sub: 'Eine Reise durch 20 Level. Finde alle Tier-Paare, bevor die Züge ausgehen.',
+    title: '🧠 Memory-Pfad', sub: 'Eine Reise durch {max} Level. Finde alle Tier-Paare, bevor die Züge ausgehen.',
     back: 'Zurück', level: 'Level', moves: 'Züge', best: 'Höchstes Level', progress: 'Fortschritt', pairsWord: 'Paare',
     play: 'Spielen', replay: 'Nochmal', locked: 'Gesperrt', cleared: 'Geschafft', current: 'Aktuell',
+    finalLocked: '🏆 Finale geschafft - kein erneutes Spielen',
     reset: 'Brett neu', loading: 'Lade Memory...', retry: 'Erneut versuchen', close: 'Schließen',
     eventEndsIn: 'Verschwindet in {time}', eventEnded: 'Ereignis beendet',
     eventEndedSub: 'Das Memory-Ereignis ist vorbei. Es können keine Züge mehr gemacht werden.',
@@ -27,7 +28,7 @@ const I18N = {
     resetSub: 'Der aktuelle Fortschritt in diesem Level geht verloren.',
     resetCancel: 'Abbrechen', resetYes: 'Ja, neu mischen',
     rewardChest: '🎁 Truhe ({qty})', rewardAnimal: '{qty}× {emoji} {name}',
-    pathComplete: '🏆 Alle 20 Level geschafft! Du kannst Level 20 wiederholen.',
+    pathComplete: '🏆 Alle {max} Level geschafft! Du kannst Level {max} wiederholen.',
     tutTitle: 'So funktioniert Memory',
     tutStep1: 'Tippe eine Karte an - sie dreht sich um und zeigt ein Tier.',
     tutStep2: 'Tippe eine zweite Karte. Zwei gleiche Tiere = Paar gefunden, sie bleiben offen.',
@@ -36,9 +37,10 @@ const I18N = {
     tutGot: 'Verstanden, los geht\'s!'
   },
   en: {
-    title: '🧠 Memory Path', sub: 'A journey through 20 levels. Find all animal pairs before you run out of moves.',
+    title: '🧠 Memory Path', sub: 'A journey through {max} levels. Find all animal pairs before you run out of moves.',
     back: 'Back', level: 'Level', moves: 'Moves', best: 'Highest level', progress: 'Progress', pairsWord: 'pairs',
     play: 'Play', replay: 'Replay', locked: 'Locked', cleared: 'Cleared', current: 'Current',
+    finalLocked: '🏆 Finale cleared - no replay',
     reset: 'New board', loading: 'Loading Memory...', retry: 'Try again', close: 'Close',
     eventEndsIn: 'Disappears in {time}', eventEnded: 'Event ended',
     eventEndedSub: 'The Memory event is over. No more moves can be made.',
@@ -48,7 +50,7 @@ const I18N = {
     resetSub: 'Your current progress in this level will be lost.',
     resetCancel: 'Cancel', resetYes: 'Yes, reshuffle',
     rewardChest: '🎁 Chest ({qty})', rewardAnimal: '{qty}× {emoji} {name}',
-    pathComplete: '🏆 All 20 levels cleared! You can replay level 20.',
+    pathComplete: '🏆 All {max} levels cleared! You can replay level {max}.',
     tutTitle: 'How Memory works',
     tutStep1: 'Tap a card - it flips over and shows an animal.',
     tutStep2: 'Tap a second card. Two identical animals = pair found, they stay open.',
@@ -57,9 +59,10 @@ const I18N = {
     tutGot: 'Got it, let\'s go!'
   },
   ru: {
-    title: '🧠 Memory-путь', sub: 'Путешествие по 20 уровням. Найди все пары животных, пока не кончились ходы.',
+    title: '🧠 Memory-путь', sub: 'Путешествие по {max} уровням. Найди все пары животных, пока не кончились ходы.',
     back: 'Назад', level: 'Уровень', moves: 'Ходы', best: 'Лучший уровень', progress: 'Прогресс', pairsWord: 'пар',
     play: 'Играть', replay: 'Снова', locked: 'Закрыто', cleared: 'Пройдено', current: 'Текущий',
+    finalLocked: '🏆 Финал пройден - без повтора',
     reset: 'Новое поле', loading: 'Загрузка Memory...', retry: 'Повторить', close: 'Закрыть',
     eventEndsIn: 'Исчезнет через {time}', eventEnded: 'Событие завершено',
     eventEndedSub: 'Событие Memory завершено. Ходы больше недоступны.',
@@ -69,7 +72,7 @@ const I18N = {
     resetSub: 'Текущий прогресс на этом уровне будет потерян.',
     resetCancel: 'Отмена', resetYes: 'Да, заново',
     rewardChest: '🎁 Сундук ({qty})', rewardAnimal: '{qty}× {emoji} {name}',
-    pathComplete: '🏆 Все 20 уровней пройдены! Можно повторить уровень 20.',
+    pathComplete: '🏆 Все {max} уровней пройдены! Можно повторить уровень {max}.',
     tutTitle: 'Как играть в Memory',
     tutStep1: 'Нажми на карту - она перевернётся и покажет животное.',
     tutStep2: 'Нажми вторую карту. Два одинаковых животных = пара, они остаются открытыми.',
@@ -128,6 +131,7 @@ const levelNodes = computed(() =>
     const pet = c.reward_species && Number(c.reward_qty || 0) > 0
       ? { info: speciesInfo(c.reward_species), tier: c.reward_tier || 'normal', qty: Number(c.reward_qty) }
       : null
+    const finalLocked = lvl === maxLevel.value && allCleared.value
     return {
       level: lvl,
       pairs: Number(c.pairs || 0),
@@ -136,7 +140,9 @@ const levelNodes = computed(() =>
       pet,
       status,
       side: lvl % 2 === 0 ? 'right' : 'left',
-      replay: status === 'cleared' && allCleared.value && lvl === maxLevel.value
+      redZone: lvl >= 20,
+      finalLocked,
+      replay: false
     }
   })
 )
@@ -202,6 +208,7 @@ async function loadGame() {
 }
 
 function openPlay(node) {
+  if (node.finalLocked) return
   if (node.status !== 'current' && !node.replay) return
   if (!eventActive.value) {
     appToast.err(tx('eventEnded'))
@@ -315,7 +322,7 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
       </Button>
       <div class="memory-title-block">
         <h1 class="memory-title">{{ tx('title') }}</h1>
-        <p class="memory-sub">{{ tx('sub') }}</p>
+        <p class="memory-sub">{{ tx('sub', { max: maxLevel || 30 }) }}</p>
       </div>
       <Button class="btn small btn-ghost help-btn" @click="showTutorial = true">
         <i class="pi pi-question-circle"></i>
@@ -358,14 +365,14 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
         </div>
       </section>
 
-      <div v-if="allCleared" class="path-complete">{{ tx('pathComplete') }}</div>
+      <div v-if="allCleared" class="path-complete">{{ tx('pathComplete', { max: maxLevel }) }}</div>
 
       <section class="mem-path">
         <div
           v-for="(node, idx) in levelNodes"
           :key="node.level"
           class="mem-stage"
-          :class="['stage-' + node.status, 'side-' + node.side]"
+          :class="['stage-' + node.status, 'side-' + node.side, { 'red-zone': node.redZone, 'final-locked': node.finalLocked }]"
         >
           <div v-if="idx > 0" class="mem-trail" :class="'side-' + node.side"></div>
           <div class="mem-stage-card">
@@ -381,8 +388,9 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
               <span>🎁 {{ node.chest_qty }} 🐾</span>
               <span v-if="node.pet">{{ tierBadge(node.pet.tier) }} {{ node.pet.info.emoji }} {{ node.pet.info.name }}</span>
             </div>
+            <div v-if="node.finalLocked" class="mem-hint final">{{ tx('finalLocked') }}</div>
             <Button
-              v-if="node.status === 'current' || node.replay"
+              v-else-if="node.status === 'current' || node.replay"
               class="btn mem-play-btn"
               :disabled="!eventActive"
               @click="openPlay(node)"
@@ -400,7 +408,7 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 
     <Teleport to="body">
       <div v-if="playOpen && data" class="play-overlay">
-        <div class="play-panel">
+        <div class="play-panel" :class="{ 'red-zone': Number(data.level) >= 20 }">
           <div class="play-head">
             <div class="play-title">{{ tx('level') }} {{ data.level }}</div>
             <div class="play-moves" :class="{ low: (data.move_limit - data.moves_used) <= 3 }">
@@ -504,7 +512,8 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 </template>
 
 <style scoped>
-.memory-view { display:flex; flex-direction:column; gap:12px; padding-bottom:18px; }
+.memory-view { display:flex; flex-direction:column; gap:12px; padding-bottom:18px;
+  --mem-red:#ff5a5f; --mem-red-deep:#b3121b; }
 .memory-header { display:flex; align-items:center; gap:10px; }
 .btn-ghost { background:rgba(255,255,255,0.06); color:var(--muted);
   display:inline-flex; align-items:center; gap:5px; flex-shrink:0; }
@@ -562,6 +571,16 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 @keyframes cardPulse {
   0%,100% { box-shadow:0 0 0 3px rgba(255,209,102,0.16),0 14px 30px rgba(0,0,0,0.55); }
   50% { box-shadow:0 0 0 8px rgba(255,209,102,0.04),0 14px 30px rgba(0,0,0,0.55); } }
+.mem-stage.red-zone.stage-current .mem-stage-card { border-color:var(--mem-red);
+  box-shadow:0 0 0 3px rgba(255,90,95,0.28),0 14px 30px rgba(0,0,0,0.55);
+  animation:cardPulseRed 2.4s ease-in-out infinite; }
+@keyframes cardPulseRed {
+  0%,100% { box-shadow:0 0 0 3px rgba(255,90,95,0.22),0 14px 30px rgba(0,0,0,0.55); }
+  50% { box-shadow:0 0 0 8px rgba(255,90,95,0.05),0 14px 30px rgba(0,0,0,0.55); } }
+.mem-stage.red-zone .mem-stage-card { background:rgba(34,8,10,0.85);
+  border-color:rgba(255,90,95,0.3); }
+.mem-stage.red-zone .mem-trail {
+  background:repeating-linear-gradient(180deg,rgba(255,90,95,0.7) 0 8px,transparent 8px 16px); }
 .mem-stage-num { font-size:11px; letter-spacing:0.08em; text-transform:uppercase;
   color:var(--muted); font-weight:800; }
 .mem-node-circle { width:74px; height:74px; border-radius:50%; display:grid;
@@ -570,6 +589,8 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
   border:2px solid rgba(255,255,255,0.22); }
 .mem-node-circle.st-current { border-color:var(--accent);
   box-shadow:0 0 22px rgba(255,209,102,0.5); }
+.red-zone .mem-node-circle.st-current { border-color:var(--mem-red);
+  box-shadow:0 0 22px rgba(255,90,95,0.55); }
 .mem-node-circle.st-cleared { border-color:var(--accent-2);
   background:radial-gradient(circle at 40% 30%,rgba(6,214,160,0.4),rgba(0,0,0,0.3)); }
 .mem-node-emoji { filter:drop-shadow(0 4px 8px rgba(0,0,0,0.6)); }
@@ -579,12 +600,20 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .mem-badge.cleared { background:var(--accent-2); color:#0a0e1e; }
 .mem-badge.locked { background:rgba(0,0,0,0.6); color:var(--muted); }
 .mem-badge.current { background:var(--accent); color:#0a0e1e; }
+.red-zone .mem-badge.current { background:var(--mem-red); color:#180406; }
 .mem-stage-info { font-size:12px; color:var(--muted); font-weight:800; text-align:center; }
 .mem-stage-rewards { display:flex; flex-direction:column; gap:2px; font-size:11px;
   color:var(--accent); font-weight:800; text-align:center; }
+.red-zone .mem-stage-rewards { color:var(--mem-red); }
 .mem-play-btn { width:100%; font-weight:900; margin-top:2px; }
+.red-zone .mem-play-btn {
+  background:linear-gradient(135deg,#ff5a5f,#b3121b) !important; color:#fff !important;
+  border:none !important; }
 .mem-hint { font-size:12px; color:var(--muted); font-weight:700; }
 .mem-hint.cleared { color:var(--accent-2); }
+.mem-hint.final { color:var(--mem-red); font-weight:900; font-size:13px;
+  padding:6px 12px; border-radius:999px; border:1px solid rgba(255,90,95,0.5);
+  background:rgba(255,90,95,0.12); }
 
 .play-overlay { position:fixed; inset:0; z-index:1100; display:flex;
   align-items:center; justify-content:center; padding:14px;
@@ -592,15 +621,22 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .play-panel { width:100%; max-width:460px; margin:auto;
   background:linear-gradient(135deg,#141d36,#0c1124); border:1px solid var(--border);
   border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.play-panel.red-zone { background:linear-gradient(135deg,#2a0a0e,#160406);
+  border-color:rgba(255,90,95,0.4); }
 .play-head { display:flex; align-items:center; gap:10px; }
 .play-title { font-size:18px; font-weight:900; flex:1; }
 .play-moves { font-size:13px; font-weight:900; color:var(--accent);
   font-variant-numeric:tabular-nums; }
 .play-moves.low { color:#ef476f; }
+.play-panel.red-zone .play-moves { color:var(--mem-red); }
+.play-panel.red-zone .play-moves.low { color:#ff9f1c; }
 .memory-board-wrap { position:relative; }
 .memory-board { display:grid; gap:8px; padding:10px; border-radius:18px;
   background:linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.15)),#0d1528;
   border:1px solid var(--border); box-shadow:inset 0 0 28px rgba(0,0,0,0.35); }
+.play-panel.red-zone .memory-board {
+  background:linear-gradient(135deg,rgba(255,90,95,0.08),rgba(0,0,0,0.25)),#200709;
+  border-color:rgba(255,90,95,0.35); box-shadow:inset 0 0 28px rgba(0,0,0,0.45); }
 .memory-board.busy { opacity:0.8; }
 .memory-card { aspect-ratio:1; border:none; padding:0; background:transparent;
   perspective:600px; cursor:pointer; }
@@ -613,6 +649,7 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
   font-size:clamp(20px,7vw,38px); }
 .card-back { background:linear-gradient(145deg,#48cae4,#115b73);
   border:1px solid rgba(255,255,255,0.2); }
+.play-panel.red-zone .card-back { background:linear-gradient(145deg,#ff5a5f,#7a0a10); }
 .card-front { background:linear-gradient(145deg,#ffd166,#9b5b12);
   border:1px solid rgba(255,255,255,0.28); transform:rotateY(180deg); }
 .memory-card.matched .card-front { background:linear-gradient(145deg,#06d6a0,#0b6b55);
@@ -626,6 +663,8 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .ctrl.reset { min-height:46px; border-radius:14px;
   background:linear-gradient(135deg,#ffd166,#f4a261); color:#1b1300; border:none;
   font-weight:900; display:inline-flex; align-items:center; justify-content:center; gap:5px; }
+.play-panel.red-zone .ctrl.reset {
+  background:linear-gradient(135deg,#ff5a5f,#b3121b); color:#fff; }
 .ctrl.reset:active:not(:disabled) { transform:scale(0.97); }
 
 .chest-modal { position:fixed; inset:0; z-index:1200; display:flex; flex-direction:column;
