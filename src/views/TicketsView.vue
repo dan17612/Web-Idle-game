@@ -747,10 +747,10 @@ onUnmounted(() => {
           <template v-else>{{ tx("autoConfirmEnableNone", { emoji: pendingAutoInfo?.emoji, name: pendingAutoInfo?.name }) }}</template>
         </p>
         <div class="confirm-actions">
-          <Button class="btn full" @click="cancelAuto">{{ tx("autoCancel") }}</Button>
+          <Button class="btn full secondary" @click="cancelAuto">{{ tx("autoCancel") }}</Button>
           <Button
             class="btn full"
-            :class="{ 'release-all': !!pendingAuto.value }"
+            :class="pendingAuto.value ? 'danger' : ''"
             @click="confirmAuto"
           >{{ tx("autoConfirmBtn") }}</Button>
         </div>
