@@ -141,7 +141,9 @@ const messages = {
       notEnoughCoins: 'Nicht genug Münzen',
       offlineLimitMax: 'Maximales Offline-Limit erreicht',
       boostAlreadyActive: 'Boost ist bereits aktiv',
-      unknownSpecies: 'Unbekannte Spezies'
+      unknownSpecies: 'Unbekannte Spezies',
+      recipientRequired: 'Empfänger angeben',
+      amountMin: 'Betrag muss >= 1 sein'
     },
     settingsFlash: {
       enterEmail: 'E-Mail eingeben',
@@ -479,7 +481,9 @@ const messages = {
       notEnoughCoins: 'Not enough coins',
       offlineLimitMax: 'Maximum offline limit reached',
       boostAlreadyActive: 'Boost is already active',
-      unknownSpecies: 'Unknown species'
+      unknownSpecies: 'Unknown species',
+      recipientRequired: 'Recipient required',
+      amountMin: 'Amount must be >= 1'
     },
     settingsFlash: {
       enterEmail: 'Enter email',
@@ -820,7 +824,9 @@ const messages = {
       notEnoughCoins: 'Недостаточно монет',
       offlineLimitMax: 'Достигнут максимальный офлайн-лимит',
       boostAlreadyActive: 'Буст уже активен',
-      unknownSpecies: 'Неизвестный вид'
+      unknownSpecies: 'Неизвестный вид',
+      recipientRequired: 'Укажите получателя',
+      amountMin: 'Сумма должна быть >= 1'
     },
     settingsFlash: {
       enterEmail: 'Введите email',
