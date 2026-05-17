@@ -92,4 +92,4 @@ Alle Werte in `src/animals.js` — beliebig anpassbar:
 - Offline-Earnings sind auf 8 h gedeckelt, damit Missbrauch begrenzt ist.
 
 ## Lizenz
-MIT — siehe `LICENSE`.
+License: Proprietary / All Rights Reserved — siehe `LICENSE`.
