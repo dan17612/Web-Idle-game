@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useGameStore } from "../stores/game";
 import { SPECIES, speciesInfo, tierInfo, isUpgrading, formatCoins, animalRate } from "../animals";
+import { groupAnimalsForAutoRelease } from "../autoRelease";
 import { locale } from "../i18n";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 
@@ -24,6 +25,13 @@ const I18N = {
     releaseBusy: "Läuft...",
     autoTitle: "🤖 Auto-Freilassen bis Stufe",
     autoHint: "Diese Spezies wird bis zur gewählten Stufe automatisch freigelassen (app-weit).",
+    autoConfirmTitle: "Auto-Freilassen für {emoji} {name} bis {tier} aktivieren?",
+    autoConfirmTitleOff: "Auto-Freilassen für {emoji} {name} deaktivieren?",
+    autoConfirmEnable: "{count} deiner {emoji} {name} werden SOFORT freigelassen, und alle künftigen automatisch (app-weit). Das kann nicht rückgängig gemacht werden.",
+    autoConfirmEnableNone: "Aktuell besitzt du keine {emoji} {name}, aber alle künftigen werden automatisch sofort freigelassen (app-weit).",
+    autoConfirmDisable: "Auto-Freilassen wird ausgeschaltet. Es gehen keine Tiere verloren.",
+    autoCancel: "Abbrechen",
+    autoConfirmBtn: "Bestätigen",
     autoOff: "Aus",
     tierNormal: "Normal",
     tierGold: "Gold",
@@ -71,6 +79,13 @@ const I18N = {
     releaseBusy: "Running...",
     autoTitle: "🤖 Auto-release up to tier",
     autoHint: "This species is auto-released up to the chosen tier (app-wide).",
+    autoConfirmTitle: "Enable auto-release for {emoji} {name} up to {tier}?",
+    autoConfirmTitleOff: "Disable auto-release for {emoji} {name}?",
+    autoConfirmEnable: "{count} of your {emoji} {name} will be released IMMEDIATELY, and all future ones automatically (app-wide). This cannot be undone.",
+    autoConfirmEnableNone: "You currently own no {emoji} {name}, but all future ones will be auto-released immediately (app-wide).",
+    autoConfirmDisable: "Auto-release will be turned off. No animals are lost.",
+    autoCancel: "Cancel",
+    autoConfirmBtn: "Confirm",
     autoOff: "Off",
     tierNormal: "Normal",
     tierGold: "Gold",
@@ -118,6 +133,13 @@ const I18N = {
     releaseBusy: "Процесс...",
     autoTitle: "🤖 Авто-освобождение до тира",
     autoHint: "Этот вид автоматически освобождается до выбранного тира (по всему приложению).",
+    autoConfirmTitle: "Включить авто-освобождение {emoji} {name} до {tier}?",
+    autoConfirmTitleOff: "Отключить авто-освобождение {emoji} {name}?",
+    autoConfirmEnable: "{count} твоих {emoji} {name} будут освобождены СРАЗУ, а все будущие автоматически (по всему приложению). Отменить нельзя.",
+    autoConfirmEnableNone: "Сейчас у тебя нет {emoji} {name}, но все будущие будут авто-освобождены сразу (по всему приложению).",
+    autoConfirmDisable: "Авто-освобождение будет выключено. Животные не теряются.",
+    autoCancel: "Отмена",
+    autoConfirmBtn: "Подтвердить",
     autoOff: "Выкл",
     tierNormal: "Обычный",
     tierGold: "Голд",
@@ -164,6 +186,40 @@ const releaseSuccess = ref("");
 const releaseSpecies = ref("");
 const releaseTier = ref("");
 const releaseQty = ref(1);
+
+const pendingAuto = ref(null);
+const pendingAutoCount = computed(() => {
+  const p = pendingAuto.value;
+  if (!p || !p.value) return 0;
+  return groupAnimalsForAutoRelease(
+    game.animals,
+    { [p.species]: p.value },
+    Date.now()
+  ).reduce((s, g) => s + g.ids.length, 0);
+});
+const pendingAutoInfo = computed(() =>
+  pendingAuto.value ? speciesInfo(pendingAuto.value.species) : null
+);
+function autoTierLabel(v) {
+  return tx(
+    v === "normal" ? "tierNormal" :
+    v === "gold" ? "tierGold" :
+    v === "diamond" ? "tierDiamond" :
+    v === "epic" ? "tierEpic" : "tierRainbow"
+  );
+}
+function askAutoChange(species, value) {
+  pendingAuto.value = { species, value };
+}
+function confirmAuto() {
+  const p = pendingAuto.value;
+  if (!p) return;
+  game.setAutoReleaseSpecies(p.species, p.value);
+  pendingAuto.value = null;
+}
+function cancelAuto() {
+  pendingAuto.value = null;
+}
 
 const tierRank = { normal: 0, gold: 1, diamond: 2, epic: 3, rainbow: 4 };
 
@@ -534,14 +590,14 @@ onUnmounted(() => {
               <Button
                 class="fusion-sp"
                 :class="{ active: !game.autoReleaseMap[releaseSpecies] }"
-                @click="game.setAutoReleaseSpecies(releaseSpecies, '')"
+                @click="askAutoChange(releaseSpecies, '')"
               >{{ tx("autoOff") }}</Button>
               <Button
                 v-for="opt in ['normal','gold','diamond','epic','rainbow']"
                 :key="opt"
                 class="fusion-sp"
                 :class="{ active: game.autoReleaseMap[releaseSpecies] === opt }"
-                @click="game.setAutoReleaseSpecies(releaseSpecies, opt)"
+                @click="askAutoChange(releaseSpecies, opt)"
               >{{ tx(opt === 'normal' ? 'tierNormal' : opt === 'gold' ? 'tierGold' : opt === 'diamond' ? 'tierDiamond' : opt === 'epic' ? 'tierEpic' : 'tierRainbow') }}</Button>
             </div>
             <p class="hint" style="margin:2px 0 0">{{ tx("autoHint") }}</p>
@@ -671,6 +727,34 @@ onUnmounted(() => {
       <Button v-if="chestAnim.phase === 'reveal'" class="btn" @click="closeChestAnim">
         {{ tx("continue") }}
       </Button>
+    </div>
+
+    <div
+      v-if="pendingAuto"
+      class="chest-modal"
+      @click.self="cancelAuto"
+    >
+      <div class="confirm-dialog">
+        <div class="confirm-icon">{{ pendingAuto.value ? "⚠️" : "🛑" }}</div>
+        <h2 class="confirm-title">
+          {{ pendingAuto.value
+            ? tx("autoConfirmTitle", { emoji: pendingAutoInfo?.emoji, name: pendingAutoInfo?.name, tier: autoTierLabel(pendingAuto.value) })
+            : tx("autoConfirmTitleOff", { emoji: pendingAutoInfo?.emoji, name: pendingAutoInfo?.name }) }}
+        </h2>
+        <p class="confirm-msg">
+          <template v-if="!pendingAuto.value">{{ tx("autoConfirmDisable") }}</template>
+          <template v-else-if="pendingAutoCount > 0">{{ tx("autoConfirmEnable", { count: pendingAutoCount, emoji: pendingAutoInfo?.emoji, name: pendingAutoInfo?.name }) }}</template>
+          <template v-else>{{ tx("autoConfirmEnableNone", { emoji: pendingAutoInfo?.emoji, name: pendingAutoInfo?.name }) }}</template>
+        </p>
+        <div class="confirm-actions">
+          <Button class="btn full" @click="cancelAuto">{{ tx("autoCancel") }}</Button>
+          <Button
+            class="btn full"
+            :class="{ 'release-all': !!pendingAuto.value }"
+            @click="confirmAuto"
+          >{{ tx("autoConfirmBtn") }}</Button>
+        </div>
+      </div>
     </div>
   </section>
 </template>
@@ -948,5 +1032,35 @@ onUnmounted(() => {
   0% { opacity: 0; transform: translateY(40px) scale(0.4); }
   60% { opacity: 1; transform: translateY(-8px) scale(1.15); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.confirm-dialog {
+  background: rgba(20, 20, 30, 0.98);
+  border: 2px solid rgba(255, 152, 0, 0.55);
+  border-radius: 18px;
+  padding: 24px;
+  max-width: 420px;
+  width: min(420px, 90vw);
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.confirm-icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+.confirm-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 10px;
+}
+.confirm-msg {
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0 0 18px;
+}
+.confirm-actions {
+  display: flex;
+  gap: 8px;
 }
 </style>
