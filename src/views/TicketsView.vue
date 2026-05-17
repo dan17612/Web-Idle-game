@@ -18,9 +18,16 @@ const I18N = {
     releaseNone: "Keine freilassbaren Tiere vorhanden.",
     releaseInput: "🎯 Tier",
     releaseOutput: "✨ Tickets",
-    release: "🏞️ Freilassen ×{qty}",
-    releaseAll: "🏞️ Alle freilassen ({count})",
+    release: "🏞️ ×{qty}",
+    releaseAll: "🏞️ Alle ({count})",
     releaseBusy: "Läuft...",
+    autoTitle: "🤖 Auto-Freilassen",
+    autoHint: "Tiere unter der gewählten Stufe werden automatisch freigelassen (app-weit).",
+    autoOff: "Aus",
+    tierGold: "Gold",
+    tierDiamond: "Diamant",
+    tierEpic: "Epic",
+    tierRainbow: "Rainbow",
     releaseDone: "{qty}× {emoji} freigelassen — +{gained} 🎟️",
     qtyLabel: "Menge",
     species: "Spezies",
@@ -56,9 +63,16 @@ const I18N = {
     releaseNone: "No releasable animals.",
     releaseInput: "🎯 Animal",
     releaseOutput: "✨ Tickets",
-    release: "🏞️ Release ×{qty}",
-    releaseAll: "🏞️ Release all ({count})",
+    release: "🏞️ ×{qty}",
+    releaseAll: "🏞️ All ({count})",
     releaseBusy: "Running...",
+    autoTitle: "🤖 Auto-release",
+    autoHint: "Animals below the chosen tier are released automatically (app-wide).",
+    autoOff: "Off",
+    tierGold: "Gold",
+    tierDiamond: "Diamond",
+    tierEpic: "Epic",
+    tierRainbow: "Rainbow",
     releaseDone: "{qty}× {emoji} released — +{gained} 🎟️",
     qtyLabel: "Qty",
     species: "Species",
@@ -94,9 +108,16 @@ const I18N = {
     releaseNone: "Нет животных для освобождения.",
     releaseInput: "🎯 Животное",
     releaseOutput: "✨ Тикеты",
-    release: "🏞️ Отпустить ×{qty}",
-    releaseAll: "🏞️ Отпустить всех ({count})",
+    release: "🏞️ ×{qty}",
+    releaseAll: "🏞️ Все ({count})",
     releaseBusy: "Процесс...",
+    autoTitle: "🤖 Авто-освобождение",
+    autoHint: "Животные ниже выбранного тира освобождаются автоматически (по всему приложению).",
+    autoOff: "Выкл",
+    tierGold: "Голд",
+    tierDiamond: "Алмаз",
+    tierEpic: "Эпик",
+    tierRainbow: "Радуга",
     releaseDone: "{qty}× {emoji} отпущено — +{gained} 🎟️",
     qtyLabel: "Кол-во",
     species: "Вид",
@@ -498,6 +519,25 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <div class="fm-row auto-rel">
+            <label class="hint" style="margin:0">{{ tx("autoTitle") }}</label>
+            <div class="fusion-tiers">
+              <Button
+                class="fusion-sp"
+                :class="{ active: game.autoReleaseTier === '' }"
+                @click="game.setAutoReleaseTier('')"
+              >{{ tx("autoOff") }}</Button>
+              <Button
+                v-for="opt in ['gold','diamond','epic','rainbow']"
+                :key="opt"
+                class="fusion-sp"
+                :class="{ active: game.autoReleaseTier === opt }"
+                @click="game.setAutoReleaseTier(opt)"
+              >{{ tx(opt === 'gold' ? 'tierGold' : opt === 'diamond' ? 'tierDiamond' : opt === 'epic' ? 'tierEpic' : 'tierRainbow') }}</Button>
+            </div>
+            <p class="hint" style="margin:2px 0 0">{{ tx("autoHint") }}</p>
+          </div>
+
           <div class="release-actions">
             <Button
               class="btn full"
@@ -778,8 +818,12 @@ onUnmounted(() => {
 }
 .release-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 6px;
+}
+.release-actions .btn {
+  flex: 1 1 140px;
 }
 .release-all {
   background: rgba(255, 107, 107, 0.12) !important;
