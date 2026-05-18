@@ -44,7 +44,8 @@ export const useGameStore = defineStore('game', {
     eventSchedule: {},
     craftJob: null,
     autoReleaseMap: {},
-    _autoReleasing: false
+    _autoReleasing: false,
+    _persistPromise: null
   }),
   getters: {
     favoriteAnimal(state) {
@@ -349,7 +350,12 @@ export const useGameStore = defineStore('game', {
         this.tapsNextReset = this.tapsNextReset + periods * period
       }
     },
-    async persist() {
+    persist() {
+      if (this._persistPromise) return this._persistPromise
+      this._persistPromise = this._doPersist().finally(() => { this._persistPromise = null })
+      return this._persistPromise
+    },
+    async _doPersist() {
       const auth = useAuthStore()
       if (!auth.user) return
       const pending = Math.max(0, Math.floor(this.tickCoins))
@@ -719,7 +725,9 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user || this._autoReleasing) return
       if (!this.autoReleaseMap || Object.keys(this.autoReleaseMap).length === 0) return
-      const groups = groupAnimalsForAutoRelease(this.animals, this.autoReleaseMap, Date.now())
+      const excludeIds = new Set()
+      if (this.favoriteAnimalId) excludeIds.add(this.favoriteAnimalId)
+      const groups = groupAnimalsForAutoRelease(this.animals, this.autoReleaseMap, Date.now(), excludeIds)
       if (groups.length === 0) return
       this._autoReleasing = true
       try {

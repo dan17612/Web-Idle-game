@@ -74,3 +74,21 @@ test('species not present in map are never released', () => {
   const groups = groupAnimalsForAutoRelease(animals, { chicken: 'rainbow' }, NOW)
   assert.deepEqual(groups, [{ species: 'chicken', tier: 'normal', ids: ['a'] }])
 })
+
+test('excludes equipped animals from auto-release', () => {
+  const animals = [
+    { id: 'a', species: 'chicken', tier: 'normal', equipped: true },
+    { id: 'b', species: 'chicken', tier: 'normal', equipped: false }
+  ]
+  const groups = groupAnimalsForAutoRelease(animals, { chicken: 'gold' }, NOW)
+  assert.deepEqual(groups, [{ species: 'chicken', tier: 'normal', ids: ['b'] }])
+})
+
+test('excludes animals in excludeIds (e.g. favorite animal)', () => {
+  const animals = [
+    { id: 'fav', species: 'chicken', tier: 'normal' },
+    { id: 'other', species: 'chicken', tier: 'normal' }
+  ]
+  const groups = groupAnimalsForAutoRelease(animals, { chicken: 'gold' }, NOW, new Set(['fav']))
+  assert.deepEqual(groups, [{ species: 'chicken', tier: 'normal', ids: ['other'] }])
+})
