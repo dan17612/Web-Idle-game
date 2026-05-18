@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 import { locale } from '../i18n'
 import { useAppToast } from '../composables/useAppToast'
+import { canStartGame, sortedPlayers } from '../memoryOnline.js'
 
 const router = useRouter()
 const appToast = useAppToast()
@@ -18,6 +19,8 @@ const I18N = {
     maxPlayers: 'Max. Spieler', optionalPw: 'Passwort (optional)',
     cancel: 'Abbrechen', createBtn: 'Erstellen', pwTitle: 'Passwort eingeben',
     pwPlaceholder: 'Raum-Passwort', errName: 'Bitte einen Raumnamen eingeben',
+    waiting: 'Warteraum', start: 'Spiel starten', waitHost: 'Warte auf Host...',
+    leave: 'Verlassen', host: 'Host', you: 'Du', needMore: 'Mindestens 2 Spieler nötig',
   },
   en: {
     title: '🧠 Memory Online', back: 'Back', loading: 'Loading rooms...',
@@ -28,6 +31,8 @@ const I18N = {
     maxPlayers: 'Max players', optionalPw: 'Password (optional)',
     cancel: 'Cancel', createBtn: 'Create', pwTitle: 'Enter password',
     pwPlaceholder: 'Room password', errName: 'Please enter a room name',
+    waiting: 'Waiting room', start: 'Start game', waitHost: 'Waiting for host...',
+    leave: 'Leave', host: 'Host', you: 'You', needMore: 'At least 2 players needed',
   },
   ru: {
     title: '🧠 Memory Онлайн', back: 'Назад', loading: 'Загрузка комнат...',
@@ -38,6 +43,8 @@ const I18N = {
     maxPlayers: 'Макс. игроков', optionalPw: 'Пароль (необязательно)',
     cancel: 'Отмена', createBtn: 'Создать', pwTitle: 'Введите пароль',
     pwPlaceholder: 'Пароль комнаты', errName: 'Введите название комнаты',
+    waiting: 'Комната ожидания', start: 'Начать игру', waitHost: 'Ждём хоста...',
+    leave: 'Выйти', host: 'Хост', you: 'Ты', needMore: 'Нужно минимум 2 игрока',
   },
 }
 function tx(key) {
@@ -119,17 +126,69 @@ async function doJoin(room, password) {
   }
 }
 
-// Implemented in Task 10 (waiting room / realtime). Placeholder navigation
-// is replaced there; until then store state for the next task to consume.
 const roomState = ref(null)
-function enterRoom(state) { roomState.value = state }
+let channel = null
+
+function roomId() { return roomState.value?.room_id }
+
+async function refreshRoom() {
+  if (!roomId()) return
+  try {
+    roomState.value = await callOnline('room_state', { room_id: roomId() })
+  } catch (e) {
+    appToast.err(e?.message || 'Fehler')
+  }
+}
+
+function subscribe(id) {
+  if (channel) supabase.removeChannel(channel)
+  channel = supabase
+    .channel('mem_room_' + id)
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'mem_online_rooms', filter: 'id=eq.' + id },
+      () => refreshRoom())
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'mem_online_players', filter: 'room_id=eq.' + id },
+      () => refreshRoom())
+    .subscribe()
+}
+
+function enterRoom(state) {
+  roomState.value = state
+  if (roomId()) subscribe(roomId())
+}
+
+const canStart = () => canStartGame(roomState.value)
+const playersList = () => sortedPlayers(roomState.value)
+
+async function startGame() {
+  busy.value = true
+  try {
+    roomState.value = await callOnline('start_game', { room_id: roomId() })
+  } catch (e) {
+    appToast.err(e?.message || 'Fehler')
+  } finally {
+    busy.value = false
+  }
+}
+
+async function leaveRoom() {
+  const id = roomId()
+  if (channel) { supabase.removeChannel(channel); channel = null }
+  roomState.value = null
+  try { if (id) await callOnline('leave_room', { room_id: id }) } catch { /* ignore */ }
+  loadRooms()
+}
 
 let poll = null
 onMounted(() => {
   loadRooms()
   poll = setInterval(() => { if (!roomState.value) loadRooms() }, 5000)
 })
-onUnmounted(() => { if (poll) clearInterval(poll) })
+onUnmounted(() => {
+  if (poll) clearInterval(poll)
+  if (channel) supabase.removeChannel(channel)
+})
 </script>
 
 <template>
@@ -165,6 +224,28 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
           <Button class="btn small" :disabled="busy" @click="clickJoin(r)">{{ tx('join') }}</Button>
         </li>
       </ul>
+    </div>
+
+    <div v-else-if="roomState.status === 'lobby'" class="mo-room-wrap card">
+      <div class="mo-room-head">
+        <h2>{{ roomState.name }}</h2>
+        <Button class="btn small confirm-cancel" @click="leaveRoom">{{ tx('leave') }}</Button>
+      </div>
+      <ul class="mo-seat-list">
+        <li v-for="p in playersList()" :key="p.user_id" class="mo-seat">
+          <span>{{ p.display_name }}</span>
+          <span class="mo-seat-tags">
+            <b v-if="p.is_host">{{ tx('host') }}</b>
+            <b v-if="p.user_id === roomState.me">{{ tx('you') }}</b>
+          </span>
+        </li>
+      </ul>
+      <Button v-if="canStart()" class="btn mo-start-btn" :disabled="busy" @click="startGame">
+        {{ tx('start') }}
+      </Button>
+      <div v-else class="mo-wait-hint">
+        {{ roomState.host_id === roomState.me ? tx('needMore') : tx('waitHost') }}
+      </div>
     </div>
 
     <Teleport to="body">
@@ -236,4 +317,17 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
 .mo-actions .btn { flex:1; }
 .confirm-cancel { background:rgba(255,255,255,0.08) !important;
   color:var(--muted) !important; border:1px solid var(--border) !important; }
+.mo-room-wrap { display:flex; flex-direction:column; gap:12px; padding:18px; }
+.mo-room-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.mo-room-head h2 { margin:0; font-size:18px; font-weight:900; }
+.mo-seat-list { list-style:none; margin:0; padding:0; display:flex;
+  flex-direction:column; gap:6px; }
+.mo-seat { display:flex; align-items:center; justify-content:space-between;
+  padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.05);
+  border:1px solid var(--border); font-weight:800; }
+.mo-seat-tags { display:flex; gap:6px; }
+.mo-seat-tags b { font-size:11px; color:var(--accent); }
+.mo-start-btn { width:100%; font-weight:900; }
+.mo-wait-hint { text-align:center; color:var(--muted); font-weight:800;
+  padding:10px; }
 </style>
