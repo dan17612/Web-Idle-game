@@ -632,3 +632,21 @@ end $$;
 
 revoke all on function public.mo_skip_turn(uuid, uuid, uuid) from public, anon, authenticated;
 grant execute on function public.mo_skip_turn(uuid, uuid, uuid) to service_role;
+
+-- Realtime: Raum- und Spielerzeilen in die supabase_realtime Publication
+-- aufnehmen, damit postgres_changes-Events ausgeliefert werden.
+do $$
+begin
+  alter publication supabase_realtime add table public.mem_online_rooms;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.mem_online_players;
+exception
+  when duplicate_object then null;
+  when undefined_object then null;
+end $$;

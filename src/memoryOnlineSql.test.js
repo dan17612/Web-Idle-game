@@ -91,6 +91,11 @@ test('mo_flip finishes the game and records stats when all pairs matched', () =>
   assert.match(sql, /on conflict \(user_id\) do update/)
 })
 
+test('rooms and players tables are added to the supabase_realtime publication', () => {
+  assert.match(sql, /alter publication supabase_realtime add table public\.mem_online_rooms/)
+  assert.match(sql, /alter publication supabase_realtime add table public\.mem_online_players/)
+})
+
 test('pgcrypto-using functions include extensions in search_path', () => {
   // pgcrypto lives in the "extensions" schema on Supabase; gen_salt/crypt
   // are unresolved unless extensions is on the function search_path.

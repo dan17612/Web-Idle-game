@@ -148,6 +148,11 @@ async function doJoin(room, password) {
 const roomState = ref(null)
 let channel = null
 
+const ROOM_KEY = 'mem_online_room_v1'
+function rememberRoom(id) {
+  try { id ? localStorage.setItem(ROOM_KEY, id) : localStorage.removeItem(ROOM_KEY) } catch { /* ignore */ }
+}
+
 function roomId() { return roomState.value?.room_id }
 
 async function refreshRoom() {
@@ -174,7 +179,21 @@ function subscribe(id) {
 
 function enterRoom(state) {
   roomState.value = state
-  if (roomId()) subscribe(roomId())
+  if (roomId()) {
+    rememberRoom(roomId())
+    subscribe(roomId())
+  }
+}
+
+async function restoreRoom() {
+  let id = null
+  try { id = localStorage.getItem(ROOM_KEY) } catch { id = null }
+  if (!id) return
+  try {
+    enterRoom(await callOnline('room_state', { room_id: id }))
+  } catch {
+    rememberRoom(null)
+  }
 }
 
 const canStart = () => canStartGame(roomState.value)
@@ -195,6 +214,7 @@ async function leaveRoom() {
   const id = roomId()
   if (channel) { supabase.removeChannel(channel); channel = null }
   roomState.value = null
+  rememberRoom(null)
   try { if (id) await callOnline('leave_room', { room_id: id }) } catch { /* ignore */ }
   loadRooms()
 }
@@ -251,9 +271,15 @@ async function maybeSkip() {
 }
 
 let poll = null
-onMounted(() => {
-  loadRooms()
-  poll = setInterval(() => { if (!roomState.value) loadRooms() }, 5000)
+onMounted(async () => {
+  await loadRooms()
+  await restoreRoom()
+  // Selbst-Aktualisierung alle 10s: im Raum als Realtime-Fallback,
+  // sonst die Lobby-Liste. Kein manuelles Aktualisieren noetig.
+  poll = setInterval(() => {
+    if (roomState.value) refreshRoom()
+    else loadRooms()
+  }, 10000)
   clock = setInterval(() => {
     nowMs.value = Date.now()
     maybeSkip()
