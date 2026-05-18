@@ -91,6 +91,13 @@ test('mo_flip finishes the game and records stats when all pairs matched', () =>
   assert.match(sql, /on conflict \(user_id\) do update/)
 })
 
+test('pgcrypto-using functions include extensions in search_path', () => {
+  // pgcrypto lives in the "extensions" schema on Supabase; gen_salt/crypt
+  // are unresolved unless extensions is on the function search_path.
+  assert.match(sql, /function public\.mo_create_room[\s\S]*?set search_path = public, extensions[\s\S]*?as \$\$/)
+  assert.match(sql, /function public\.mo_join_room[\s\S]*?set search_path = public, extensions[\s\S]*?as \$\$/)
+})
+
 test('mo_skip_turn only advances after the timer expired and is idempotent via version', () => {
   assert.match(sql, /create or replace function public\.mo_skip_turn/)
   assert.match(sql, /turn_expires_at is not null and now\(\) < v_room\.turn_expires_at/)

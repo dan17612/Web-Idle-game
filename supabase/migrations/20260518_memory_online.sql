@@ -96,7 +96,7 @@ returns jsonb
 language plpgsql
 volatile
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_room public.mem_online_rooms%rowtype;
@@ -177,7 +177,7 @@ returns jsonb
 language plpgsql
 volatile
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_room public.mem_online_rooms%rowtype;
