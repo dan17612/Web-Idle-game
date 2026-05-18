@@ -60,3 +60,18 @@ test('mo_leave_room transfers host and deletes empty rooms', () => {
   assert.match(sql, /set is_host = \(user_id = v_new_host\)/)
   assert.match(sql, /left_game = true/)
 })
+
+test('mo_room_state omits the hidden board and exposes only revealed/matched cards', () => {
+  assert.match(sql, /create or replace function public\.mo_room_state/)
+  assert.match(sql, /'visible_cards', v_cards/)
+  assert.match(sql, /v_idx = any\(v_room\.revealed\)/)
+  assert.doesNotMatch(sql, /'board', v_room\.board/)
+})
+
+test('mo_start_game requires host and at least two players', () => {
+  assert.match(sql, /create or replace function public\.mo_start_game/)
+  assert.match(sql, /raise exception 'not host'/)
+  assert.match(sql, /raise exception 'need 2 players'/)
+  assert.match(sql, /public\.memory_build_board\(v_room\.board_pairs\)/)
+  assert.match(sql, /turn_expires_at = now\(\) \+ interval '20 seconds'/)
+})

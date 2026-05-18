@@ -308,3 +308,128 @@ end $$;
 
 revoke all on function public.mo_leave_room(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.mo_leave_room(uuid, uuid) to service_role;
+
+-- Sichtbarer Zustand OHNE verdecktes Layout. Liefert nur gematchte +
+-- aktuell aufgedeckte Karten mit Emoji, plus Spieler/Punkte/Turn-Info.
+create or replace function public.mo_room_state(
+  p_user_id uuid,
+  p_room_id uuid
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_room public.mem_online_rooms%rowtype;
+  v_cards jsonb := '[]'::jsonb;
+  v_players jsonb;
+  v_idx int;
+  v_cell jsonb;
+  v_species text;
+  v_meta record;
+begin
+  if p_user_id is null then raise exception 'missing user'; end if;
+
+  select * into v_room from public.mem_online_rooms where id = p_room_id;
+  if not found then raise exception 'room not found'; end if;
+
+  if not exists (
+    select 1 from public.mem_online_players
+     where room_id = p_room_id and user_id = p_user_id
+  ) then
+    raise exception 'not a member';
+  end if;
+
+  for v_idx in 0 .. (jsonb_array_length(v_room.board) - 1) loop
+    v_cell := v_room.board -> v_idx;
+    if (v_cell->>'matched')::boolean = true
+       or v_idx = any(v_room.revealed) then
+      v_species := v_cell->>'species';
+      select name, emoji into v_meta
+        from public.species_costs where species = v_species;
+      v_cards := v_cards || jsonb_build_object(
+        'index', v_idx,
+        'emoji', coalesce(v_meta.emoji, '🐾'),
+        'matched', (v_cell->>'matched')::boolean
+      );
+    end if;
+  end loop;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'user_id', user_id, 'seat', seat, 'display_name', display_name,
+    'score', score, 'is_host', is_host, 'left_game', left_game,
+    'connected', connected
+  ) order by seat), '[]'::jsonb) into v_players
+  from public.mem_online_players where room_id = p_room_id;
+
+  return jsonb_build_object(
+    'room_id', v_room.id,
+    'name', v_room.name,
+    'status', v_room.status,
+    'max_players', v_room.max_players,
+    'board_pairs', v_room.board_pairs,
+    'card_count', jsonb_array_length(v_room.board),
+    'visible_cards', v_cards,
+    'players', v_players,
+    'host_id', v_room.host_id,
+    'turn_player_id', v_room.turn_player_id,
+    'turn_expires_at', v_room.turn_expires_at,
+    'winner_id', v_room.winner_id,
+    'version', v_room.version,
+    'me', p_user_id,
+    'server_now', now()
+  );
+end $$;
+
+revoke all on function public.mo_room_state(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.mo_room_state(uuid, uuid) to service_role;
+
+-- Host startet das Spiel: Brett mischen, Status playing, erster Sitz dran.
+create or replace function public.mo_start_game(
+  p_user_id uuid,
+  p_room_id uuid
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_room public.mem_online_rooms%rowtype;
+  v_count int;
+  v_first uuid;
+begin
+  if p_user_id is null then raise exception 'missing user'; end if;
+
+  select * into v_room from public.mem_online_rooms
+   where id = p_room_id for update;
+  if not found then raise exception 'room not found'; end if;
+  if v_room.host_id <> p_user_id then raise exception 'not host'; end if;
+  if v_room.status <> 'lobby' then raise exception 'game already started'; end if;
+
+  select count(*) into v_count from public.mem_online_players
+   where room_id = p_room_id;
+  if v_count < 2 then raise exception 'need 2 players'; end if;
+
+  select user_id into v_first from public.mem_online_players
+   where room_id = p_room_id order by seat limit 1;
+
+  update public.mem_online_rooms
+     set status = 'playing',
+         board = public.memory_build_board(v_room.board_pairs),
+         revealed = '{}',
+         turn_player_id = v_first,
+         turn_expires_at = now() + interval '20 seconds',
+         winner_id = null,
+         version = gen_random_uuid(),
+         updated_at = now()
+   where id = p_room_id;
+
+  return public.mo_room_state(p_user_id, p_room_id);
+end $$;
+
+revoke all on function public.mo_start_game(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.mo_start_game(uuid, uuid) to service_role;
