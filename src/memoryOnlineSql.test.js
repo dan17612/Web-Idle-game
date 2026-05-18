@@ -31,3 +31,17 @@ test('migration enables RLS, blocks client writes, grants service_role', () => {
 test('migration enables pgcrypto for password hashing', () => {
   assert.match(sql, /create extension if not exists pgcrypto/)
 })
+
+test('mo_create_room hashes password with crypt and seats the host', () => {
+  assert.match(sql, /create or replace function public\.mo_create_room/)
+  assert.match(sql, /crypt\(p_password, gen_salt\('bf'\)\)/)
+  assert.match(sql, /v_has_pw := \(p_password is not null and length\(p_password\) > 0\)/)
+  assert.match(sql, /insert into public\.mem_online_players[\s\S]*is_host[\s\S]*true/)
+})
+
+test('mo_list_rooms exposes has_password but never password_hash, and cleans stale rooms', () => {
+  assert.match(sql, /create or replace function public\.mo_list_rooms/)
+  assert.match(sql, /delete from public\.mem_online_rooms\s+where status = 'lobby'\s+and created_at < now\(\) - interval '2 hours'/)
+  assert.match(sql, /'has_password', r\.has_password/)
+  assert.doesNotMatch(sql, /'password_hash'/)
+})

@@ -83,3 +83,86 @@ grant select on table public.mem_online_stats to authenticated, anon;
 grant select, insert, update, delete on table public.mem_online_rooms to service_role;
 grant select, insert, update, delete on table public.mem_online_players to service_role;
 grant select, insert, update, delete on table public.mem_online_stats to service_role;
+
+-- Raum anlegen: Host bekommt Sitz 1. Passwort wird mit bcrypt gehasht.
+create or replace function public.mo_create_room(
+  p_user_id uuid,
+  p_name text,
+  p_max_players int,
+  p_board_pairs int,
+  p_password text default null
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_room public.mem_online_rooms%rowtype;
+  v_name text;
+  v_has_pw boolean;
+begin
+  if p_user_id is null then raise exception 'missing user'; end if;
+  v_name := nullif(btrim(coalesce(p_name, '')), '');
+  if v_name is null then raise exception 'name required'; end if;
+  if char_length(v_name) > 40 then v_name := left(v_name, 40); end if;
+  if p_max_players < 2 or p_max_players > 4 then raise exception 'invalid max_players'; end if;
+  if p_board_pairs not in (8, 12, 18) then raise exception 'invalid board_pairs'; end if;
+
+  v_has_pw := (p_password is not null and length(p_password) > 0);
+
+  insert into public.mem_online_rooms
+    (code, host_id, name, password_hash, has_password, max_players, board_pairs, status)
+  values (
+    upper(substr(md5(gen_random_uuid()::text), 1, 6)),
+    p_user_id, v_name,
+    case when v_has_pw then crypt(p_password, gen_salt('bf')) else null end,
+    v_has_pw, p_max_players, p_board_pairs, 'lobby'
+  )
+  returning * into v_room;
+
+  insert into public.mem_online_players
+    (room_id, user_id, seat, display_name, is_host)
+  select v_room.id, p_user_id, 1,
+         coalesce(nullif(pr.username, ''), 'Spieler'), true
+  from public.profiles pr where pr.id = p_user_id;
+
+  return public.mo_room_state(p_user_id, v_room.id);
+end $$;
+
+revoke all on function public.mo_create_room(uuid, text, int, int, text) from public, anon, authenticated;
+grant execute on function public.mo_create_room(uuid, text, int, int, text) to service_role;
+
+-- Offene Lobby-Raeume; raeumt verwaiste Lobby-Raeume (>2h) auf.
+create or replace function public.mo_list_rooms(p_user_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_rooms jsonb;
+begin
+  delete from public.mem_online_rooms
+   where status = 'lobby'
+     and created_at < now() - interval '2 hours';
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', r.id,
+    'name', r.name,
+    'has_password', r.has_password,
+    'max_players', r.max_players,
+    'board_pairs', r.board_pairs,
+    'player_count', (select count(*) from public.mem_online_players p where p.room_id = r.id)
+  ) order by r.created_at desc), '[]'::jsonb) into v_rooms
+  from public.mem_online_rooms r
+  where r.status = 'lobby'
+    and (select count(*) from public.mem_online_players p where p.room_id = r.id) < r.max_players;
+
+  return jsonb_build_object('rooms', v_rooms, 'server_now', now());
+end $$;
+
+revoke all on function public.mo_list_rooms(uuid) from public, anon, authenticated;
+grant execute on function public.mo_list_rooms(uuid) to service_role;
