@@ -23,6 +23,13 @@ export function canStartGame(state) {
   return Array.isArray(state.players) && state.players.length >= 2
 }
 
+export function pickFnError({ data, error, body }) {
+  if (data && data.error) return data.error
+  if (body && body.error) return body.error
+  if (error && error.message) return error.message
+  return 'Fehler'
+}
+
 export function sortedPlayers(state) {
   const list = Array.isArray(state?.players) ? [...state.players] : []
   return list.sort((a, b) => (a.seat || 0) - (b.seat || 0))

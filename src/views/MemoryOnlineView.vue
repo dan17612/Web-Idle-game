@@ -6,6 +6,7 @@ import { locale } from '../i18n'
 import { useAppToast } from '../composables/useAppToast'
 import {
   canStartGame, sortedPlayers, boardColumns, isMyTurn, turnSecondsLeft,
+  pickFnError,
 } from '../memoryOnline.js'
 
 const router = useRouter()
@@ -84,7 +85,13 @@ async function callOnline(action, payload = {}) {
   const { data, error } = await supabase.functions.invoke('memory-online', {
     body: { action, ...payload },
   })
-  if (error) throw error
+  if (error) {
+    let body = null
+    if (error.context && typeof error.context.json === 'function') {
+      try { body = await error.context.json() } catch { /* keep null */ }
+    }
+    throw new Error(pickFnError({ data, error, body }))
+  }
   if (data?.error) throw new Error(data.error)
   return data
 }
@@ -414,8 +421,10 @@ onUnmounted(() => {
 .mo-room-main { display:flex; flex-direction:column; gap:3px; min-width:0; }
 .mo-room-main strong { font-size:15px; font-weight:900; }
 .mo-room-meta { color:var(--muted); font-size:12px; font-weight:700; }
+/* z-index must stay below PrimeVue's Select overlay (default base 1000),
+   otherwise the dropdown panel renders behind the backdrop and is unclickable. */
 .mo-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex;
-  align-items:center; justify-content:center; z-index:1300; padding:16px;
+  align-items:center; justify-content:center; z-index:100; padding:16px;
   backdrop-filter:blur(4px); }
 .mo-dialog { width:100%; max-width:360px; padding:22px; display:flex;
   flex-direction:column; gap:8px; }
