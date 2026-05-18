@@ -90,3 +90,10 @@ test('mo_flip finishes the game and records stats when all pairs matched', () =>
   assert.match(sql, /insert into public\.mem_online_stats/)
   assert.match(sql, /on conflict \(user_id\) do update/)
 })
+
+test('mo_skip_turn only advances after the timer expired and is idempotent via version', () => {
+  assert.match(sql, /create or replace function public\.mo_skip_turn/)
+  assert.match(sql, /turn_expires_at is not null and now\(\) < v_room\.turn_expires_at/)
+  assert.match(sql, /version = p_seen_version/)
+  assert.match(sql, /turn_player_id = v_next/)
+})

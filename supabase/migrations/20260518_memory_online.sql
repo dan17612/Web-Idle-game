@@ -578,3 +578,57 @@ end $$;
 
 revoke all on function public.mo_flip(uuid, uuid, uuid, int) from public, anon, authenticated;
 grant execute on function public.mo_flip(uuid, uuid, uuid, int) to service_role;
+
+-- Zug ueberspringen, wenn der Zug-Timer abgelaufen ist. Idempotent ueber
+-- version: ein veralteter Aufruf trifft die Zeile nicht mehr.
+create or replace function public.mo_skip_turn(
+  p_user_id uuid,
+  p_room_id uuid,
+  p_seen_version uuid
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_room public.mem_online_rooms%rowtype;
+  v_cur_seat int;
+  v_next uuid;
+begin
+  if p_user_id is null then raise exception 'missing user'; end if;
+
+  select * into v_room from public.mem_online_rooms
+   where id = p_room_id and version = p_seen_version for update;
+  if not found then raise exception 'state conflict'; end if;
+  if v_room.status <> 'playing' then raise exception 'not playing'; end if;
+  if v_room.turn_expires_at is not null and now() < v_room.turn_expires_at then
+    raise exception 'turn not expired';
+  end if;
+
+  select seat into v_cur_seat from public.mem_online_players
+   where room_id = p_room_id and user_id = v_room.turn_player_id;
+
+  select user_id into v_next from public.mem_online_players
+   where room_id = p_room_id and left_game = false and seat > coalesce(v_cur_seat, 0)
+   order by seat asc limit 1;
+  if v_next is null then
+    select user_id into v_next from public.mem_online_players
+     where room_id = p_room_id and left_game = false
+     order by seat asc limit 1;
+  end if;
+
+  update public.mem_online_rooms
+     set revealed = '{}',
+         turn_player_id = v_next,
+         turn_expires_at = now() + interval '20 seconds',
+         version = gen_random_uuid(),
+         updated_at = now()
+   where id = p_room_id;
+
+  return public.mo_room_state(p_user_id, p_room_id);
+end $$;
+
+revoke all on function public.mo_skip_turn(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.mo_skip_turn(uuid, uuid, uuid) to service_role;
