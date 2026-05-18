@@ -75,3 +75,18 @@ test('mo_start_game requires host and at least two players', () => {
   assert.match(sql, /public\.memory_build_board\(v_room\.board_pairs\)/)
   assert.match(sql, /turn_expires_at = now\(\) \+ interval '20 seconds'/)
 })
+
+test('mo_flip enforces turn ownership, version, and rotates on mismatch', () => {
+  assert.match(sql, /create or replace function public\.mo_flip/)
+  assert.match(sql, /raise exception 'not your turn'/)
+  assert.match(sql, /raise exception 'state conflict'/)
+  assert.match(sql, /v_sa = v_sb/)
+  assert.match(sql, /turn_expires_at = now\(\) \+ interval '20 seconds'/)
+})
+
+test('mo_flip finishes the game and records stats when all pairs matched', () => {
+  assert.match(sql, /v_matched_count = jsonb_array_length\(v_board\)/)
+  assert.match(sql, /status = 'finished'/)
+  assert.match(sql, /insert into public\.mem_online_stats/)
+  assert.match(sql, /on conflict \(user_id\) do update/)
+})

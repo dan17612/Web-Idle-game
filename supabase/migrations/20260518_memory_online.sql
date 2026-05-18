@@ -433,3 +433,148 @@ end $$;
 
 revoke all on function public.mo_start_game(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.mo_start_game(uuid, uuid) to service_role;
+
+-- Karte aufdecken (rundenbasiert). Erste Karte -> nur aufdecken.
+-- Zweite Karte -> Match: +1 Punkt, gleicher Spieler bleibt dran.
+-- Kein Match: beide kurz sichtbar, naechster Sitz ist dran.
+-- Letztes Paar -> Spiel beendet, Sieger ermittelt, Statistik gebucht.
+create or replace function public.mo_flip(
+  p_user_id uuid,
+  p_room_id uuid,
+  p_seen_version uuid,
+  p_index int
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_room public.mem_online_rooms%rowtype;
+  v_board jsonb;
+  v_a int;
+  v_b int;
+  v_sa text;
+  v_sb text;
+  v_matched boolean := false;
+  v_finished boolean := false;
+  v_matched_count int;
+  v_next uuid;
+  v_winner uuid;
+  v_pl record;
+begin
+  if p_user_id is null then raise exception 'missing user'; end if;
+
+  select * into v_room from public.mem_online_rooms
+   where id = p_room_id and version = p_seen_version for update;
+  if not found then raise exception 'state conflict'; end if;
+  if v_room.status <> 'playing' then raise exception 'not playing'; end if;
+  if v_room.turn_player_id <> p_user_id then raise exception 'not your turn'; end if;
+
+  v_board := v_room.board;
+  if p_index < 0 or p_index >= jsonb_array_length(v_board) then
+    raise exception 'invalid index';
+  end if;
+  if (v_board -> p_index ->> 'matched')::boolean = true then
+    raise exception 'already matched';
+  end if;
+  if p_index = any(v_room.revealed) then
+    raise exception 'already revealed';
+  end if;
+  if array_length(v_room.revealed, 1) >= 2 then
+    v_room.revealed := '{}';
+  end if;
+
+  if coalesce(array_length(v_room.revealed, 1), 0) = 0 then
+    update public.mem_online_rooms
+       set revealed = array[p_index],
+           version = gen_random_uuid(),
+           updated_at = now()
+     where id = p_room_id;
+  else
+    v_a := v_room.revealed[1];
+    v_b := p_index;
+    v_sa := v_board -> v_a ->> 'species';
+    v_sb := v_board -> v_b ->> 'species';
+
+    if v_sa = v_sb then
+      v_matched := true;
+      v_board := jsonb_set(v_board, array[v_a::text, 'matched'], 'true'::jsonb);
+      v_board := jsonb_set(v_board, array[v_b::text, 'matched'], 'true'::jsonb);
+
+      update public.mem_online_players
+         set score = score + 1
+       where room_id = p_room_id and user_id = p_user_id;
+    end if;
+
+    select count(*) into v_matched_count
+      from jsonb_array_elements(v_board) e
+     where (e->>'matched')::boolean = true;
+    v_finished := (v_matched_count = jsonb_array_length(v_board));
+
+    if v_finished then
+      select user_id into v_winner from public.mem_online_players
+       where room_id = p_room_id
+       order by score desc, seat asc limit 1;
+
+      update public.mem_online_rooms
+         set board = v_board, revealed = '{}',
+             status = 'finished', turn_player_id = null,
+             turn_expires_at = null, winner_id = v_winner,
+             version = gen_random_uuid(), updated_at = now()
+       where id = p_room_id;
+
+      for v_pl in
+        select user_id, score from public.mem_online_players
+         where room_id = p_room_id
+      loop
+        insert into public.mem_online_stats
+          (user_id, games_played, wins, pairs_found)
+        values (
+          v_pl.user_id, 1,
+          case when v_pl.user_id = v_winner then 1 else 0 end,
+          v_pl.score
+        )
+        on conflict (user_id) do update
+          set games_played = public.mem_online_stats.games_played + 1,
+              wins = public.mem_online_stats.wins
+                     + case when v_pl.user_id = v_winner then 1 else 0 end,
+              pairs_found = public.mem_online_stats.pairs_found + v_pl.score,
+              updated_at = now();
+      end loop;
+    elsif v_matched then
+      update public.mem_online_rooms
+         set board = v_board, revealed = '{}',
+             turn_expires_at = now() + interval '20 seconds',
+             version = gen_random_uuid(), updated_at = now()
+       where id = p_room_id;
+    else
+      select user_id into v_next from public.mem_online_players
+       where room_id = p_room_id and left_game = false
+         and seat > (select seat from public.mem_online_players
+                      where room_id = p_room_id and user_id = p_user_id)
+       order by seat asc limit 1;
+      if v_next is null then
+        select user_id into v_next from public.mem_online_players
+         where room_id = p_room_id and left_game = false
+         order by seat asc limit 1;
+      end if;
+
+      update public.mem_online_rooms
+         set revealed = array[v_a, v_b],
+             turn_player_id = v_next,
+             turn_expires_at = now() + interval '20 seconds',
+             version = gen_random_uuid(), updated_at = now()
+       where id = p_room_id;
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'turn', jsonb_build_object('matched', v_matched, 'finished', v_finished),
+    'state', public.mo_room_state(p_user_id, p_room_id)
+  );
+end $$;
+
+revoke all on function public.mo_flip(uuid, uuid, uuid, int) from public, anon, authenticated;
+grant execute on function public.mo_flip(uuid, uuid, uuid, int) to service_role;
