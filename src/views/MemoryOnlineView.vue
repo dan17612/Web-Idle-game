@@ -1,10 +1,12 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 import { locale } from '../i18n'
 import { useAppToast } from '../composables/useAppToast'
-import { canStartGame, sortedPlayers } from '../memoryOnline.js'
+import {
+  canStartGame, sortedPlayers, boardColumns, isMyTurn, turnSecondsLeft,
+} from '../memoryOnline.js'
 
 const router = useRouter()
 const appToast = useAppToast()
@@ -21,6 +23,9 @@ const I18N = {
     pwPlaceholder: 'Raum-Passwort', errName: 'Bitte einen Raumnamen eingeben',
     waiting: 'Warteraum', start: 'Spiel starten', waitHost: 'Warte auf Host...',
     leave: 'Verlassen', host: 'Host', you: 'Du', needMore: 'Mindestens 2 Spieler nötig',
+    yourTurn: 'Du bist dran!', turnOf: '{n} ist dran', timeLeft: '{s}s',
+    scores: 'Punkte', finished: 'Spiel beendet', winner: '🏆 Sieger: {n}',
+    draw: 'Unentschieden', backToLobby: 'Zur Lobby',
   },
   en: {
     title: '🧠 Memory Online', back: 'Back', loading: 'Loading rooms...',
@@ -33,6 +38,9 @@ const I18N = {
     pwPlaceholder: 'Room password', errName: 'Please enter a room name',
     waiting: 'Waiting room', start: 'Start game', waitHost: 'Waiting for host...',
     leave: 'Leave', host: 'Host', you: 'You', needMore: 'At least 2 players needed',
+    yourTurn: 'Your turn!', turnOf: "{n}'s turn", timeLeft: '{s}s',
+    scores: 'Scores', finished: 'Game over', winner: '🏆 Winner: {n}',
+    draw: 'Draw', backToLobby: 'Back to lobby',
   },
   ru: {
     title: '🧠 Memory Онлайн', back: 'Назад', loading: 'Загрузка комнат...',
@@ -45,11 +53,15 @@ const I18N = {
     pwPlaceholder: 'Пароль комнаты', errName: 'Введите название комнаты',
     waiting: 'Комната ожидания', start: 'Начать игру', waitHost: 'Ждём хоста...',
     leave: 'Выйти', host: 'Хост', you: 'Ты', needMore: 'Нужно минимум 2 игрока',
+    yourTurn: 'Твой ход!', turnOf: 'Ход: {n}', timeLeft: '{s}с',
+    scores: 'Очки', finished: 'Игра окончена', winner: '🏆 Победитель: {n}',
+    draw: 'Ничья', backToLobby: 'В лобби',
   },
 }
-function tx(key) {
+function tx(key, vars = {}) {
   const dict = I18N[locale.value] || I18N.en
-  return dict[key] != null ? dict[key] : (I18N.en[key] || key)
+  const raw = dict[key] != null ? dict[key] : (I18N.en[key] || key)
+  return String(raw).replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''))
 }
 
 const loading = ref(true)
@@ -180,13 +192,69 @@ async function leaveRoom() {
   loadRooms()
 }
 
+const nowMs = ref(Date.now())
+let clock = null
+
+const cardCount = computed(() => Number(roomState.value?.card_count || 0))
+const columns = computed(() => boardColumns(cardCount.value))
+const cardMap = computed(() => {
+  const m = {}
+  for (const c of (roomState.value?.visible_cards || [])) m[c.index] = c
+  return m
+})
+const myTurn = computed(() => isMyTurn(roomState.value))
+const secondsLeft = computed(() => turnSecondsLeft(roomState.value, nowMs.value))
+const turnName = computed(() => {
+  const p = (roomState.value?.players || []).find(
+    (x) => x.user_id === roomState.value?.turn_player_id)
+  return p ? p.display_name : ''
+})
+const winnerName = computed(() => {
+  const p = (roomState.value?.players || []).find(
+    (x) => x.user_id === roomState.value?.winner_id)
+  return p ? p.display_name : ''
+})
+
+async function flipCard(index) {
+  if (busy.value || !myTurn.value) return
+  if (cardMap.value[index]) return
+  busy.value = true
+  try {
+    const res = await callOnline('flip', {
+      room_id: roomId(), index, version: roomState.value.version,
+    })
+    roomState.value = res.state
+  } catch (e) {
+    appToast.err(e?.message || 'Fehler')
+    refreshRoom()
+  } finally {
+    busy.value = false
+  }
+}
+
+async function maybeSkip() {
+  if (!roomState.value || roomState.value.status !== 'playing') return
+  if (secondsLeft.value > 0) return
+  if (myTurn.value) return
+  try {
+    await callOnline('skip_turn', {
+      room_id: roomId(), version: roomState.value.version,
+    })
+  } catch { /* another client already skipped; realtime will refresh */ }
+}
+
 let poll = null
 onMounted(() => {
   loadRooms()
   poll = setInterval(() => { if (!roomState.value) loadRooms() }, 5000)
+  clock = setInterval(() => {
+    nowMs.value = Date.now()
+    maybeSkip()
+  }, 1000)
 })
 onUnmounted(() => {
   if (poll) clearInterval(poll)
+  if (clock) clearInterval(clock)
   if (channel) supabase.removeChannel(channel)
 })
 </script>
@@ -246,6 +314,47 @@ onUnmounted(() => {
       <div v-else class="mo-wait-hint">
         {{ roomState.host_id === roomState.me ? tx('needMore') : tx('waitHost') }}
       </div>
+    </div>
+
+    <div v-else-if="roomState && roomState.status === 'playing'" class="mo-game card">
+      <div class="mo-game-head">
+        <div class="mo-turn" :class="{ mine: myTurn }">
+          {{ myTurn ? tx('yourTurn') : tx('turnOf', { n: turnName }) }}
+          <span class="mo-timer">{{ tx('timeLeft', { s: secondsLeft }) }}</span>
+        </div>
+        <Button class="btn small confirm-cancel" @click="leaveRoom">{{ tx('leave') }}</Button>
+      </div>
+      <div class="mo-scores">
+        <span v-for="p in playersList()" :key="p.user_id"
+              :class="{ active: p.user_id === roomState.turn_player_id, left: p.left_game }">
+          {{ p.display_name }}: <b>{{ p.score }}</b>
+        </span>
+      </div>
+      <div class="memory-board"
+           :style="{ gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' }">
+        <button v-for="i in cardCount" :key="i - 1" class="memory-card"
+                :class="{ flipped: !!cardMap[i - 1], matched: cardMap[i - 1]?.matched }"
+                :disabled="busy || !myTurn || !!cardMap[i - 1]"
+                @click="flipCard(i - 1)">
+          <span class="card-inner">
+            <span class="card-face card-back">❓</span>
+            <span class="card-face card-front">{{ cardMap[i - 1]?.emoji || '' }}</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div v-else-if="roomState && roomState.status === 'finished'" class="mo-game card">
+      <h2 class="mo-finish-title">{{ tx('finished') }}</h2>
+      <p class="mo-finish-winner">
+        {{ winnerName ? tx('winner', { n: winnerName }) : tx('draw') }}
+      </p>
+      <div class="mo-scores">
+        <span v-for="p in playersList()" :key="p.user_id">
+          {{ p.display_name }}: <b>{{ p.score }}</b>
+        </span>
+      </div>
+      <Button class="btn mo-start-btn" @click="leaveRoom">{{ tx('backToLobby') }}</Button>
     </div>
 
     <Teleport to="body">
@@ -330,4 +439,36 @@ onUnmounted(() => {
 .mo-start-btn { width:100%; font-weight:900; }
 .mo-wait-hint { text-align:center; color:var(--muted); font-weight:800;
   padding:10px; }
+.mo-game { display:flex; flex-direction:column; gap:12px; padding:16px; }
+.mo-game-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.mo-turn { font-weight:900; font-size:15px; color:var(--muted);
+  display:flex; align-items:center; gap:8px; }
+.mo-turn.mine { color:var(--accent); }
+.mo-timer { font-variant-numeric:tabular-nums; font-size:13px;
+  padding:2px 8px; border-radius:999px; background:rgba(255,255,255,0.08); }
+.mo-scores { display:flex; flex-wrap:wrap; gap:10px; font-size:13px;
+  font-weight:800; color:var(--muted); }
+.mo-scores .active { color:var(--accent); }
+.mo-scores .left { opacity:0.5; text-decoration:line-through; }
+.memory-board { display:grid; gap:8px; padding:10px; border-radius:18px;
+  background:linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.15)),#0d1528;
+  border:1px solid var(--border); box-shadow:inset 0 0 28px rgba(0,0,0,0.35); }
+.memory-card { aspect-ratio:1; border:none; padding:0; background:transparent;
+  perspective:600px; cursor:pointer; }
+.memory-card:disabled { cursor:default; }
+.card-inner { position:relative; width:100%; height:100%; display:block;
+  transform-style:preserve-3d; transition:transform 0.3s ease; }
+.memory-card.flipped .card-inner { transform:rotateY(180deg); }
+.card-face { position:absolute; inset:0; display:flex; align-items:center;
+  justify-content:center; border-radius:12px; backface-visibility:hidden;
+  font-size:clamp(20px,7vw,38px); }
+.card-back { background:linear-gradient(145deg,#48cae4,#115b73);
+  border:1px solid rgba(255,255,255,0.2); }
+.card-front { background:linear-gradient(145deg,#ffd166,#9b5b12);
+  border:1px solid rgba(255,255,255,0.28); transform:rotateY(180deg); }
+.memory-card.matched .card-front { background:linear-gradient(145deg,#06d6a0,#0b6b55);
+  box-shadow:0 0 0 2px rgba(6,214,160,0.45) inset; }
+.mo-finish-title { margin:0; font-size:20px; font-weight:900; text-align:center; }
+.mo-finish-winner { margin:4px 0 8px; text-align:center; font-weight:800;
+  color:var(--accent); }
 </style>
