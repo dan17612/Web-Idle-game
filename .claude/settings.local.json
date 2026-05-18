@@ -31,7 +31,11 @@
       "Skill(superpowers:executing-plans:*)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:writing-plans:*)",
+      "Bash(node --test src/memoryOnlineSql.test.js)",
+      "Bash(node --test src/memoryOnline.test.js)"
     ]
   }
 }

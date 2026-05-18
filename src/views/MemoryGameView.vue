@@ -34,7 +34,8 @@ const I18N = {
     tutStep2: 'Tippe eine zweite Karte. Zwei gleiche Tiere = Paar gefunden, sie bleiben offen.',
     tutStep3: 'Decke alle Paare auf, bevor dein Zuglimit erreicht ist. Sonst wird das Brett neu gemischt.',
     tutStep4: 'Jedes geschaffte Level bringt Truhen, alle 5 Level ein garantiertes Tier. Höhere Level sind größer.',
-    tutGot: 'Verstanden, los geht\'s!'
+    tutGot: 'Verstanden, los geht\'s!',
+    online: '🌐 Online spielen'
   },
   en: {
     title: '🧠 Memory Path', sub: 'A journey through {max} levels. Find all animal pairs before you run out of moves.',
@@ -56,7 +57,8 @@ const I18N = {
     tutStep2: 'Tap a second card. Two identical animals = pair found, they stay open.',
     tutStep3: 'Reveal all pairs before your move limit runs out. Otherwise the board reshuffles.',
     tutStep4: 'Each cleared level gives chests, every 5 levels a guaranteed animal. Higher levels are bigger.',
-    tutGot: 'Got it, let\'s go!'
+    tutGot: 'Got it, let\'s go!',
+    online: '🌐 Play online'
   },
   ru: {
     title: '🧠 Memory-путь', sub: 'Путешествие по {max} уровням. Найди все пары животных, пока не кончились ходы.',
@@ -78,7 +80,8 @@ const I18N = {
     tutStep2: 'Нажми вторую карту. Два одинаковых животных = пара, они остаются открытыми.',
     tutStep3: 'Открой все пары до конца лимита ходов. Иначе поле перемешается.',
     tutStep4: 'Каждый пройденный уровень даёт сундуки, каждые 5 уровней - гарантированное животное. Уровни растут.',
-    tutGot: 'Понятно, поехали!'
+    tutGot: 'Понятно, поехали!',
+    online: '🌐 Играть онлайн'
   }
 }
 
@@ -329,6 +332,14 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
       </Button>
     </header>
 
+    <button class="online-banner" @click="router.push('/memory-online')">
+      <span class="online-banner-text">
+        <i class="pi pi-users"></i>
+        <span>{{ tx('online') }}</span>
+      </span>
+      <i class="pi pi-chevron-right online-banner-arrow"></i>
+    </button>
+
     <div v-if="loading" class="card memory-state">
       <i class="pi pi-spin pi-spinner"></i><span>{{ tx('loading') }}</span>
     </div>
@@ -520,6 +531,19 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .memory-title-block { flex:1; min-width:0; }
 .memory-title { margin:0; font-size:22px; font-weight:900; }
 .memory-sub { margin:2px 0 0; color:var(--muted); font-size:13px; }
+.online-banner { width:100%; border:none; cursor:pointer; border-radius:16px;
+  padding:16px 18px; display:flex; align-items:center; justify-content:space-between;
+  gap:12px; color:#1b1300; font-weight:900; font-size:16px;
+  background:linear-gradient(135deg,#ffd166,#f4a261);
+  box-shadow:0 10px 26px rgba(255,209,102,0.35);
+  animation:onlineBannerPulse 2.6s ease-in-out infinite; }
+.online-banner:active { transform:scale(0.98); }
+.online-banner-text { display:inline-flex; align-items:center; gap:10px; }
+.online-banner-text .pi { font-size:20px; }
+.online-banner-arrow { font-size:18px; opacity:0.8; }
+@keyframes onlineBannerPulse {
+  0%,100% { box-shadow:0 10px 26px rgba(255,209,102,0.32); }
+  50% { box-shadow:0 10px 34px rgba(255,209,102,0.55); } }
 .help-btn { flex-shrink:0; }
 .memory-state { display:flex; align-items:center; justify-content:center; gap:10px;
   min-height:140px; color:var(--muted); font-weight:800; }
