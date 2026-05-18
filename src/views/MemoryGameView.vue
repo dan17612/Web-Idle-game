@@ -330,10 +330,15 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
       <Button class="btn small btn-ghost help-btn" @click="showTutorial = true">
         <i class="pi pi-question-circle"></i>
       </Button>
-      <Button class="btn small btn-ghost" @click="router.push('/memory-online')">
-        <span>{{ tx('online') }}</span>
-      </Button>
     </header>
+
+    <button class="online-banner" @click="router.push('/memory-online')">
+      <span class="online-banner-text">
+        <i class="pi pi-users"></i>
+        <span>{{ tx('online') }}</span>
+      </span>
+      <i class="pi pi-chevron-right online-banner-arrow"></i>
+    </button>
 
     <div v-if="loading" class="card memory-state">
       <i class="pi pi-spin pi-spinner"></i><span>{{ tx('loading') }}</span>
@@ -526,6 +531,19 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .memory-title-block { flex:1; min-width:0; }
 .memory-title { margin:0; font-size:22px; font-weight:900; }
 .memory-sub { margin:2px 0 0; color:var(--muted); font-size:13px; }
+.online-banner { width:100%; border:none; cursor:pointer; border-radius:16px;
+  padding:16px 18px; display:flex; align-items:center; justify-content:space-between;
+  gap:12px; color:#1b1300; font-weight:900; font-size:16px;
+  background:linear-gradient(135deg,#ffd166,#f4a261);
+  box-shadow:0 10px 26px rgba(255,209,102,0.35);
+  animation:onlineBannerPulse 2.6s ease-in-out infinite; }
+.online-banner:active { transform:scale(0.98); }
+.online-banner-text { display:inline-flex; align-items:center; gap:10px; }
+.online-banner-text .pi { font-size:20px; }
+.online-banner-arrow { font-size:18px; opacity:0.8; }
+@keyframes onlineBannerPulse {
+  0%,100% { box-shadow:0 10px 26px rgba(255,209,102,0.32); }
+  50% { box-shadow:0 10px 34px rgba(255,209,102,0.55); } }
 .help-btn { flex-shrink:0; }
 .memory-state { display:flex; align-items:center; justify-content:center; gap:10px;
   min-height:140px; color:var(--muted); font-weight:800; }
