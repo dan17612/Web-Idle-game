@@ -45,7 +45,8 @@ const messages = {
         rank: 'Rang',
         tickets: 'Tickets'
       },
-      admin: 'Admin'
+      admin: 'Admin',
+      supportTickets: 'Meine Support-Tickets'
     },
     tutorial: {
       tap: 'Tippe das Tier!',
@@ -389,7 +390,8 @@ const messages = {
         rank: 'Rank',
         tickets: 'Tickets'
       },
-      admin: 'Admin'
+      admin: 'Admin',
+      supportTickets: 'My support tickets'
     },
     tutorial: {
       tap: 'Tap the animal!',
@@ -733,7 +735,8 @@ const messages = {
         rank: 'Рейтинг',
         tickets: 'Тикеты'
       },
-      admin: 'Admin'
+      admin: 'Admin',
+      supportTickets: 'Мои тикеты поддержки'
     },
     tutorial: {
       tap: 'Нажми на животное!',

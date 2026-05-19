@@ -4,6 +4,7 @@ import { supabase } from '../supabase'
 import { speciesInfo } from '../animals'
 import { locale } from '../i18n'
 import { useAuthStore } from '../stores/auth'
+import { hasUnseenAdminMessage } from '../supportTickets'
 
 const emit = defineEmits(['close'])
 
@@ -39,7 +40,8 @@ const I18N = {
       status_open: 'Offen',
       status_replied: 'Beantwortet',
       status_closed: 'Geschlossen',
-      enterReply: 'Antwort eingeben.'
+      enterReply: 'Antwort eingeben.',
+      threadTitle: 'Verlauf'
     },
     flash: {
       enterMessage: 'Nachricht eingeben',
@@ -150,7 +152,8 @@ const I18N = {
       status_open: 'Open',
       status_replied: 'Replied',
       status_closed: 'Closed',
-      enterReply: 'Please enter a reply.'
+      enterReply: 'Please enter a reply.',
+      threadTitle: 'History'
     },
     flash: {
       enterMessage: 'Enter a message',
@@ -261,7 +264,8 @@ const I18N = {
       status_open: 'Открыт',
       status_replied: 'Отвечен',
       status_closed: 'Закрыт',
-      enterReply: 'Введите ответ.'
+      enterReply: 'Введите ответ.',
+      threadTitle: 'История'
     },
     flash: {
       enterMessage: 'Введите сообщение',
@@ -374,6 +378,32 @@ const users = ref([])
 const tickets = ref([])
 const ticketFilter = ref('open')
 const ticketReply = ref({})
+const ticketThreads = ref({})
+const expandedTicket = ref(null)
+function toggleTicket(id) {
+  expandedTicket.value = expandedTicket.value === id ? null : id
+}
+function lastMsg(t) {
+  const arr = ticketThreads.value[t.id] || []
+  return arr.length ? arr[arr.length - 1] : null
+}
+
+function readAdminSeen() {
+  try { return JSON.parse(localStorage.getItem('seenAdminTicketMsgs')) || {} } catch { return {} }
+}
+function writeAdminSeen(map) {
+  try { localStorage.setItem('seenAdminTicketMsgs', JSON.stringify(map || {})) } catch {}
+}
+function ticketHasUnseen(t) {
+  return hasUnseenAdminMessage([t], readAdminSeen())
+}
+async function loadTicketThread(id) {
+  try {
+    const { data, error: e } = await supabase.rpc('admin_list_ticket_messages', { p_ticket_id: id })
+    if (e) throw e
+    ticketThreads.value = { ...ticketThreads.value, [id]: data || [] }
+  } catch (e) { flash(e.message, true) }
+}
 
 const forbiddenList = ref([])
 const newForbidden = ref({ pattern: '', kind: 'contains', note: '' })
@@ -683,6 +713,12 @@ async function loadTickets() {
     })
     if (e) throw e
     tickets.value = data || []
+    for (const t of tickets.value) loadTicketThread(t.id)
+    const seen = readAdminSeen()
+    for (const t of tickets.value) {
+      if (t.last_user_message_at) seen[t.id] = t.last_user_message_at
+    }
+    writeAdminSeen(seen)
   } catch (e) {
     flash(e.message, true)
   } finally {
@@ -703,6 +739,7 @@ async function replyTicket(t, close) {
     if (e) throw e
     ticketReply.value[t.id] = ''
     await loadTickets()
+    await loadTicketThread(t.id)
     flash(tx('tickets.replied_ok'))
   } catch (e) {
     flash(e.message, true)
@@ -999,63 +1036,84 @@ async function deleteUser(u) {
           {{ tx('tickets.empty') }}
         </div>
         <div v-for="t in tickets" :key="t.id" class="ticket-card">
-          <div class="row between" style="gap:8px;flex-wrap:wrap">
-            <div style="font-weight:700">
-              <span class="ticket-num">{{ t.ticket_number }}</span>
-              · {{ t.subject }}
+          <div class="ticket-head" style="cursor:pointer" @click="toggleTicket(t.id)">
+            <div class="row between" style="gap:8px;flex-wrap:wrap">
+              <div style="font-weight:700">
+                <span class="tcaret">{{ expandedTicket === t.id ? '▾' : '▸' }}</span>
+                <span class="ticket-num">{{ t.ticket_number }}</span>
+                · {{ t.subject }}
+              </div>
+              <span class="row" style="align-items:center;gap:6px">
+                <span v-if="ticketHasUnseen(t)" class="msg-dot-blue"></span>
+                <span class="pill" :class="`status-${t.status}`">{{ tx(`tickets.status_${t.status}`) }}</span>
+              </span>
             </div>
-            <span class="pill" :class="`status-${t.status}`">{{ tx(`tickets.status_${t.status}`) }}</span>
-          </div>
-          <div class="subtitle" style="margin:4px 0">
-            {{ tx('tickets.from') }}: <b>{{ t.username || '?' }}</b>
-            &lt;{{ t.user_email || '?' }}&gt; · {{ tx('tickets.created') }}: {{ fmtDateTime(t.created_at) }}
-          </div>
-          <pre class="ticket-msg">{{ t.message }}</pre>
-          <div v-if="t.admin_reply" class="ticket-prev-reply">
-            <div class="subtitle" style="margin:0 0 4px">
-              {{ tx('tickets.previousReply') }} · {{ fmtDateTime(t.replied_at) }}
+            <div class="subtitle" style="margin:4px 0 0">
+              {{ tx('tickets.from') }}: <b>{{ t.username || '?' }}</b>
+              &lt;{{ t.user_email || '?' }}&gt;
             </div>
-            <pre class="ticket-msg" style="background:rgba(120,200,160,0.08)">{{ t.admin_reply }}</pre>
+            <div v-if="expandedTicket !== t.id && lastMsg(t)" class="ticket-last">
+              <b>{{ lastMsg(t).sender }}:</b>
+              {{ lastMsg(t).body.slice(0, 140) }}<span v-if="lastMsg(t).body.length > 140">…</span>
+              <span class="subtitle" style="font-size:11px"> · {{ fmtDateTime(lastMsg(t).created_at) }}</span>
+            </div>
           </div>
-          <Textarea
-            v-model="ticketReply[t.id]"
-            rows="3"
-            maxlength="5000"
-            :placeholder="tx('tickets.replyPlaceholder')"
-            style="width:100%;margin-top:8px"
-          />
-          <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap;justify-content:flex-end">
-            <Button
-              class="btn small"
-              :disabled="busy===`treply-${t.id}`"
-              @click="replyTicket(t, false)"
-            >
-              {{ busy===`treply-${t.id}` ? '...' : tx('tickets.sendReply') }}
-            </Button>
-            <Button
-              class="btn small"
-              :disabled="busy===`treply-${t.id}`"
-              @click="replyTicket(t, true)"
-            >
-              {{ tx('tickets.sendReplyAndClose') }}
-            </Button>
-            <Button
-              v-if="t.status !== 'closed'"
-              class="btn secondary small"
-              :disabled="busy===`tstatus-${t.id}`"
-              @click="setTicketStatus(t, 'closed')"
-            >
-              {{ tx('tickets.close') }}
-            </Button>
-            <Button
-              v-else
-              class="btn secondary small"
-              :disabled="busy===`tstatus-${t.id}`"
-              @click="setTicketStatus(t, 'open')"
-            >
-              {{ tx('tickets.reopen') }}
-            </Button>
-          </div>
+
+          <template v-if="expandedTicket === t.id">
+            <div class="subtitle" style="margin:6px 0 2px">
+              {{ tx('tickets.threadTitle') }} · {{ tx('tickets.created') }}: {{ fmtDateTime(t.created_at) }}
+            </div>
+            <div class="adm-thread">
+              <div
+                v-for="m in (ticketThreads[t.id] || [])"
+                :key="m.id"
+                class="adm-bubble"
+                :class="m.sender === 'admin' ? 'adm-bubble-admin' : 'adm-bubble-user'"
+              >
+                <pre class="ticket-msg" style="margin:0">{{ m.body }}</pre>
+                <div class="subtitle" style="font-size:11px">{{ m.sender }} · {{ fmtDateTime(m.created_at) }}</div>
+              </div>
+            </div>
+            <Textarea
+              v-model="ticketReply[t.id]"
+              rows="3"
+              maxlength="5000"
+              :placeholder="tx('tickets.replyPlaceholder')"
+              style="width:100%;margin-top:8px"
+            />
+            <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap;justify-content:flex-end">
+              <Button
+                class="btn small"
+                :disabled="busy===`treply-${t.id}`"
+                @click="replyTicket(t, false)"
+              >
+                {{ busy===`treply-${t.id}` ? '...' : tx('tickets.sendReply') }}
+              </Button>
+              <Button
+                class="btn small"
+                :disabled="busy===`treply-${t.id}`"
+                @click="replyTicket(t, true)"
+              >
+                {{ tx('tickets.sendReplyAndClose') }}
+              </Button>
+              <Button
+                v-if="t.status !== 'closed'"
+                class="btn secondary small"
+                :disabled="busy===`tstatus-${t.id}`"
+                @click="setTicketStatus(t, 'closed')"
+              >
+                {{ tx('tickets.close') }}
+              </Button>
+              <Button
+                v-else
+                class="btn secondary small"
+                :disabled="busy===`tstatus-${t.id}`"
+                @click="setTicketStatus(t, 'open')"
+              >
+                {{ tx('tickets.reopen') }}
+              </Button>
+            </div>
+          </template>
         </div>
       </template>
     </div>
@@ -1122,4 +1180,29 @@ async function deleteUser(u) {
   font-size: 13px;
 }
 .ticket-prev-reply { margin-top: 8px; }
+.msg-dot-blue {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #3b82f6; display: inline-block;
+}
+.tcaret { display: inline-block; width: 14px; color: var(--muted, #9aa3b2); }
+.ticket-last {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text, #e8eaf0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adm-thread { display: flex; flex-direction: column; gap: 6px; }
+.adm-bubble { border-radius: 10px; padding: 6px 9px; max-width: 92%; }
+.adm-bubble-user {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+}
+.adm-bubble-admin {
+  align-self: flex-end;
+  background: rgba(120,200,160,0.10);
+  border: 1px solid rgba(120,200,160,0.30);
+}
 </style>
