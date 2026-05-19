@@ -10,6 +10,7 @@ export function groupAnimalsForAutoRelease(animals, autoReleaseMap, now = Date.n
   const map = new Map()
   for (const a of animals || []) {
     if (isUpgrading(a, now)) continue
+    if (a.equipped) continue
     const maxTier = cfg[a.species]
     const maxRank = TIER_ORDER[maxTier]
     if (maxRank == null) continue
