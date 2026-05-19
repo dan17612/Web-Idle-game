@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     return new Response('forbidden', { status: 403 })
   }
 
-  let body: { ticket_id?: string; mode?: string }
+  let body: { ticket_id?: string; mode?: string; text?: string }
   try {
     body = await req.json()
   } catch {
@@ -120,6 +120,28 @@ Deno.serve(async (req) => {
   }
   const ticketId = body.ticket_id
   const mode = body.mode || 'new'
+
+  if (mode === 'digest') {
+    const adminEmailDigest = Deno.env.get('ADMIN_EMAIL') || ''
+    if (!adminEmailDigest) {
+      return new Response('no admin email', { status: 200 })
+    }
+    if (!body.text) return new Response('missing text', { status: 400 })
+    try {
+      await sendMail({
+        to: adminEmailDigest,
+        subject: '[Zoo Empire] Unbeantwortete Support-Tickets',
+        text: body.text
+      })
+    } catch (e) {
+      return new Response(`mail error: ${(e as Error).message}`, { status: 500 })
+    }
+    return new Response(JSON.stringify({ ok: true, results: { admin: 'sent' } }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+
   if (!ticketId) return new Response('missing ticket_id', { status: 400 })
 
   const supabase = createClient(
