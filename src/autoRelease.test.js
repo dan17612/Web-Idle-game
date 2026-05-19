@@ -74,3 +74,13 @@ test('species not present in map are never released', () => {
   const groups = groupAnimalsForAutoRelease(animals, { chicken: 'rainbow' }, NOW)
   assert.deepEqual(groups, [{ species: 'chicken', tier: 'normal', ids: ['a'] }])
 })
+
+test('never releases equipped animals', () => {
+  const animals = [
+    { id: 'a', species: 'chicken', tier: 'normal', equipped: false },
+    { id: 'b', species: 'chicken', tier: 'normal', equipped: true },
+    { id: 'c', species: 'chicken', tier: 'gold',   equipped: true }
+  ]
+  const groups = groupAnimalsForAutoRelease(animals, { chicken: 'gold' }, NOW)
+  assert.deepEqual(groups, [{ species: 'chicken', tier: 'normal', ids: ['a'] }])
+})

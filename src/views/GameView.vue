@@ -139,7 +139,9 @@ const I18N = {
     },
     bossPath: {
       title: "👑 Boss-Kampf",
-      sub: "Endlessboss-Challenge: 3 Minuten Schaden sammeln"
+      sub: "Endlessboss-Challenge: 3 Minuten Schaden sammeln",
+      stage: "Etappe {n} / {total}",
+      bossBoostActive: "👑 Boss-Boost"
     },
     mergeLink: {
       title: "🐾 Merge-Safari",
@@ -270,7 +272,8 @@ const I18N = {
     bossPath: {
       title: "👑 Boss fight",
       sub: "Boss path ({total} stages) and endless boss challenge",
-      stage: "Stage {n} / {total}"
+      stage: "Stage {n} / {total}",
+      bossBoostActive: "👑 Boss Boost"
     },
     mergeLink: {
       title: "🐾 Merge Safari",
@@ -401,7 +404,8 @@ const I18N = {
     bossPath: {
       title: "👑 Бой с боссами",
       sub: "Путь босса ({total} этапов) и эндлесс-челлендж",
-      stage: "Этап {n} / {total}"
+      stage: "Этап {n} / {total}",
+      bossBoostActive: "👑 Бонус Босса"
     },
     mergeLink: {
       title: "🐾 Merge-Сафари",
