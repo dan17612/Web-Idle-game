@@ -81,6 +81,12 @@ input:focus { border-color: var(--accent); }
   bottom: calc(92px + var(--safe-bot)) !important;
   z-index: 50 !important;
 }
+.p-button.support-fab {
+  position: fixed !important;
+  right: 14px !important;
+  bottom: calc(92px + var(--safe-bot)) !important;
+  z-index: 50 !important;
+}
 
 /* .btn variants: hover override (replace Aura emerald/green with accent gold) */
 .p-button.btn:not(:disabled):hover {
@@ -100,12 +106,12 @@ input:focus { border-color: var(--accent); }
 }
 
 /* Generic PrimeVue button without .btn (tabs, chips etc.) */
-.p-button:not(.btn):not(.settings-link):not(.admin-fab):not(:disabled):hover {
+.p-button:not(.btn):not(.settings-link):not(.admin-fab):not(.support-fab):not(:disabled):hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   color: var(--accent);
 }
-.p-button:not(.btn):not(.settings-link):not(.admin-fab):not(:disabled):active {
+.p-button:not(.btn):not(.settings-link):not(.admin-fab):not(.support-fab):not(:disabled):active {
   background: rgba(255, 255, 255, 0.12);
   border-color: var(--accent);
   color: var(--accent);
@@ -237,6 +243,24 @@ input:focus { border-color: var(--accent); }
   z-index: 50; cursor: pointer;
 }
 .admin-fab:active { transform: scale(0.95); }
+
+.support-fab {
+  position: fixed; right: 14px; bottom: calc(92px + var(--safe-bot));
+  width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(135deg, #06d6a0, #1d8f73);
+  color: #fff; font-size: 22px; border: none;
+  box-shadow: 0 10px 26px rgba(6,214,160,0.45);
+  z-index: 50; cursor: pointer;
+}
+.support-fab:active { transform: scale(0.95); }
+.support-fab .fab-dot {
+  position: absolute;
+  top: 4px; right: 4px;
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  border: 2px solid #0b1220;
+}
 
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6);
