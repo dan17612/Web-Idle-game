@@ -53,14 +53,20 @@ Deno.serve(async (req) => {
       const name = String(body.name || '')
       const maxPlayers = Number(body.max_players)
       const boardPairs = Number(body.board_pairs)
+      const turnSeconds = body.turn_seconds == null ? 20 : Number(body.turn_seconds)
       const password = body.password ? String(body.password) : null
       if (!name.trim()) return json({ error: 'name required' }, 400)
       if (![2, 3, 4].includes(maxPlayers)) return json({ error: 'invalid max_players' }, 400)
-      if (![8, 12, 18].includes(boardPairs)) return json({ error: 'invalid board_pairs' }, 400)
+      if (!Number.isInteger(boardPairs) || boardPairs < 2 || boardPairs > 99) {
+        return json({ error: 'invalid board_pairs' }, 400)
+      }
+      if (!Number.isInteger(turnSeconds) || turnSeconds < 5 || turnSeconds > 120) {
+        return json({ error: 'invalid turn_seconds' }, 400)
+      }
       rpc = 'mo_create_room'
       args = {
         p_user_id: user.id, p_name: name, p_max_players: maxPlayers,
-        p_board_pairs: boardPairs, p_password: password,
+        p_board_pairs: boardPairs, p_password: password, p_turn_seconds: turnSeconds,
       }
     } else if (action === 'join_room') {
       const roomId = String(body.room_id || '')

@@ -10,13 +10,18 @@ const sql = readdirSync(migrationsDir)
   .filter((name) => name.includes('memory_online'))
   .map((name) => readFileSync(path.join(migrationsDir, name), 'utf8'))
   .join('\n')
+const featureSql = readFileSync(
+  path.join(migrationsDir, '20260519_memory_online_features.sql'),
+  'utf8',
+)
 
 test('migration creates the online tables with constraints', () => {
   assert.match(sql, /create table if not exists public\.mem_online_rooms/)
   assert.match(sql, /create table if not exists public\.mem_online_players/)
   assert.match(sql, /create table if not exists public\.mem_online_stats/)
   assert.match(sql, /max_players int not null[^;]*check \(max_players between 2 and 4\)/)
-  assert.match(sql, /board_pairs int not null[^;]*check \(board_pairs in \(8, ?12, ?18\)\)/)
+  assert.match(featureSql, /add constraint mem_online_rooms_board_pairs_chk\s+check \(board_pairs between 2 and 99\)/)
+  assert.match(featureSql, /turn_seconds int not null default 20 check \(turn_seconds between 5 and 120\)/)
   assert.match(sql, /status text not null default 'lobby'/)
 })
 
@@ -34,9 +39,27 @@ test('migration enables pgcrypto for password hashing', () => {
 
 test('mo_create_room hashes password with crypt and seats the host', () => {
   assert.match(sql, /create or replace function public\.mo_create_room/)
+  assert.match(featureSql, /drop function if exists public\.mo_create_room\(uuid, text, int, int, text\)/)
+  assert.match(featureSql, /p_turn_seconds int default 20/)
   assert.match(sql, /crypt\(p_password, gen_salt\('bf'\)\)/)
   assert.match(sql, /v_has_pw := \(p_password is not null and length\(p_password\) > 0\)/)
+  assert.match(featureSql, /if p_board_pairs < 2 or p_board_pairs > 99 then raise exception 'invalid board_pairs'/)
+  assert.match(featureSql, /if p_turn_seconds < 5 or p_turn_seconds > 120 then raise exception 'invalid turn_seconds'/)
+  assert.match(featureSql, /turn_seconds\)/)
   assert.match(sql, /insert into public\.mem_online_players[\s\S]*is_host[\s\S]*true/)
+})
+
+test('mo_build_board uses a dedicated 99-symbol emoji pool', () => {
+  assert.match(featureSql, /create or replace function public\.mo_build_board\(p_pairs int\)/)
+  assert.match(featureSql, /if p_pairs < 2 or p_pairs > 99 then raise exception 'invalid pairs'/)
+  assert.match(featureSql, /v_symbols text\[\] := array\[/)
+  const poolMatch = featureSql.match(/v_symbols text\[\] := array\[(?<pool>[\s\S]*?)\];/)
+  assert.ok(poolMatch?.groups?.pool, 'emoji pool not found')
+  const symbols = [...poolMatch.groups.pool.matchAll(/'([^']+)'/g)].map((m) => m[1])
+  assert.ok(symbols.length >= 99, `expected at least 99 symbols, got ${symbols.length}`)
+  assert.equal(new Set(symbols).size, symbols.length, 'emoji pool must be distinct')
+  assert.match(featureSql, /jsonb_build_object\('emoji', v_symbol, 'matched', false\)/)
+  assert.doesNotMatch(featureSql, /mo_build_board[\s\S]*species_costs/)
 })
 
 test('mo_list_rooms exposes has_password but never password_hash, and cleans stale rooms', () => {
@@ -65,6 +88,7 @@ test('mo_room_state omits the hidden board and exposes only revealed/matched car
   assert.match(sql, /create or replace function public\.mo_room_state/)
   assert.match(sql, /'visible_cards', v_cards/)
   assert.match(sql, /v_idx = any\(v_room\.revealed\)/)
+  assert.match(featureSql, /'emoji', coalesce\(v_cell->>'emoji', '❓'\)/)
   assert.doesNotMatch(sql, /'board', v_room\.board/)
 })
 
@@ -72,16 +96,16 @@ test('mo_start_game requires host and at least two players', () => {
   assert.match(sql, /create or replace function public\.mo_start_game/)
   assert.match(sql, /raise exception 'not host'/)
   assert.match(sql, /raise exception 'need 2 players'/)
-  assert.match(sql, /public\.memory_build_board\(v_room\.board_pairs\)/)
-  assert.match(sql, /turn_expires_at = now\(\) \+ interval '20 seconds'/)
+  assert.match(featureSql, /public\.mo_build_board\(v_room\.board_pairs\)/)
+  assert.match(featureSql, /turn_expires_at = now\(\) \+ make_interval\(secs => v_room\.turn_seconds\)/)
 })
 
 test('mo_flip enforces turn ownership, version, and rotates on mismatch', () => {
   assert.match(sql, /create or replace function public\.mo_flip/)
   assert.match(sql, /raise exception 'not your turn'/)
   assert.match(sql, /raise exception 'state conflict'/)
-  assert.match(sql, /v_sa = v_sb/)
-  assert.match(sql, /turn_expires_at = now\(\) \+ interval '20 seconds'/)
+  assert.match(featureSql, /v_ea = v_eb/)
+  assert.match(featureSql, /turn_expires_at = now\(\) \+ make_interval\(secs => v_room\.turn_seconds\)/)
 })
 
 test('mo_flip finishes the game and records stats when all pairs matched', () => {

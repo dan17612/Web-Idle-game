@@ -5,10 +5,12 @@ import {
   pickFnError,
 } from './memoryOnline.js'
 
-test('boardColumns scales with card count and caps at 6', () => {
+test('boardColumns scales with card count and caps at 12', () => {
   assert.equal(boardColumns(16), 4)
   assert.equal(boardColumns(24), 5)
   assert.equal(boardColumns(36), 6)
+  assert.equal(boardColumns(100), 10)
+  assert.equal(boardColumns(198), 12)
   assert.equal(boardColumns(0), 4)
 })
 

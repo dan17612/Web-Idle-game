@@ -1,7 +1,7 @@
 export function boardColumns(cardCount) {
   const n = Number(cardCount) || 0
   if (n <= 0) return 4
-  return Math.min(6, Math.ceil(Math.sqrt(n)))
+  return Math.min(12, Math.ceil(Math.sqrt(n)))
 }
 
 export function isMyTurn(state) {
