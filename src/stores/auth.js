@@ -2,6 +2,15 @@ import { defineStore } from 'pinia'
 import { Capacitor } from '@capacitor/core'
 import { supabase, AUTH_REDIRECT_URL } from '../supabase'
 import { t } from '../i18n'
+import { qualifySupportTickets, hasUnseenReply, buildSeenMap } from '../supportTickets'
+
+const SEEN_KEY = 'seenSupportReplies'
+function readSeenMap() {
+  try { return JSON.parse(localStorage.getItem(SEEN_KEY)) || {} } catch { return {} }
+}
+function writeSeenMap(map) {
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(map || {})) } catch {}
+}
 
 // Native: OAuth-URL holen, im System-Browser/Custom-Tab öffnen,
 // Rückweg via Deep Link (siehe main.js applyTokensFromUrl).
@@ -21,13 +30,16 @@ export const useAuthStore = defineStore('auth', {
     session: null,
     profile: null,
     identities: [],
-    loading: true
+    loading: true,
+    mySupportTickets: []
   }),
   getters: {
     user: (s) => s.session?.user || null,
     isAuth: (s) => !!s.session,
     hasGoogleLinked: (s) => (s.identities || []).some((i) => i.provider === 'google'),
-    canUnlinkGoogle: (s) => (s.identities || []).some((i) => i.provider === 'google')
+    canUnlinkGoogle: (s) => (s.identities || []).some((i) => i.provider === 'google'),
+    qualifiedSupportTickets: (s) => qualifySupportTickets(s.mySupportTickets, Date.now()),
+    hasUnseenSupportReply: (s) => hasUnseenReply(s.mySupportTickets, readSeenMap(), Date.now())
   },
   actions: {
     async init() {
@@ -194,6 +206,18 @@ export const useAuthStore = defineStore('auth', {
       })
       if (error) throw error
       return data
+    },
+    async loadMySupportTickets() {
+      if (!this.session) return
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select('id, ticket_number, subject, message, status, admin_reply, created_at, replied_at, closed_at')
+        .order('created_at', { ascending: false })
+      if (error) { console.error(error); return }
+      this.mySupportTickets = data || []
+    },
+    markSupportRepliesSeen() {
+      writeSeenMap(buildSeenMap(this.mySupportTickets, readSeenMap(), Date.now()))
     },
     async sendBroadcast(message) {
       const { data, error } = await supabase.rpc('admin_broadcast', { p_message: message })
