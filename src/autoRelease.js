@@ -5,11 +5,13 @@ function isUpgrading(a, now) {
   return new Date(a.upgrade_ready_at).getTime() > now
 }
 
-export function groupAnimalsForAutoRelease(animals, autoReleaseMap, now = Date.now()) {
+export function groupAnimalsForAutoRelease(animals, autoReleaseMap, now = Date.now(), excludeIds = new Set()) {
   const cfg = autoReleaseMap || {}
   const map = new Map()
   for (const a of animals || []) {
     if (isUpgrading(a, now)) continue
+    if (a.equipped) continue
+    if (excludeIds.has(a.id)) continue
     const maxTier = cfg[a.species]
     const maxRank = TIER_ORDER[maxTier]
     if (maxRank == null) continue

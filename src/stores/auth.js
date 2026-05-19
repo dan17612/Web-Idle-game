@@ -201,7 +201,14 @@ export const useAuthStore = defineStore('auth', {
       return data
     },
     async signOut() {
+      const userId = this.user?.id
       await supabase.auth.signOut()
+      if (userId) {
+        try {
+          const keys = ['newbieGiftClaimed', 'bonusTaps', 'tutorialStep2', 'autoReleaseMap']
+          for (const k of keys) localStorage.removeItem(`${k}:${userId}`)
+        } catch {}
+      }
       // Session synchron zurücksetzen, damit Router-Guards nach signOut sofort
       // greifen und nicht auf das asynchrone onAuthStateChange-Event warten.
       this.session = null
