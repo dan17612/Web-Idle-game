@@ -139,7 +139,9 @@ const I18N = {
     },
     bossPath: {
       title: "👑 Boss-Kampf",
-      sub: "Endlessboss-Challenge: 3 Minuten Schaden sammeln"
+      sub: "Boss-Pfad ({total} Etappen) und Endlos-Boss-Challenge",
+      stage: "Etappe {n} / {total}",
+      bossBoostActive: "👑 Boss-Boost"
     },
     mergeLink: {
       title: "🐾 Merge-Safari",
@@ -270,7 +272,8 @@ const I18N = {
     bossPath: {
       title: "👑 Boss fight",
       sub: "Boss path ({total} stages) and endless boss challenge",
-      stage: "Stage {n} / {total}"
+      stage: "Stage {n} / {total}",
+      bossBoostActive: "👑 Boss Boost"
     },
     mergeLink: {
       title: "🐾 Merge Safari",
@@ -401,7 +404,8 @@ const I18N = {
     bossPath: {
       title: "👑 Бой с боссами",
       sub: "Путь босса ({total} этапов) и эндлесс-челлендж",
-      stage: "Этап {n} / {total}"
+      stage: "Этап {n} / {total}",
+      bossBoostActive: "👑 Босс-Буст"
     },
     mergeLink: {
       title: "🐾 Merge-Сафари",
@@ -1707,7 +1711,7 @@ async function doSplit(animalId) {
       <div class="bpl-icon">👑</div>
       <div class="bpl-body">
         <div class="bpl-title">{{ tx("bossPath.title") }}</div>
-        <div class="bpl-sub">{{ tx("bossPath.sub") }}</div>
+        <div class="bpl-sub">{{ tx("bossPath.sub", { total: game.bossPathMaxStage }) }}</div>
       </div>
       <div class="bpl-arrow">›</div>
     </router-link>
@@ -2038,7 +2042,7 @@ async function doSplit(animalId) {
 }
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   padding: 10px;
 }
