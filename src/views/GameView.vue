@@ -635,7 +635,9 @@ async function tap(e) {
   try {
     const data = await game.tapEarn();
     const f = floats.value.find((f) => f.id === id);
-    if (f) f.v = "+" + formatCoins(data.earned);
+    // Nur überschreiben wenn der Server einen echten Wert geliefert hat,
+    // sonst bleibt der Schätzwert (earnGuess) sichtbar.
+    if (f && data.earned != null) f.v = "+" + formatCoins(data.earned);
   } catch (err) {
     floats.value = floats.value.filter((f) => f.id !== id);
     appToast.err(err);

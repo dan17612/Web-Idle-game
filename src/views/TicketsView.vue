@@ -194,7 +194,8 @@ const pendingAutoCount = computed(() => {
   return groupAnimalsForAutoRelease(
     game.animals,
     { [p.species]: p.value },
-    Date.now()
+    Date.now(),
+    game.favoriteAnimalId
   ).reduce((s, g) => s + g.ids.length, 0);
 });
 const pendingAutoInfo = computed(() =>
