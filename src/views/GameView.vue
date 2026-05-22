@@ -504,6 +504,16 @@ const shouldShowGiftDialog = computed(
   () => game.newbieGiftAvailable && !giftClaimed.value,
 );
 
+// Daily bonus helpers
+const DAILY_REWARDS = [500, 1000, 2500, 5000, 10000, 25000, 100000];
+const showDailyBonus = computed(
+  () => !!game.pendingDailyBonus && !shouldShowGiftDialog.value && !giftClaimed.value,
+);
+const dailyBonusNextDay = computed(() => {
+  const day = game.pendingDailyBonus?.day ?? 1;
+  return (day % 7) + 1; // next day in cycle (1-7)
+});
+
 async function openGift() {
   if (giftBusy.value) return;
   giftBusy.value = true;
@@ -950,6 +960,48 @@ async function doSplit(animalId) {
           </p>
           <Button class="btn full" @click="closeGiftDialog">{{ tx("gift.close") }}</Button>
         </template>
+      </div>
+    </div>
+
+    <!-- Daily Login Bonus Dialog -->
+    <div v-if="showDailyBonus" class="gift-backdrop" @click.self="game.dismissDailyBonus()">
+      <div class="gift-dialog card daily-bonus-dialog">
+        <div class="gift-emoji pop">🎁</div>
+        <h2 class="title" style="margin: 0 0 4px">{{ tGlobal('dailyBonusTitle') }}</h2>
+        <p class="subtitle" style="margin: 0 0 12px; text-align: center">
+          {{ tGlobal('dailyBonusSubtitle') }}
+        </p>
+
+        <!-- 7-day streak dots -->
+        <div class="daily-streak-dots">
+          <div
+            v-for="n in 7"
+            :key="n"
+            class="streak-dot"
+            :class="{
+              'done': n < game.pendingDailyBonus.day,
+              'today': n === game.pendingDailyBonus.day,
+              'next': n > game.pendingDailyBonus.day
+            }"
+          >
+            <span class="dot-day">{{ tGlobal('dailyBonusDay', { n }) }}</span>
+            <span class="dot-coins">{{ formatCoins(DAILY_REWARDS[n - 1]) }}</span>
+          </div>
+        </div>
+
+        <div class="daily-coins-earned">
+          🪙 {{ tGlobal('dailyBonusCoins', { coins: formatCoins(game.pendingDailyBonus.coins) }) }}
+        </div>
+        <div v-if="game.pendingDailyBonus.streak > 1" class="daily-streak-label">
+          {{ tGlobal('dailyBonusStreakLabel', { streak: game.pendingDailyBonus.streak }) }}
+        </div>
+        <p class="hint" style="margin: 6px 0 12px">
+          {{ tGlobal('dailyBonusNextReward', { coins: formatCoins(DAILY_REWARDS[dailyBonusNextDay - 1]) }) }}
+        </p>
+
+        <Button class="btn full" @click="game.dismissDailyBonus()">
+          {{ tGlobal('dailyBonusClaim') }}
+        </Button>
       </div>
     </div>
 
@@ -2961,5 +3013,74 @@ async function doSplit(animalId) {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* ── Daily Login Bonus ─────────────────────────────── */
+.daily-bonus-dialog {
+  max-width: 340px;
+}
+.daily-streak-dots {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.streak-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 10px;
+  padding: 6px 4px 4px;
+  width: 40px;
+  font-size: 10px;
+  font-weight: 700;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  transition: transform 0.15s;
+}
+.streak-dot.done {
+  background: rgba(6, 214, 160, 0.12);
+  border-color: rgba(6, 214, 160, 0.35);
+  opacity: 0.65;
+}
+.streak-dot.today {
+  background: linear-gradient(135deg, rgba(255, 200, 60, 0.25), rgba(255, 140, 0, 0.18));
+  border-color: #ffc03c;
+  transform: scale(1.12);
+  box-shadow: 0 0 10px rgba(255, 192, 60, 0.35);
+}
+.streak-dot.next {
+  opacity: 0.45;
+}
+.dot-day {
+  font-size: 9px;
+  opacity: 0.75;
+  margin-bottom: 3px;
+}
+.dot-coins {
+  font-size: 9px;
+  color: var(--accent, #06d6a0);
+}
+.streak-dot.today .dot-coins {
+  color: #ffc03c;
+}
+.streak-dot.done .dot-coins {
+  color: #06d6a0;
+}
+.daily-coins-earned {
+  font-size: 26px;
+  font-weight: 900;
+  color: #ffc03c;
+  text-align: center;
+  margin-bottom: 4px;
+  text-shadow: 0 0 16px rgba(255, 192, 60, 0.5);
+}
+.daily-streak-label {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent, #06d6a0);
+  margin-bottom: 2px;
 }
 </style>

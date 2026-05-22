@@ -44,7 +44,11 @@ export const useGameStore = defineStore('game', {
     eventSchedule: {},
     craftJob: null,
     autoReleaseMap: {},
-    _autoReleasing: false
+    _autoReleasing: false,
+    // Daily login bonus
+    dailyBonusStreak: 0,
+    lastDailyBonusAt: null,
+    pendingDailyBonus: null   // { coins, streak, day } – shown as dialog
   }),
   getters: {
     favoriteAnimal(state) {
@@ -78,7 +82,7 @@ export const useGameStore = defineStore('game', {
       return state.tapCapLevel >= TAP_CAP_MAX_LEVEL
     },
     baseRate(state) {
-      return state.animals
+      return (state.animals ?? [])
         .filter(a => a.equipped && !isUpgrading(a))
         .reduce((sum, a) => sum + animalRate(a), 0)
     },
@@ -190,10 +194,10 @@ export const useGameStore = defineStore('game', {
       return state.coins + state.tickCoins
     },
     equippedCount(state) {
-      return state.animals.filter(a => a.equipped).length
+      return (state.animals ?? []).filter(a => a.equipped).length
     },
     freeSlots(state) {
-      return Math.max(0, state.equipSlots - state.animals.filter(a => a.equipped).length)
+      return Math.max(0, state.equipSlots - (state.animals ?? []).filter(a => a.equipped).length)
     },
     tapsRemaining(state) {
       return Math.max(0, state.tapsMax - state.tapsUsed)
@@ -215,6 +219,35 @@ export const useGameStore = defineStore('game', {
       if (!job || !job.active || !job.ready_at) return false
       const ready = new Date(job.ready_at).getTime()
       return Date.now() + state.serverOffset >= ready
+    },
+    dailyBonusClaimedToday(state) {
+      if (!state.lastDailyBonusAt) return false
+      const last = new Date(state.lastDailyBonusAt)
+      const now = new Date()
+      return last.getUTCFullYear() === now.getUTCFullYear() &&
+             last.getUTCMonth()    === now.getUTCMonth()    &&
+             last.getUTCDate()     === now.getUTCDate()
+    },
+    // Coins reward for each day of the 7-day streak cycle
+    dailyBonusRewards() {
+      return [500, 1000, 2500, 5000, 10000, 25000, 100000]
+    },
+    // Which day (1-7) will the NEXT claim land on?
+    dailyBonusNextDay(state) {
+      if (!this.dailyBonusClaimedToday) {
+        // If streak is still alive (claimed yesterday) → next day continues
+        const last = state.lastDailyBonusAt ? new Date(state.lastDailyBonusAt) : null
+        const yesterday = new Date()
+        yesterday.setUTCDate(yesterday.getUTCDate() - 1)
+        const streakAlive = last &&
+          last.getUTCFullYear() === yesterday.getUTCFullYear() &&
+          last.getUTCMonth()    === yesterday.getUTCMonth()    &&
+          last.getUTCDate()     === yesterday.getUTCDate()
+        const nextStreak = streakAlive ? state.dailyBonusStreak + 1 : 1
+        return ((nextStreak - 1) % 7) + 1
+      }
+      // Already claimed → show today's day
+      return ((state.dailyBonusStreak - 1) % 7) + 1
     }
   },
   actions: {
@@ -285,7 +318,37 @@ export const useGameStore = defineStore('game', {
         this.autoReleaseMap = clean
       } catch { this.autoReleaseMap = {} }
       this.autoReleaseSweep().catch(() => {})
+      this.checkDailyBonus().catch(() => {})
       this.lastLoadedAt = Date.now()
+    },
+    async checkDailyBonus() {
+      const { data, error } = await supabase.rpc('get_daily_bonus_status')
+      if (error || !data) return
+      this.dailyBonusStreak = Number(data.streak ?? 0)
+      this.lastDailyBonusAt = data.last_bonus_at || null
+      // Auto-claim if not yet claimed today (triggers dialog)
+      if (!data.already_claimed) {
+        await this.claimDailyBonus()
+      }
+    },
+    async claimDailyBonus() {
+      const { data, error } = await supabase.rpc('claim_daily_bonus')
+      if (error || !data) return null
+      if (data.already_claimed) return null
+      if (data.claimed) {
+        this.coins += Number(data.coins ?? 0)
+        this.dailyBonusStreak = Number(data.streak ?? 1)
+        this.lastDailyBonusAt = new Date().toISOString()
+        this.pendingDailyBonus = {
+          coins: Number(data.coins ?? 0),
+          streak: Number(data.streak ?? 1),
+          day: Number(data.day ?? 1)
+        }
+      }
+      return data
+    },
+    dismissDailyBonus() {
+      this.pendingDailyBonus = null
     },
     async claimPendingGifts() {
       const auth = useAuthStore()
