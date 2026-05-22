@@ -22,8 +22,10 @@ function applyToDom(on) {
 applyToDom(animationsEnabled.value)
 
 watch(animationsEnabled, (v) => {
-  try { localStorage.setItem(STORAGE_KEY, v ? "1" : "0") } catch {}
-  applyToDom(v)
+  try {
+    localStorage.setItem(STORAGE_KEY, v ? "1" : "0")
+    applyToDom(v)
+  } catch {}
 })
 
 export function useAnimations() {

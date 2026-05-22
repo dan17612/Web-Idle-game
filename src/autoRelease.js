@@ -1,8 +1,9 @@
 const TIER_ORDER = { normal: 0, gold: 1, diamond: 2, epic: 3, rainbow: 4 }
 
-function isUpgrading(a, now) {
+function isUpgrading(a, now = Date.now()) {
   if (!a || !a.upgrade_ready_at) return false
-  return new Date(a.upgrade_ready_at).getTime() > now
+  const readyAt = new Date(a.upgrade_ready_at).getTime()
+  return Number.isFinite(readyAt) && readyAt > now
 }
 
 export function groupAnimalsForAutoRelease(animals, autoReleaseMap, now = Date.now()) {

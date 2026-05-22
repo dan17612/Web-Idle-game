@@ -1,4 +1,18 @@
-import { ref } from 'vue'
+// Dynamic import so i18n works in both Vue (browser, full reactivity)
+// and Node.js test environments where vue is not installed.
+let ref
+try {
+  ref = (await import('vue')).ref
+} catch {
+  // Lightweight shim for Node.js: provides the same .value interface
+  ref = (initial) => {
+    let _v = initial
+    return {
+      get value() { return _v },
+      set value(x) { _v = x }
+    }
+  }
+}
 
 const STORAGE_KEY = 'zoo.locale'
 export const SUPPORTED_LOCALES = ['de', 'en', 'ru']
@@ -356,7 +370,15 @@ const messages = {
       promoRewardTaps: '+{taps} Bonus-Taps',
       animalLimitWarningTitle: 'Tier-Limit erreicht!',
       animalLimitWarningMessage: 'Du hast 1000 Tiere erreicht. Bitte gehe zur Ticket-Ansicht und lasse einige Tiere frei, um Platz für neue zu schaffen.',
-      animalLimitWarningButton: 'Zur Ticket-Ansicht'
+      animalLimitWarningButton: 'Zur Ticket-Ansicht',
+      dailyBonusTitle: '🎁 Tägliche Belohnung',
+      dailyBonusSubtitle: 'Du hast deinen täglichen Login-Bonus erhalten!',
+      dailyBonusCoins: '+{coins} Münzen',
+      dailyBonusStreak: 'Tag {day} von 7',
+      dailyBonusStreakLabel: '🔥 {streak}-Tage-Serie',
+      dailyBonusClaim: 'Super!',
+      dailyBonusDay: 'Tag {n}',
+      dailyBonusNextReward: 'Morgen: {coins} Münzen'
     }
   },
   en: {
@@ -704,7 +726,15 @@ const messages = {
       promoRewardTaps: '+{taps} bonus taps',
       animalLimitWarningTitle: 'Animal limit reached!',
       animalLimitWarningMessage: 'You have reached 1000 animals. Please go to the Tickets view and release some animals to make room for new ones.',
-      animalLimitWarningButton: 'Go to Tickets'
+      animalLimitWarningButton: 'Go to Tickets',
+      dailyBonusTitle: '🎁 Daily Reward',
+      dailyBonusSubtitle: 'You received your daily login bonus!',
+      dailyBonusCoins: '+{coins} coins',
+      dailyBonusStreak: 'Day {day} of 7',
+      dailyBonusStreakLabel: '🔥 {streak}-day streak',
+      dailyBonusClaim: 'Awesome!',
+      dailyBonusDay: 'Day {n}',
+      dailyBonusNextReward: 'Tomorrow: {coins} coins'
     }
   },
   ru: {
@@ -1052,7 +1082,15 @@ const messages = {
       promoRewardTaps: '+{taps} бонус-тапов',
       animalLimitWarningTitle: 'Достигнут лимит животных!',
       animalLimitWarningMessage: 'У вас 1000 животных. Пожалуйста, перейдите в раздел Тикеты и освободите некоторых животных, чтобы освободить место для новых.',
-      animalLimitWarningButton: 'Перейти к тикетам'
+      animalLimitWarningButton: 'Перейти к тикетам',
+      dailyBonusTitle: '🎁 Ежедневная награда',
+      dailyBonusSubtitle: 'Вы получили ежедневный бонус за вход!',
+      dailyBonusCoins: '+{coins} монет',
+      dailyBonusStreak: 'День {day} из 7',
+      dailyBonusStreakLabel: '🔥 Серия: {streak} дней',
+      dailyBonusClaim: 'Отлично!',
+      dailyBonusDay: 'День {n}',
+      dailyBonusNextReward: 'Завтра: {coins} монет'
     }
   }
 }
