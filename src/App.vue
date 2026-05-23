@@ -52,6 +52,7 @@ let broadcastChannel = null;
 let tickTimer = null;
 let persistTimer = null;
 let staleCheckTimer = null;
+let craftPollTimer = null;
 let beforeUnloadHandler = null;
 let visibilityHandler = null;
 
@@ -101,6 +102,7 @@ onUnmounted(() => {
   if (tickTimer) clearInterval(tickTimer);
   if (persistTimer) clearInterval(persistTimer);
   if (staleCheckTimer) clearInterval(staleCheckTimer);
+  if (craftPollTimer) clearInterval(craftPollTimer);
   if (broadcastTimer) clearTimeout(broadcastTimer);
   if (broadcastChannel) supabase.removeChannel(broadcastChannel);
   if (beforeUnloadHandler) window.removeEventListener("beforeunload", beforeUnloadHandler);
@@ -140,6 +142,14 @@ onMounted(async () => {
       game.load().catch(() => {});
     }
   }, 8000);
+
+  // Craft-Status-Polling: alle 15s prüfen ob ein aktiver Craft-Job fertig ist,
+  // damit der Nutzer sofort benachrichtigt wird ohne manuellen Reload.
+  craftPollTimer = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    if (!auth.isAuth || !game.craftJob?.active) return;
+    game.loadCraftStatus().catch(() => {});
+  }, 15000);
   beforeUnloadHandler = () => {
     if (auth.isAuth) game.persist();
   };
@@ -242,6 +252,11 @@ async function hardReload() {
           <span class="coin">🎟️</span>
           <span class="amount">{{ formatCoins(game.tickets) }}</span>
         </router-link>
+        <transition name="save-fade">
+          <span v-if="game.isSaving" class="save-indicator" :title="t('app.saving')">
+            <i class="pi pi-spin pi-spinner save-spin" />
+          </span>
+        </transition>
         <Button
           type="button"
           class="settings-link refresh-btn"
@@ -322,6 +337,16 @@ async function hardReload() {
         </Button>
       </div>
     </div>
+
+    <transition name="craft-ready-fade">
+      <router-link
+        v-if="game.craftJobReady && route.path !== '/'"
+        to="/"
+        class="craft-ready-banner"
+      >
+        ⚗️ {{ t('app.craftReady') }}
+      </router-link>
+    </transition>
 
     <nav v-if="showNav" class="bottom-nav" :class="{ 'tut-lift': tutorialDimActive && game.tutorialStep === 3 }">
       <router-link
@@ -545,4 +570,45 @@ async function hardReload() {
   font-size: 13px;
   margin-bottom: 18px;
 }
+
+/* Save indicator */
+.save-indicator {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+  opacity: 0.7;
+}
+.save-spin { font-size: 12px; }
+.save-fade-enter-active,
+.save-fade-leave-active { transition: opacity 0.3s; }
+.save-fade-enter-from,
+.save-fade-leave-to { opacity: 0; }
+
+/* Craft-ready banner */
+.craft-ready-banner {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 18px;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.5);
+  z-index: 900;
+  text-decoration: none;
+  white-space: nowrap;
+  animation: craft-pulse 2s ease-in-out infinite;
+}
+@keyframes craft-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(168, 85, 247, 0.5); }
+  50% { box-shadow: 0 4px 28px rgba(168, 85, 247, 0.85); }
+}
+.craft-ready-fade-enter-active,
+.craft-ready-fade-leave-active { transition: opacity 0.4s, transform 0.4s; }
+.craft-ready-fade-enter-from,
+.craft-ready-fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(10px); }
 </style>

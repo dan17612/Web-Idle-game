@@ -46,7 +46,9 @@ const messages = {
         tickets: 'Tickets'
       },
       admin: 'Admin',
-      supportTickets: 'Meine Support-Tickets'
+      supportTickets: 'Meine Support-Tickets',
+      saving: 'Wird gespeichert…',
+      craftReady: 'Craft fertig! Abholen →'
     },
     tutorial: {
       tap: 'Tippe das Tier!',
@@ -394,7 +396,9 @@ const messages = {
         tickets: 'Tickets'
       },
       admin: 'Admin',
-      supportTickets: 'My support tickets'
+      supportTickets: 'My support tickets',
+      saving: 'Saving…',
+      craftReady: 'Craft ready! Collect →'
     },
     tutorial: {
       tap: 'Tap the animal!',
@@ -742,7 +746,9 @@ const messages = {
         tickets: 'Тикеты'
       },
       admin: 'Admin',
-      supportTickets: 'Мои тикеты поддержки'
+      supportTickets: 'Мои тикеты поддержки',
+      saving: 'Сохранение…',
+      craftReady: 'Крафт готов! Забрать →'
     },
     tutorial: {
       tap: 'Нажми на животное!',
