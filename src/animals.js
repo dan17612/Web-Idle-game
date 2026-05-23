@@ -111,34 +111,6 @@ export function isUpgrading(a) {
   return new Date(a.upgrade_ready_at).getTime() > Date.now()
 }
 
-export function formatCoins(n) {
-  n = Math.floor(Number(n) || 0)
-  if (n < 1000) return n.toString()
-  const units = ['', 'K', 'M', 'B', 'T', 'Q']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) { v /= 1000; i++ }
-  const decimals = v < 10 ? 2 : v < 100 ? 1 : 0
-  const factor = 10 ** decimals
-  return (Math.floor(v * factor) / factor).toFixed(decimals) + units[i]
-}
-
-export function parseCoinInput(input) {
-  if (input == null) return null
-  let s = String(input).trim().toLowerCase().replace(/\s|_/g, '')
-  if (!s) return 0
-  // German/European thousand-dot format must be checked first: "1.000" or "1.000.000"
-  // because the main regex would otherwise parse "1.000" as the decimal value 1.0
-  const altMatch = s.match(/^(\d{1,3}(?:\.\d{3})+)$/)
-  if (altMatch) {
-    const n = parseInt(altMatch[1].replace(/\./g, ''), 10)
-    return isFinite(n) ? n : null
-  }
-  s = s.replace(',', '.')
-  const m = s.match(/^(\d+(?:\.\d+)?)([kmbtq]?)$/)
-  if (!m) return null
-  const mult = { '': 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12, q: 1e15 }[m[2]]
-  const n = parseFloat(m[1]) * mult
-  if (!isFinite(n) || n < 0) return null
-  return Math.floor(n)
-}
+// Re-export pure utilities from the dependency-free coinUtils module
+// so existing callers (import { formatCoins } from './animals') continue to work.
+export { formatCoins, parseCoinInput } from './coinUtils'

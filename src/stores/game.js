@@ -44,7 +44,9 @@ export const useGameStore = defineStore('game', {
     eventSchedule: {},
     craftJob: null,
     autoReleaseMap: {},
-    _autoReleasing: false
+    _autoReleasing: false,
+    isSaving: false,
+    lastSavedAt: 0
   }),
   getters: {
     favoriteAnimal(state) {
@@ -312,7 +314,9 @@ export const useGameStore = defineStore('game', {
       if (!this.lastCollected) return
       if (this.pendingOfflineEarnings) return
       const capSec = this.maxOfflineHours * 3600
-      const rawElapsed = Math.max(0, (Date.now() - this.lastCollected.getTime()) / 1000)
+      // Use server-adjusted time so a skewed client clock doesn't inflate offline earnings.
+      const now = Date.now() + this.serverOffset
+      const rawElapsed = Math.max(0, (now - this.lastCollected.getTime()) / 1000)
       const elapsed = Math.min(rawElapsed, capSec)
       const rate = this.baseRate
       const earned = Math.floor(rate * elapsed)
@@ -356,12 +360,16 @@ export const useGameStore = defineStore('game', {
       if (pending <= 0 && this.lastCollected && (Date.now() - this.lastCollected.getTime()) < 15000) return
       this.coins += pending
       this.tickCoins -= pending
+      this.isSaving = true
       try {
         const { data, error } = await supabase.rpc('collect_offline', { p_coins: pending })
         if (!error && data?.coins != null) this.coins = Number(data.coins)
+        if (!error) this.lastSavedAt = Date.now()
       } catch {
         // Persist ist Best-Effort (z.B. waehrend JWT-Refresh) und darf nachfolgende
         // Aktionen wie complete_boss_stage nicht blockieren.
+      } finally {
+        this.isSaving = false
       }
       this.lastCollected = new Date()
     },
@@ -699,7 +707,12 @@ export const useGameStore = defineStore('game', {
       this.animals = this.animals.filter(a => a.id !== animalId)
       if (this.favoriteAnimalId === animalId) {
         const next = this.animals.find(a => a.equipped) || this.animals[0]
-        this.favoriteAnimalId = next ? next.id : null
+        const nextId = next ? next.id : null
+        this.favoriteAnimalId = nextId
+        // Persist the new favorite selection to the server
+        if (nextId) {
+          supabase.rpc('set_favorite_animal', { p_animal_id: nextId }).catch(() => {})
+        }
       }
       return data
     },
@@ -736,7 +749,12 @@ export const useGameStore = defineStore('game', {
             this.animals = this.animals.filter(a => !drop.has(a.id))
             if (drop.has(this.favoriteAnimalId)) {
               const next = this.animals.find(a => a.equipped) || this.animals[0]
-              this.favoriteAnimalId = next ? next.id : null
+              const nextId = next ? next.id : null
+              this.favoriteAnimalId = nextId
+              // Persist the new favorite to the server (fire-and-forget)
+              if (nextId) {
+                supabase.rpc('set_favorite_animal', { p_animal_id: nextId }).catch(() => {})
+              }
             }
           } catch { /* einzelne Gruppe ueberspringen */ }
         }
