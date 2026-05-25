@@ -21,7 +21,8 @@ const messages = {
     common: {
       loading: 'Lädt...',
       loadingShort: '...',
-      back: 'Zurück'
+      back: 'Zurück',
+      error: 'Fehler'
     },
     coin: {
       invalid: 'Ungültig'
@@ -369,7 +370,8 @@ const messages = {
     common: {
       loading: 'Loading...',
       loadingShort: '...',
-      back: 'Back'
+      back: 'Back',
+      error: 'Error'
     },
     coin: {
       invalid: 'Invalid'
@@ -717,7 +719,8 @@ const messages = {
     common: {
       loading: 'Загрузка...',
       loadingShort: '...',
-      back: 'Назад'
+      back: 'Назад',
+      error: 'Ошибка'
     },
     coin: {
       invalid: 'Неверный формат'

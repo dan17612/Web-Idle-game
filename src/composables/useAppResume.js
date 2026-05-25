@@ -10,7 +10,7 @@ export function fireAppResume(source = 'manual') {
   const now = Date.now()
   if (now - lastFireAt < MIN_INTERVAL_MS) return
   lastFireAt = now
-  if (typeof console !== 'undefined') console.log('[AppResume]', source)
+  if (import.meta.env?.DEV && typeof console !== 'undefined') console.log('[AppResume]', source)
   for (const cb of callbacks) {
     try { cb(source) } catch (e) { console.error('onAppResume callback failed', e) }
   }
