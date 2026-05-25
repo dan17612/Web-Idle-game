@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
 import { SPECIES, tierInfo, loadCatalog, formatCoins } from '../animals'
-import { t } from '../i18n'
+import { t, currentLocaleTag } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 import { useAppToast } from '../composables/useAppToast'
 import { isFriendRequestsDisabledError } from '../friendRequests'
@@ -156,6 +156,17 @@ function selectTier(species, tier) {
 
 const isSelf = computed(() => auth.profile?.username === profile.value?.username)
 
+const memberSince = computed(() => {
+  if (!profile.value?.created_at) return ''
+  try {
+    return new Date(profile.value.created_at).toLocaleDateString(currentLocaleTag(), {
+      year: 'numeric', month: 'short', day: 'numeric'
+    })
+  } catch {
+    return ''
+  }
+})
+
 function openTrade() {
   if (!profile.value || isSelf.value) return
   router.push({ name: 'trade', query: { partner: profile.value.username } })
@@ -202,6 +213,9 @@ async function sendFriendRequest() {
         </div>
         <div class="subtitle" style="margin:2px 0 0">
           {{ t('profile.coinsAndAnimals', { coins: formatCoins(profile.coins), animals: animals.length }) }}
+        </div>
+        <div v-if="memberSince" class="hint" style="margin:2px 0 0;font-size:12px">
+          {{ t('profile.memberSince', { date: memberSince }) }}
         </div>
       </div>
       <div v-if="!isSelf" class="actions-col">

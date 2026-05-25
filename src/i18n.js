@@ -21,7 +21,8 @@ const messages = {
     common: {
       loading: 'Lädt...',
       loadingShort: '...',
-      back: 'Zurück'
+      back: 'Zurück',
+      error: 'Fehler'
     },
     coin: {
       invalid: 'Ungültig'
@@ -135,7 +136,14 @@ const messages = {
       supportSent: 'Ticket {number} gesendet. Wir melden uns!',
       supportSentWithMail: 'Ticket {number} gesendet. Bestätigung wurde an deine E-Mail geschickt.',
       supportEnterSubject: 'Bitte einen Betreff eingeben.',
-      supportEnterMessage: 'Bitte eine Nachricht eingeben.'
+      supportEnterMessage: 'Bitte eine Nachricht eingeben.',
+      statsTitle: 'Meine Statistiken',
+      statsTotalAnimals: 'Tiere gesamt',
+      statsEquipped: 'Ausgerüstet',
+      statsRatePerSec: 'Münzen/Sek.',
+      statsTapLevel: 'Tap-Multiplikator',
+      statsBossHighest: 'Höchste Boss-Etappe',
+      statsOfflineHours: 'Max. Offline-Zeit'
     },
     storeErrors: {
       accountBanned: 'Dein Account ist gebannt.',
@@ -257,6 +265,7 @@ const messages = {
       title: 'Profil',
       playerNotFound: 'Spieler nicht gefunden',
       coinsAndAnimals: '🪙 {coins} · {animals} Tiere',
+      memberSince: 'Dabei seit {date}',
       send: 'Senden',
       trade: 'Trade',
       addFriend: 'Freund hinzufügen',
@@ -369,7 +378,8 @@ const messages = {
     common: {
       loading: 'Loading...',
       loadingShort: '...',
-      back: 'Back'
+      back: 'Back',
+      error: 'Error'
     },
     coin: {
       invalid: 'Invalid'
@@ -483,7 +493,14 @@ const messages = {
       supportSent: 'Ticket {number} sent. We will get back to you!',
       supportSentWithMail: 'Ticket {number} sent. Confirmation has been emailed to you.',
       supportEnterSubject: 'Please enter a subject.',
-      supportEnterMessage: 'Please enter a message.'
+      supportEnterMessage: 'Please enter a message.',
+      statsTitle: 'My Statistics',
+      statsTotalAnimals: 'Total animals',
+      statsEquipped: 'Equipped',
+      statsRatePerSec: 'Coins/sec',
+      statsTapLevel: 'Tap multiplier',
+      statsBossHighest: 'Highest boss stage',
+      statsOfflineHours: 'Max offline time'
     },
     storeErrors: {
       accountBanned: 'Your account is banned.',
@@ -605,6 +622,7 @@ const messages = {
       title: 'Profile',
       playerNotFound: 'Player not found',
       coinsAndAnimals: '🪙 {coins} · {animals} animals',
+      memberSince: 'Member since {date}',
       send: 'Send',
       trade: 'Trade',
       addFriend: 'Add Friend',
@@ -717,7 +735,8 @@ const messages = {
     common: {
       loading: 'Загрузка...',
       loadingShort: '...',
-      back: 'Назад'
+      back: 'Назад',
+      error: 'Ошибка'
     },
     coin: {
       invalid: 'Неверный формат'
@@ -831,7 +850,14 @@ const messages = {
       supportSent: 'Тикет {number} отправлен. Мы свяжемся с вами!',
       supportSentWithMail: 'Тикет {number} отправлен. Подтверждение отправлено вам на email.',
       supportEnterSubject: 'Введите тему.',
-      supportEnterMessage: 'Введите сообщение.'
+      supportEnterMessage: 'Введите сообщение.',
+      statsTitle: 'Моя статистика',
+      statsTotalAnimals: 'Животных всего',
+      statsEquipped: 'Экипировано',
+      statsRatePerSec: 'Монет/сек.',
+      statsTapLevel: 'Множитель тапов',
+      statsBossHighest: 'Лучший этап босса',
+      statsOfflineHours: 'Макс. офлайн-время'
     },
     storeErrors: {
       accountBanned: 'Ваш аккаунт заблокирован.',
@@ -953,6 +979,7 @@ const messages = {
       title: 'Профиль',
       playerNotFound: 'Игрок не найден',
       coinsAndAnimals: '🪙 {coins} · животных: {animals}',
+      memberSince: 'С нами с {date}',
       send: 'Отправить',
       trade: 'Обмен',
       addFriend: 'Добавить в друзья',

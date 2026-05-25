@@ -114,10 +114,15 @@ export function isUpgrading(a) {
 export function formatCoins(n) {
   n = Math.floor(Number(n) || 0)
   if (n < 1000) return n.toString()
-  const units = ['', 'K', 'M', 'B', 'T', 'Q']
-  let i = 0
-  let v = n
-  while (v >= 1000 && i < units.length - 1) { v /= 1000; i++ }
+  // Use log10 to pick the unit index — avoids floating-point drift from repeated /1000.
+  const units = ['', 'K', 'M', 'B', 'T', 'Q', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc']
+  const exp = Math.floor(Math.log10(n) / 3)
+  if (exp >= units.length) {
+    // Beyond 'Dc' (10^36) — fall back to scientific notation (e.g. "4.5e+144")
+    return n.toExponential(1)
+  }
+  const i = Math.min(exp, units.length - 1)
+  const v = n / Math.pow(1000, i)
   const decimals = v < 10 ? 2 : v < 100 ? 1 : 0
   const factor = 10 ** decimals
   return (Math.floor(v * factor) / factor).toFixed(decimals) + units[i]
@@ -135,9 +140,10 @@ export function parseCoinInput(input) {
     return isFinite(n) ? n : null
   }
   s = s.replace(',', '.')
-  const m = s.match(/^(\d+(?:\.\d+)?)([kmbtq]?)$/)
+  const m = s.match(/^(\d+(?:\.\d+)?)(|k|m|b|t|q|qi|sx|sp)$/)
   if (!m) return null
-  const mult = { '': 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12, q: 1e15 }[m[2]]
+  const mult = { '': 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12, q: 1e15, qi: 1e18, sx: 1e21, sp: 1e24 }[m[2]] ?? null
+  if (mult == null) return null
   const n = parseFloat(m[1]) * mult
   if (!isFinite(n) || n < 0) return null
   return Math.floor(n)
