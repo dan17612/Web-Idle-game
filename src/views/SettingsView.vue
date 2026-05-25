@@ -2,10 +2,13 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useGameStore } from '../stores/game'
 import { localePreference, setLocale, t, LOCALE_OPTIONS } from '../i18n'
 import { animationsEnabled } from '../composables/useAnimations'
+import { formatCoins } from '../animals'
 
 const auth = useAuthStore()
+const game = useGameStore()
 const router = useRouter()
 
 const newEmail = ref('')
@@ -252,6 +255,36 @@ async function logout() {
       </label>
     </section>
 
+    <section class="card stack" v-if="game.animals.length > 0 || game.coins > 0">
+      <h2 style="margin:0">📊 {{ t('settings.statsTitle') }}</h2>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">{{ t('settings.statsTotalAnimals') }}</span>
+          <span class="stat-value">{{ game.animals.length }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">{{ t('settings.statsEquipped') }}</span>
+          <span class="stat-value">{{ game.equippedCount }} / {{ game.equipSlots }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">{{ t('settings.statsRatePerSec') }}</span>
+          <span class="stat-value">+{{ formatCoins(Math.floor(game.ratePerSec)) }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">{{ t('settings.statsTapLevel') }}</span>
+          <span class="stat-value">×{{ game.tapMultiplier.toFixed(2) }}</span>
+        </div>
+        <div class="stat-item" v-if="game.bossPathHighest > 0">
+          <span class="stat-label">{{ t('settings.statsBossHighest') }}</span>
+          <span class="stat-value">{{ game.bossPathHighest }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">{{ t('settings.statsOfflineHours') }}</span>
+          <span class="stat-value">{{ game.maxOfflineHours }}h</span>
+        </div>
+      </div>
+    </section>
+
     <section class="card stack">
       <h2 style="margin:0">{{ t('settings.account') }}</h2>
       <div class="row">
@@ -434,4 +467,19 @@ async function logout() {
 }
 .avatar-cell:hover:not(:disabled) { transform: translateY(-2px); }
 .avatar-cell.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.stat-label { font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-value { font-size: 16px; font-weight: 700; color: var(--accent); }
 </style>

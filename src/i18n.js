@@ -136,7 +136,14 @@ const messages = {
       supportSent: 'Ticket {number} gesendet. Wir melden uns!',
       supportSentWithMail: 'Ticket {number} gesendet. Bestätigung wurde an deine E-Mail geschickt.',
       supportEnterSubject: 'Bitte einen Betreff eingeben.',
-      supportEnterMessage: 'Bitte eine Nachricht eingeben.'
+      supportEnterMessage: 'Bitte eine Nachricht eingeben.',
+      statsTitle: 'Meine Statistiken',
+      statsTotalAnimals: 'Tiere gesamt',
+      statsEquipped: 'Ausgerüstet',
+      statsRatePerSec: 'Münzen/Sek.',
+      statsTapLevel: 'Tap-Multiplikator',
+      statsBossHighest: 'Höchste Boss-Etappe',
+      statsOfflineHours: 'Max. Offline-Zeit'
     },
     storeErrors: {
       accountBanned: 'Dein Account ist gebannt.',
@@ -486,7 +493,14 @@ const messages = {
       supportSent: 'Ticket {number} sent. We will get back to you!',
       supportSentWithMail: 'Ticket {number} sent. Confirmation has been emailed to you.',
       supportEnterSubject: 'Please enter a subject.',
-      supportEnterMessage: 'Please enter a message.'
+      supportEnterMessage: 'Please enter a message.',
+      statsTitle: 'My Statistics',
+      statsTotalAnimals: 'Total animals',
+      statsEquipped: 'Equipped',
+      statsRatePerSec: 'Coins/sec',
+      statsTapLevel: 'Tap multiplier',
+      statsBossHighest: 'Highest boss stage',
+      statsOfflineHours: 'Max offline time'
     },
     storeErrors: {
       accountBanned: 'Your account is banned.',
@@ -836,7 +850,14 @@ const messages = {
       supportSent: 'Тикет {number} отправлен. Мы свяжемся с вами!',
       supportSentWithMail: 'Тикет {number} отправлен. Подтверждение отправлено вам на email.',
       supportEnterSubject: 'Введите тему.',
-      supportEnterMessage: 'Введите сообщение.'
+      supportEnterMessage: 'Введите сообщение.',
+      statsTitle: 'Моя статистика',
+      statsTotalAnimals: 'Животных всего',
+      statsEquipped: 'Экипировано',
+      statsRatePerSec: 'Монет/сек.',
+      statsTapLevel: 'Множитель тапов',
+      statsBossHighest: 'Лучший этап босса',
+      statsOfflineHours: 'Макс. офлайн-время'
     },
     storeErrors: {
       accountBanned: 'Ваш аккаунт заблокирован.',
