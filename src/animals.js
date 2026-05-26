@@ -114,7 +114,8 @@ export function isUpgrading(a) {
 export function formatCoins(n) {
   n = Math.floor(Number(n) || 0)
   if (n < 1000) return n.toString()
-  const units = ['', 'K', 'M', 'B', 'T', 'Q']
+  // Einheiten bis Dezillion (10^33) – reicht für jeden Idle-Game-Kontext
+  const units = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'De']
   let i = 0
   let v = n
   while (v >= 1000 && i < units.length - 1) { v /= 1000; i++ }
@@ -135,9 +136,18 @@ export function parseCoinInput(input) {
     return isFinite(n) ? n : null
   }
   s = s.replace(',', '.')
-  const m = s.match(/^(\d+(?:\.\d+)?)([kmbtq]?)$/)
+  // Suffix-Tabelle für alle bekannten Einheiten (auch abgekürzte wie "qa", "qi" usw.)
+  const suffixMap = {
+    '': 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12,
+    qa: 1e15, qi: 1e18, sx: 1e21, sp: 1e24, oc: 1e27, no: 1e30, de: 1e33,
+    // Kurzformen (einzelne Buchstaben nach T)
+    q: 1e15
+  }
+  // Regex erlaubt auch ".5k" (führende Stelle fehlt, z.B. ".5k" → 500)
+  const m = s.match(/^(\d*\.?\d+)(qa|qi|sx|sp|oc|no|de|[kmbtq]?)$/)
   if (!m) return null
-  const mult = { '': 1, k: 1e3, m: 1e6, b: 1e9, t: 1e12, q: 1e15 }[m[2]]
+  const mult = suffixMap[m[2]] ?? null
+  if (mult == null) return null
   const n = parseFloat(m[1]) * mult
   if (!isFinite(n) || n < 0) return null
   return Math.floor(n)

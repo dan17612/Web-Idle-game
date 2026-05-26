@@ -187,7 +187,9 @@ export const useGameStore = defineStore('game', {
       }
     },
     displayCoins(state) {
-      return state.coins + state.tickCoins
+      // tickCoins akkumuliert als Float – für die Anzeige immer flooren,
+      // damit keine gebrochenen Münzen angezeigt werden.
+      return Math.floor(state.coins + state.tickCoins)
     },
     equippedCount(state) {
       return state.animals.filter(a => a.equipped).length
@@ -316,7 +318,9 @@ export const useGameStore = defineStore('game', {
       const elapsed = Math.min(rawElapsed, capSec)
       const rate = this.baseRate
       const earned = Math.floor(rate * elapsed)
-      const dialogThreshold = 120
+      // Dialog erst ab 5 Minuten Abwesenheit zeigen – kurze Pausen (< 5 min)
+      // werden still zu tickCoins addiert, damit kein nerviger Modal erscheint.
+      const dialogThreshold = 300
       if (earned <= 0) return
       if (rawElapsed < dialogThreshold) {
         this.tickCoins += earned
@@ -355,7 +359,8 @@ export const useGameStore = defineStore('game', {
       const pending = Math.max(0, Math.floor(this.tickCoins))
       if (pending <= 0 && this.lastCollected && (Date.now() - this.lastCollected.getTime()) < 15000) return
       this.coins += pending
-      this.tickCoins -= pending
+      // Sicherstellen, dass tickCoins nie negativ wird (Floating-Point-Drift).
+      this.tickCoins = Math.max(0, this.tickCoins - pending)
       try {
         const { data, error } = await supabase.rpc('collect_offline', { p_coins: pending })
         if (!error && data?.coins != null) this.coins = Number(data.coins)
@@ -366,7 +371,9 @@ export const useGameStore = defineStore('game', {
       this.lastCollected = new Date()
     },
     async tapEarn() {
-      const normalMax = 10 + (this.tapCapLevel - 1) * 5
+      // Verwende den server-synchronisierten tapsMax statt einer lokalen Neuberechnung,
+      // damit Client und Server immer übereinstimmen.
+      const normalMax = this.tapsMax
       const usingBonus = this.tapsUsed >= normalMax && this.bonusTaps > 0
       if (this.tapsUsed >= normalMax && !usingBonus) throw new Error(t('storeErrors.tapLimit'))
       this.tapsUsed += 1
@@ -462,8 +469,11 @@ export const useGameStore = defineStore('game', {
       await this.load()
       return data
     },
-    async feedPet(foodKey) {
-      if (this.boostActive) throw new Error(t('storeErrors.boostAlreadyActive'))
+    async feedPet(foodKey, forceIfStronger = false) {
+      // Einen aktiven Boost nur blockieren, wenn nicht explizit ein stärkeres Futter
+      // verwendet wird. Der Server entscheidet letztlich – der Client-Check verhindert
+      // nur versehentliches Überschreiben von bereits laufenden Boosts.
+      if (this.boostActive && !forceIfStronger) throw new Error(t('storeErrors.boostAlreadyActive'))
       await this.persist()
       const { data, error } = await supabase.rpc('feed_pet', { p_food: foodKey })
       if (error) throw error
@@ -743,6 +753,9 @@ export const useGameStore = defineStore('game', {
       } finally {
         this._autoReleasing = false
       }
+      // tickCoins nach dem Sweep persistieren, damit freigelassene Tiere
+      // nicht beim nächsten Load doppelt zählen.
+      this.persist().catch(() => {})
     },
     setAutoReleaseSpecies(species, maxTier) {
       const auth = useAuthStore()
