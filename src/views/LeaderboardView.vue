@@ -219,6 +219,20 @@ const subtitle = computed(() => {
     >
       🧠 {{ t('leaderboard.byMemory') }}
     </Button>
+    <Button
+      class="lb-tab"
+      :class="{ active: mode === 'boss' }"
+      @click="setMode('boss')"
+    >
+      👹 {{ t('leaderboard.byBoss') }}
+    </Button>
+    <Button
+      class="lb-tab"
+      :class="{ active: mode === 'endless' }"
+      @click="setMode('endless')"
+    >
+      ♾️ {{ t('leaderboard.byEndless') }}
+    </Button>
   </div>
 
   <div
@@ -284,6 +298,13 @@ const subtitle = computed(() => {
             <template v-else-if="mode === 'rate'">
               <span class="primary">⚡ {{ formatRate(r.rate_per_sec) }}/s</span>
               <span class="secondary">🪙 {{ formatCoins(r.coins) }}</span>
+            </template>
+            <template v-else-if="mode === 'boss'">
+              <span class="primary">👹 {{ t('leaderboard.bossStage') }} {{ r.highest_stage }}</span>
+              <span class="secondary">🏆 {{ r.total_victories }} {{ t('leaderboard.bossVictories') }}</span>
+            </template>
+            <template v-else-if="mode === 'endless'">
+              <span class="primary">⚔️ {{ formatCoins(r.damage) }} {{ t('leaderboard.endlessDamage') }}</span>
             </template>
             <template v-else>
               <span class="primary">🪙 {{ formatCoins(r.coins) }}</span>

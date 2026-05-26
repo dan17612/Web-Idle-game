@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, onMounted, onUnmounted } from 'vue'
 import { useGameStore } from '../stores/game'
 import { supabase } from '../supabase'
 import { useAuthStore } from '../stores/auth'
@@ -16,6 +16,7 @@ const msg = ref('')
 const error = ref('')
 const busy = ref(false)
 const history = ref([])
+let msgTimer = null
 
 async function loadHistory() {
   if (!auth.user) return
@@ -29,8 +30,10 @@ async function loadHistory() {
 }
 
 onMounted(loadHistory)
+onUnmounted(() => { if (msgTimer) clearTimeout(msgTimer) })
 
 async function send() {
+  if (msgTimer) { clearTimeout(msgTimer); msgTimer = null }
   msg.value = ''
   error.value = ''
   busy.value = true
@@ -43,7 +46,9 @@ async function send() {
     error.value = e.message
   } finally {
     busy.value = false
-    setTimeout(() => { msg.value = '' }, 3000)
+    if (msg.value) {
+      msgTimer = setTimeout(() => { msg.value = ''; msgTimer = null }, 3000)
+    }
   }
 }
 </script>
