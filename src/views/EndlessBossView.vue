@@ -124,7 +124,7 @@ const chestRevealed = computed(
 const cooldownRemaining = computed(() => {
   void tickNow.value;
   if (!status.value?.cooldown_until) return 0;
-  return Math.max(0, new Date(status.value.cooldown_until).getTime() - Date.now());
+  return Math.max(0, new Date(status.value.cooldown_until).getTime() - (Date.now() + game.serverOffset));
 });
 const eventActive = computed(() => status.value?.event_active !== false);
 const canStart = computed(
