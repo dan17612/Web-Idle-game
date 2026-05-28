@@ -602,12 +602,12 @@ function fmtCountdown(ms) {
 
 const mergeRemaining = computed(() => {
   void now.value;
-  return Math.max(0, game.mergeEndsAt - Date.now());
+  return Math.max(0, game.mergeEndsAt - (Date.now() + game.serverOffset));
 });
 const mergeEnded = computed(() => game.mergeShowCountdown && (mergeRemaining.value <= 0 || !game.mergeActive));
 const memoryRemaining = computed(() => {
   void now.value;
-  return Math.max(0, game.memoryEndsAt - Date.now());
+  return Math.max(0, game.memoryEndsAt - (Date.now() + game.serverOffset));
 });
 const memoryEnded = computed(() => game.memoryShowCountdown && (memoryRemaining.value <= 0 || !game.memoryActive));
 

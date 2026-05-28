@@ -147,12 +147,12 @@ const eventStatus = computed(() => {
   void now.value
   if (mode.value === 'merge') {
     if (!game.mergeShowCountdown) return null
-    const ms = Math.max(0, game.mergeEndsAt - Date.now())
+    const ms = Math.max(0, game.mergeEndsAt - (Date.now() + game.serverOffset))
     return { ended: !game.mergeActive, remainingMs: ms }
   }
   if (mode.value === 'memory') {
     if (!game.memoryShowCountdown) return null
-    const ms = Math.max(0, game.memoryEndsAt - Date.now())
+    const ms = Math.max(0, game.memoryEndsAt - (Date.now() + game.serverOffset))
     return { ended: !game.memoryActive, remainingMs: ms }
   }
   return null

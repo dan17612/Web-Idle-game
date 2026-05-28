@@ -98,7 +98,7 @@ export const useGameStore = defineStore('game', {
       if (cfg.enabled === false) return false
       const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
       const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
-      const now = Date.now()
+      const now = Date.now() + state.serverOffset
       if (starts && starts > now) return false
       if (ends && ends <= now) return false
       return true
@@ -113,7 +113,7 @@ export const useGameStore = defineStore('game', {
       if (cfg.enabled === false) return false
       const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
       const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
-      const now = Date.now()
+      const now = Date.now() + state.serverOffset
       if (starts && starts > now) return false
       if (ends && ends <= now) return false
       return true
@@ -133,7 +133,7 @@ export const useGameStore = defineStore('game', {
       if (cfg.enabled === false) return false
       const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
       const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
-      const now = Date.now()
+      const now = Date.now() + state.serverOffset
       if (starts && starts > now) return false
       if (ends && ends <= now) return false
       return true
@@ -148,7 +148,7 @@ export const useGameStore = defineStore('game', {
       if (cfg.enabled === false) return false
       const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
       const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
-      const now = Date.now()
+      const now = Date.now() + state.serverOffset
       if (starts && starts > now) return false
       if (ends && ends <= now) return false
       return true
