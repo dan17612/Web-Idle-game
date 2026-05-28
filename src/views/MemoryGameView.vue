@@ -158,7 +158,7 @@ const eventShowCountdown = computed(() => game.memoryShowCountdown)
 const eventRemaining = computed(() => {
   void now.value
   if (!eventShowCountdown.value) return 0
-  return Math.max(0, game.memoryEndsAt - Date.now())
+  return Math.max(0, game.memoryEndsAt - (Date.now() + game.serverOffset))
 })
 
 function formatCountdown(ms) {
