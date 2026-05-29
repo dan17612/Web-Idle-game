@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { localePreference, setLocale, t, LOCALE_OPTIONS } from '../i18n'
@@ -38,6 +38,7 @@ const selectedLocale = computed({
 })
 const friendRequestsEnabled = computed(() => auth.profile?.friend_requests_enabled !== false)
 
+let flashTimer = null
 function flash(msg, isError = false) {
   if (isError) {
     error.value = msg
@@ -46,11 +47,17 @@ function flash(msg, isError = false) {
     info.value = msg
     error.value = ''
   }
-  setTimeout(() => {
-    if (isError) error.value = ''
-    else info.value = ''
+  if (flashTimer) clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => {
+    info.value = ''
+    error.value = ''
+    flashTimer = null
   }, 3500)
 }
+
+onUnmounted(() => {
+  if (flashTimer) clearTimeout(flashTimer)
+})
 
 async function changeEmail() {
   const target = newEmail.value.trim()
