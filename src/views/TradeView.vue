@@ -475,6 +475,15 @@ watch(partnerUsername, () => {
   partnerTimer = setTimeout(lookupPartner, 400)
 })
 
+const successTimers = new Set()
+function scheduleSuccessClear() {
+  const id = setTimeout(() => {
+    success.value = ''
+    successTimers.delete(id)
+  }, 2500)
+  successTimers.add(id)
+}
+
 function resetForm() {
   offer.myAnimals.clear()
   offer.theirAnimals.clear()
@@ -571,7 +580,7 @@ async function act(id, action) {
       : tx('success.cancelled')
     await Promise.all([loadTrades(), game.load()])
   } catch (e) { error.value = e.message }
-  finally { busy.value = false; setTimeout(() => success.value = '', 2500) }
+  finally { busy.value = false; scheduleSuccessClear() }
 }
 
 async function loadTrades() {
@@ -629,7 +638,7 @@ async function acceptPublic(t) {
     confirmPublicAnimals.value = []
     await Promise.all([loadTrades(), game.load()])
   } catch (e) { error.value = e.message }
-  finally { busy.value = false; setTimeout(() => success.value = '', 2500) }
+  finally { busy.value = false; scheduleSuccessClear() }
 }
 
 useReturnRefresh(loadTrades)
@@ -674,7 +683,12 @@ onMounted(async () => {
     })
     .subscribe()
 })
-onUnmounted(() => { if (channel) supabase.removeChannel(channel) })
+onUnmounted(() => {
+  if (channel) supabase.removeChannel(channel)
+  clearTimeout(partnerTimer)
+  for (const id of successTimers) clearTimeout(id)
+  successTimers.clear()
+})
 
 function summarize(t) {
   const reqChips = (t.requester_animal_details || []).map(a => speciesInfo(a.species).emoji).join('')
