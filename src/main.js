@@ -12,6 +12,7 @@ import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Checkbox from 'primevue/checkbox'
+import ToggleSwitch from 'primevue/toggleswitch'
 import Select from 'primevue/select'
 import Toast from 'primevue/toast'
 import './styles.css'
@@ -141,6 +142,7 @@ async function bootstrap() {
   app.component('InputText', InputText)
   app.component('Textarea', Textarea)
   app.component('Checkbox', Checkbox)
+  app.component('ToggleSwitch', ToggleSwitch)
   app.component('Select', Select)
   app.component('Toast', Toast)
   app.config.globalProperties.$t = t

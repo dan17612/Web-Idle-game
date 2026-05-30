@@ -22,6 +22,11 @@ const supportSubject = ref('')
 const supportMessage = ref('')
 const supportNotifyCopy = ref(false)
 
+const expanded = ref('')
+function toggleExpand(key) {
+  expanded.value = expanded.value === key ? '' : key
+}
+
 const AVATAR_CHOICES = ['🐶','🐱','🐼','🦊','🐵','🐯','🦁','🐸','🐷','🐮','🦄','🐲','🦖','🐙','🐳','🦉','🦅','🐝','🐞','🌟','👑','🧙','🧛','🧑‍🚀','🤖','👾','🎮','🍕','🌈','🔥']
 
 const currentEmail = computed(() => auth.user?.email || '')
@@ -61,6 +66,7 @@ async function changeEmail() {
     await auth.updateEmail(target)
     flash(t('settingsFlash.emailConfirmSent'))
     newEmail.value = ''
+    expanded.value = ''
   } catch (e) {
     flash(e.message || String(e), true)
   } finally {
@@ -76,6 +82,7 @@ async function changeUsername() {
     await auth.changeUsername(target)
     flash(t('settingsFlash.usernameChanged'))
     newUsername.value = ''
+    expanded.value = ''
   } catch (e) {
     flash(e.message || String(e), true)
   } finally {
@@ -126,6 +133,7 @@ async function changePassword() {
     flash(t('settingsFlash.passwordSaved'))
     newPassword.value = ''
     newPassword2.value = ''
+    expanded.value = ''
   } catch (e) {
     flash(e.message || String(e), true)
   } finally {
@@ -183,7 +191,7 @@ async function requestData() {
 }
 
 async function deleteAccount() {
-  if (deleteConfirm.value.trim().toUpperCase() !== 'LOESCHEN') {
+  if (deleteConfirm.value.trim().toUpperCase() !== 'LÖSCHEN') {
     return flash(t('settingsFlash.typeDeleteToConfirm'), true)
   }
   busy.value = 'delete'
@@ -226,134 +234,237 @@ async function logout() {
 </script>
 
 <template>
-  <div class="stack">
-    <h1 class="title">{{ t('settings.title') }}</h1>
-
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.languageTitle') }}</h2>
-      <p class="hint">{{ t('settings.languageHint') }}</p>
-      <Select
-        v-model="selectedLocale"
-        :options="localeOptions"
-        optionLabel="label"
-        optionValue="code" />
-    </section>
-
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.animationsTitle') }}</h2>
-      <p class="hint">{{ t('settings.animationsHint') }}</p>
-      <label class="row settings-toggle">
-        <Checkbox
-          v-model="animationsEnabled"
-          :binary="true"
-          inputId="animations-enabled"
-        />
-        <span>{{ t('settings.animationsLabel') }}</span>
-      </label>
-    </section>
-
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.account') }}</h2>
-      <div class="row">
-        <span>{{ t('settings.avatar') }}:</span>
-        <b style="font-size:24px">{{ auth.profile?.avatar_emoji || '🐾' }}</b>
-      </div>
-      <div class="row"><span>{{ t('settings.username') }}:</span><b>{{ auth.profile?.username || '—' }}</b></div>
-      <div class="row"><span>{{ t('settings.email') }}:</span><b>{{ currentEmail }}</b></div>
-      <div v-if="pendingEmail" class="row pending">
-        <span>{{ t('settings.pending') }}:</span><b>{{ pendingEmail }}</b>
-      </div>
-      <router-link class="hint-link" :to="{ name: 'privacy' }">{{ t('settings.privacy') }}</router-link>
-    </section>
-
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.friendRequestsTitle') }}</h2>
-      <p class="hint">{{ t('settings.friendRequestsHint') }}</p>
-      <label class="row friend-request-toggle">
-        <Checkbox
-          :modelValue="friendRequestsEnabled"
-          :binary="true"
-          inputId="friend-requests-enabled"
-          :disabled="busy==='friend-requests'"
-          @update:modelValue="setFriendRequestsEnabled"
-        />
-        <span>{{ t('settings.friendRequestsEnabled') }}</span>
-      </label>
-    </section>
-
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.chooseAvatar') }}</h2>
-      <p class="hint">{{ t('settings.chooseAvatarHint') }}</p>
-      <div class="avatar-grid">
-        <Button
-          v-for="e in AVATAR_CHOICES"
-          :key="e"
-          class="avatar-cell"
-          :class="{ active: auth.profile?.avatar_emoji === e }"
-          :disabled="busy==='avatar'"
-          @click="pickAvatar(e)"
-        >{{ e }}</Button>
-      </div>
-      <div class="row" style="gap:6px">
-        <InputText v-model="newAvatar" type="text" placeholder="🦖" maxlength="4" style="flex:1" />
-        <Button class="btn secondary" :disabled="busy==='avatar'" @click="saveCustomAvatar">{{ t('settings.set') }}</Button>
-      </div>
-    </section>
-
-    <p v-if="info" class="info">{{ info }}</p>
-    <p v-if="error" class="error">{{ error }}</p>
-
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.usernameChangeTitle') }}</h2>
-      <p class="hint">{{ t('settings.usernameChangeHint') }}</p>
-      <InputText v-model="newUsername" type="text" placeholder="neuer_username" autocomplete="off" maxlength="20" />
-      <Button class="btn" :disabled="busy==='username'" @click="changeUsername">
-        {{ busy==='username' ? t('common.loadingShort') : t('settings.usernameChangeAction') }}
+  <div class="settings-view">
+    <header class="settings-head">
+      <h1 class="settings-title">{{ t('settings.title') }}</h1>
+      <Button
+        class="settings-logout"
+        :aria-label="t('settings.logout')"
+        :title="t('settings.logout')"
+        @click="logout"
+      >
+        <i class="pi pi-sign-out" />
       </Button>
-    </section>
+    </header>
 
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.emailChangeTitle') }}</h2>
-      <p class="hint">{{ t('settings.emailChangeHint') }}</p>
-      <InputText v-model="newEmail" type="email" placeholder="neue@adresse.de" autocomplete="email" />
-      <Button class="btn" :disabled="busy==='email'" @click="changeEmail">
-        {{ busy==='email' ? t('common.loadingShort') : t('settings.emailChangeAction') }}
-      </Button>
-    </section>
+    <p v-if="info" class="flash flash-info">{{ info }}</p>
+    <p v-if="error" class="flash flash-error">{{ error }}</p>
 
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.passwordTitle') }}</h2>
-      <p class="hint">{{ t('settings.passwordHint') }}</p>
-      <InputText v-model="newPassword" type="password" :placeholder="t('settings.newPassword')" autocomplete="new-password" />
-      <InputText v-model="newPassword2" type="password" :placeholder="t('settings.repeatPassword')" autocomplete="new-password" />
-      <Button class="btn" :disabled="busy==='password'" @click="changePassword">
-        {{ busy==='password' ? t('common.loadingShort') : t('settings.savePassword') }}
-      </Button>
-    </section>
+    <!-- ╭─ DARSTELLUNG ────────────────────────────────╮ -->
+    <h2 class="cluster-head">{{ t('settings.clusterAppearance') }}</h2>
+    <section class="card cluster">
+      <div class="prefs">
+        <div class="pref-row">
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.languageTitle') }}</span>
+            <span class="pref-desc">{{ t('settings.languageHint') }}</span>
+          </div>
+          <Select
+            v-model="selectedLocale"
+            :options="localeOptions"
+            optionLabel="label"
+            optionValue="code"
+            class="pref-select"
+          />
+        </div>
 
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.linkedAccounts') }}</h2>
-      <div class="row">
-        <span>{{ t('settings.google') }}:</span>
-        <b :class="auth.hasGoogleLinked ? 'linked-ok' : 'linked-no'">
-          {{ auth.hasGoogleLinked ? t('settings.linked') : t('settings.notLinked') }}
-        </b>
+        <div class="pref-sep" />
+
+        <label class="pref-row pref-clickable" for="animations-enabled">
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.animationsTitle') }}</span>
+            <span class="pref-desc">{{ t('settings.animationsHint') }}</span>
+          </div>
+          <ToggleSwitch
+            v-model="animationsEnabled"
+            inputId="animations-enabled"
+            :aria-label="t('settings.animationsLabel')"
+          />
+        </label>
       </div>
-      <p class="hint">{{ t('settings.linkGoogleHint') }}</p>
-      <div class="row account-actions">
-        <Button class="btn" :disabled="busy==='google' || auth.hasGoogleLinked" @click="linkGoogle">
-          {{ auth.hasGoogleLinked ? t('settings.alreadyLinked') : busy==='google' ? t('common.loadingShort') : t('settings.linkGoogle') }}
-        </Button>
-        <Button class="btn secondary" :disabled="busy==='google-unlink' || !auth.canUnlinkGoogle" @click="unlinkGoogle">
-          {{ busy==='google-unlink' ? t('common.loadingShort') : t('settings.unlinkGoogle') }}
-        </Button>
-      </div>
-      <p class="hint">{{ t('settings.unlinkHint') }}</p>
     </section>
 
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.supportTitle') }}</h2>
-      <p class="hint">{{ t('settings.supportHint') }}</p>
+    <!-- ╭─ PROFIL ────────────────────────────────────╮ -->
+    <h2 class="cluster-head">{{ t('settings.clusterAccount') }}</h2>
+    <section class="card cluster">
+      <div class="profile-head">
+        <div class="profile-avatar" @click="toggleExpand('avatar')">
+          {{ auth.profile?.avatar_emoji || '🐾' }}
+        </div>
+        <div class="profile-meta">
+          <div class="profile-name">{{ auth.profile?.username || '—' }}</div>
+          <div class="profile-email">{{ currentEmail }}</div>
+          <div v-if="pendingEmail" class="profile-pending">
+            {{ t('settings.pending') }}: {{ pendingEmail }}
+          </div>
+        </div>
+      </div>
+
+      <div class="prefs">
+        <!-- Avatar -->
+        <button
+          type="button"
+          class="pref-row pref-clickable"
+          :class="{ open: expanded === 'avatar' }"
+          @click="toggleExpand('avatar')"
+        >
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.chooseAvatar') }}</span>
+            <span class="pref-desc">{{ t('settings.chooseAvatarHint') }}</span>
+          </div>
+          <i class="pi pi-chevron-down pref-chevron" />
+        </button>
+        <div v-if="expanded === 'avatar'" class="pref-body">
+          <div class="avatar-grid">
+            <Button
+              v-for="e in AVATAR_CHOICES"
+              :key="e"
+              class="avatar-cell"
+              :class="{ active: auth.profile?.avatar_emoji === e }"
+              :disabled="busy==='avatar'"
+              @click="pickAvatar(e)"
+            >{{ e }}</Button>
+          </div>
+          <div class="inline-row">
+            <InputText v-model="newAvatar" type="text" placeholder="🦖" maxlength="4" class="grow" />
+            <Button class="btn secondary" :disabled="busy==='avatar'" @click="saveCustomAvatar">{{ t('settings.set') }}</Button>
+          </div>
+        </div>
+
+        <div class="pref-sep" />
+
+        <!-- Username -->
+        <button
+          type="button"
+          class="pref-row pref-clickable"
+          :class="{ open: expanded === 'username' }"
+          @click="toggleExpand('username')"
+        >
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.usernameChangeTitle') }}</span>
+            <span class="pref-desc">{{ t('settings.usernameChangeHint') }}</span>
+          </div>
+          <i class="pi pi-chevron-down pref-chevron" />
+        </button>
+        <div v-if="expanded === 'username'" class="pref-body">
+          <InputText v-model="newUsername" type="text" placeholder="neuer_username" autocomplete="off" maxlength="20" />
+          <Button class="btn" :disabled="busy==='username'" @click="changeUsername">
+            {{ busy==='username' ? t('common.loadingShort') : t('settings.usernameChangeAction') }}
+          </Button>
+        </div>
+
+        <div class="pref-sep" />
+
+        <!-- Email -->
+        <button
+          type="button"
+          class="pref-row pref-clickable"
+          :class="{ open: expanded === 'email' }"
+          @click="toggleExpand('email')"
+        >
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.emailChangeTitle') }}</span>
+            <span class="pref-desc">{{ t('settings.emailChangeHint') }}</span>
+          </div>
+          <i class="pi pi-chevron-down pref-chevron" />
+        </button>
+        <div v-if="expanded === 'email'" class="pref-body">
+          <InputText v-model="newEmail" type="email" placeholder="neue@adresse.de" autocomplete="email" />
+          <Button class="btn" :disabled="busy==='email'" @click="changeEmail">
+            {{ busy==='email' ? t('common.loadingShort') : t('settings.emailChangeAction') }}
+          </Button>
+        </div>
+
+        <div class="pref-sep" />
+
+        <!-- Password -->
+        <button
+          type="button"
+          class="pref-row pref-clickable"
+          :class="{ open: expanded === 'password' }"
+          @click="toggleExpand('password')"
+        >
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.passwordTitle') }}</span>
+            <span class="pref-desc">{{ t('settings.passwordHint') }}</span>
+          </div>
+          <i class="pi pi-chevron-down pref-chevron" />
+        </button>
+        <div v-if="expanded === 'password'" class="pref-body">
+          <InputText v-model="newPassword" type="password" :placeholder="t('settings.newPassword')" autocomplete="new-password" />
+          <InputText v-model="newPassword2" type="password" :placeholder="t('settings.repeatPassword')" autocomplete="new-password" />
+          <Button class="btn" :disabled="busy==='password'" @click="changePassword">
+            {{ busy==='password' ? t('common.loadingShort') : t('settings.savePassword') }}
+          </Button>
+        </div>
+
+        <div class="pref-sep" />
+
+        <!-- Google -->
+        <div class="pref-row">
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.google') }}</span>
+            <span class="pref-desc">{{ t('settings.linkGoogleHint') }}</span>
+          </div>
+          <span class="pref-status" :class="auth.hasGoogleLinked ? 'ok' : 'warn'">
+            {{ auth.hasGoogleLinked ? t('settings.linked') : t('settings.notLinked') }}
+          </span>
+        </div>
+        <div class="pref-body inline-row">
+          <Button class="btn grow" :disabled="busy==='google' || auth.hasGoogleLinked" @click="linkGoogle">
+            {{ auth.hasGoogleLinked ? t('settings.alreadyLinked') : busy==='google' ? t('common.loadingShort') : t('settings.linkGoogle') }}
+          </Button>
+          <Button class="btn secondary grow" :disabled="busy==='google-unlink' || !auth.canUnlinkGoogle" @click="unlinkGoogle">
+            {{ busy==='google-unlink' ? t('common.loadingShort') : t('settings.unlinkGoogle') }}
+          </Button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ╭─ DATENSCHUTZ ───────────────────────────────╮ -->
+    <h2 class="cluster-head">{{ t('settings.clusterPrivacy') }}</h2>
+    <section class="card cluster">
+      <div class="prefs">
+        <label class="pref-row pref-clickable" for="friend-requests-enabled">
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.friendRequestsEnabled') }}</span>
+            <span class="pref-desc">{{ t('settings.friendRequestsHint') }}</span>
+          </div>
+          <ToggleSwitch
+            :modelValue="friendRequestsEnabled"
+            inputId="friend-requests-enabled"
+            :disabled="busy==='friend-requests'"
+            @update:modelValue="setFriendRequestsEnabled"
+          />
+        </label>
+
+        <div class="pref-sep" />
+
+        <router-link class="pref-row pref-clickable" :to="{ name: 'privacy' }">
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.privacy') }}</span>
+          </div>
+          <i class="pi pi-chevron-right pref-chevron static" />
+        </router-link>
+
+        <div class="pref-sep" />
+
+        <div class="pref-row">
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.exportTitle') }}</span>
+            <span class="pref-desc">{{ t('settings.exportHint') }}</span>
+          </div>
+          <Button class="btn secondary pref-action" :disabled="busy==='export'" @click="requestData">
+            {{ busy==='export' ? t('common.loadingShort') : t('settings.exportAction') }}
+          </Button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ╭─ SUPPORT ───────────────────────────────────╮ -->
+    <h2 class="cluster-head">{{ t('settings.clusterSupport') }}</h2>
+    <section class="card cluster">
+      <p class="cluster-desc">{{ t('settings.supportHint') }}</p>
       <InputText
         v-model="supportSubject"
         type="text"
@@ -367,60 +478,269 @@ async function logout() {
         maxlength="5000"
         autoResize
       />
-      <label class="row" style="gap:8px; justify-content:flex-start; align-items:center">
+      <label class="check-row">
         <Checkbox v-model="supportNotifyCopy" :binary="true" inputId="support-notify-copy" />
-        <span style="font-size:13px">{{ t('settings.supportNotifyCopy') }}</span>
+        <span>{{ t('settings.supportNotifyCopy') }}</span>
       </label>
       <Button class="btn" :disabled="busy==='support'" @click="submitSupport">
         {{ busy==='support' ? t('common.loadingShort') : t('settings.supportSubmit') }}
       </Button>
     </section>
 
-    <section class="card stack">
-      <h2 style="margin:0">{{ t('settings.exportTitle') }}</h2>
-      <p class="hint">{{ t('settings.exportHint') }}</p>
-      <Button class="btn secondary" :disabled="busy==='export'" @click="requestData">
-        {{ busy==='export' ? t('common.loadingShort') : t('settings.exportAction') }}
-      </Button>
-    </section>
-
-    <section class="card stack danger-zone">
-      <h2 style="margin:0">{{ t('settings.deleteTitle') }}</h2>
-      <p class="hint">{{ t('settings.deleteHint') }}</p>
-      <InputText v-model="deleteConfirm" type="text" placeholder="LOESCHEN" autocomplete="off" />
-      <Button class="btn danger" :disabled="busy==='delete'" @click="deleteAccount">
-        {{ busy==='delete' ? t('common.loadingShort') : t('settings.deleteAction') }}
-      </Button>
-    </section>
-
-    <section class="card stack">
-      <Button class="btn danger" @click="logout">{{ t('settings.logout') }}</Button>
+    <!-- ╭─ GEFAHRENZONE ──────────────────────────────╮ -->
+    <h2 class="cluster-head danger">{{ t('settings.clusterDanger') }}</h2>
+    <section class="card cluster danger-zone">
+      <p class="cluster-desc">{{ t('settings.deleteHint') }}</p>
+      <button
+        type="button"
+        class="pref-row pref-clickable"
+        :class="{ open: expanded === 'delete' }"
+        @click="toggleExpand('delete')"
+      >
+        <div class="pref-text">
+          <span class="pref-title danger">{{ t('settings.deleteAction') }}</span>
+        </div>
+        <i class="pi pi-chevron-down pref-chevron" />
+      </button>
+      <div v-if="expanded === 'delete'" class="pref-body">
+        <InputText v-model="deleteConfirm" type="text" placeholder="LÖSCHEN" autocomplete="off" />
+        <Button class="btn danger" :disabled="busy==='delete'" @click="deleteAccount">
+          {{ busy==='delete' ? t('common.loadingShort') : t('settings.deleteAction') }}
+        </Button>
+      </div>
     </section>
   </div>
 </template>
 
 <style scoped>
-.row { display: flex; justify-content: space-between; gap: 8px; }
-.row.pending b { color: #e90; }
-.hint { font-size: 12px; opacity: 0.75; margin: 0; }
-.hint-link { font-size: 12px; color: var(--accent); text-decoration: underline; }
-.info { color: #3a8; font-size: 14px; }
-.btn.danger { background: #c33; color: #fff; }
-.linked-ok { color: #3a8; }
-.linked-no { color: #e90; }
-.account-actions { justify-content: flex-start; gap: 8px; }
-.settings-toggle,
-.friend-request-toggle {
-  justify-content: flex-start;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
+.settings-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: var(--space-5);
 }
-.danger-zone { border-color: #a33; }
+
+/* ── Header ───────────────────────────────────────────────── */
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-1) 0 var(--space-2);
+}
+.settings-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+}
+.p-button.settings-logout {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(239, 71, 111, 0.08);
+  border: 1px solid rgba(239, 71, 111, 0.35);
+  color: var(--danger);
+  font-size: 16px;
+}
+.p-button.settings-logout:not(:disabled):hover {
+  background: rgba(239, 71, 111, 0.18);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* ── Flash ─────────────────────────────────────────────────── */
+.flash {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 12px;
+  font-size: 14px;
+}
+.flash-info {
+  background: rgba(6, 214, 160, 0.1);
+  border: 1px solid rgba(6, 214, 160, 0.35);
+  color: var(--accent-2);
+}
+.flash-error {
+  background: rgba(239, 71, 111, 0.1);
+  border: 1px solid rgba(239, 71, 111, 0.35);
+  color: var(--danger);
+}
+
+/* ── Cluster headers ──────────────────────────────────────── */
+.cluster-head {
+  margin: var(--space-4) var(--space-3) var(--space-2);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.cluster-head.danger { color: var(--danger); }
+.cluster {
+  margin-bottom: 0;
+  padding: var(--space-2) var(--space-3);
+}
+.cluster-desc {
+  margin: 0 0 var(--space-2);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── Prefs (row-based list) ───────────────────────────────── */
+.prefs {
+  display: flex;
+  flex-direction: column;
+}
+.pref-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-2) 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  text-decoration: none;
+}
+.pref-clickable {
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+.pref-clickable:hover { opacity: 0.85; }
+.pref-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.pref-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.pref-title.danger { color: var(--danger); }
+.pref-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.pref-chevron {
+  color: var(--muted);
+  font-size: 12px;
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+}
+.pref-row.open .pref-chevron { transform: rotate(180deg); }
+.pref-chevron.static { transform: none !important; }
+.pref-status {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.pref-status.ok {
+  color: var(--accent-2);
+  background: rgba(6, 214, 160, 0.12);
+  border: 1px solid rgba(6, 214, 160, 0.35);
+}
+.pref-status.warn {
+  color: #ffb347;
+  background: rgba(255, 179, 71, 0.12);
+  border: 1px solid rgba(255, 179, 71, 0.35);
+}
+.p-button.pref-action {
+  padding: 8px 14px;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.pref-select { min-width: 130px; max-width: 50%; }
+.pref-sep {
+  height: 1px;
+  background: var(--border);
+  opacity: 0.45;
+}
+.pref-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-3);
+}
+
+/* ── Profile head ─────────────────────────────────────────── */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0 var(--space-3);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-2);
+}
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2a3866, #162048);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease;
+}
+.profile-avatar:hover { border-color: var(--accent); }
+.profile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.profile-name {
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--text);
+}
+.profile-email {
+  font-size: 13px;
+  color: var(--muted);
+  word-break: break-all;
+}
+.profile-pending {
+  font-size: 12px;
+  color: #e90;
+  word-break: break-all;
+}
+
+/* ── Inline rows ──────────────────────────────────────────── */
+.inline-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.grow { flex: 1; min-width: 0; }
+
+/* ── Check row (non-toggle) ───────────────────────────────── */
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  padding: var(--space-1) 0;
+}
+
+/* ── Avatar picker ────────────────────────────────────────── */
 .avatar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
-  gap: 6px;
+  gap: var(--space-1);
 }
 .avatar-cell {
   background: #162048;
@@ -431,7 +751,14 @@ async function logout() {
   cursor: pointer;
   color: inherit;
   transition: transform 0.08s ease;
+  aspect-ratio: 1;
 }
 .avatar-cell:hover:not(:disabled) { transform: translateY(-2px); }
-.avatar-cell.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.avatar-cell.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+/* ── Danger zone ──────────────────────────────────────────── */
+.danger-zone { border-color: rgba(239, 71, 111, 0.45); }
 </style>

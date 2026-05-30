@@ -87,11 +87,6 @@ export const useGameStore = defineStore('game', {
       if (!cfg || cfg.show_countdown === false) return 0
       return cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
     },
-    mergeEndsAt(state) {
-      const cfg = state.eventSchedule?.merge_game
-      if (!cfg || cfg.show_countdown === false) return 0
-      return cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
-    },
     bossPathActive(state) {
       const cfg = state.eventSchedule?.boss_path
       if (!cfg) return true
@@ -105,21 +100,6 @@ export const useGameStore = defineStore('game', {
     },
     bossPathShowCountdown(state) {
       const cfg = state.eventSchedule?.boss_path
-      return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
-    },
-    mergeActive(state) {
-      const cfg = state.eventSchedule?.merge_game
-      if (!cfg) return true
-      if (cfg.enabled === false) return false
-      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
-      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
-      const now = Date.now()
-      if (starts && starts > now) return false
-      if (ends && ends <= now) return false
-      return true
-    },
-    mergeShowCountdown(state) {
-      const cfg = state.eventSchedule?.merge_game
       return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
     },
     memoryEndsAt(state) {

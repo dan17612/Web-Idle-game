@@ -43,16 +43,6 @@ async function load() {
         highest_stage: r.highest_stage,
         total_victories: r.total_victories
       }))
-    } else if (mode.value === 'merge') {
-      const { data, error: e } = await supabase.rpc('get_merge_leaderboard', { p_limit: 50 })
-      if (e) throw e
-      rows.value = (data || []).map(r => ({
-        username: r.username,
-        avatar_emoji: r.avatar_emoji,
-        score: Number(r.score || 0),
-        total_fusions: Number(r.total_fusions || 0),
-        highest_rank: Number(r.highest_rank || 0)
-      }))
     } else if (mode.value === 'memory') {
       const { data, error: e } = await supabase.rpc('get_memory_leaderboard', { p_limit: 50 })
       if (e) throw e
@@ -145,11 +135,6 @@ function formatCountdown(ms) {
 
 const eventStatus = computed(() => {
   void now.value
-  if (mode.value === 'merge') {
-    if (!game.mergeShowCountdown) return null
-    const ms = Math.max(0, game.mergeEndsAt - Date.now())
-    return { ended: !game.mergeActive, remainingMs: ms }
-  }
   if (mode.value === 'memory') {
     if (!game.memoryShowCountdown) return null
     const ms = Math.max(0, game.memoryEndsAt - Date.now())
@@ -158,28 +143,9 @@ const eventStatus = computed(() => {
   return null
 })
 
-function tileLabel(rank) {
-  const r = Math.max(0, Math.floor(Number(rank) || 0))
-  if (r <= 50) {
-    const v = 2 ** r
-    if (v < 1000) return String(v)
-    const units = ['', 'K', 'M', 'B', 'T', 'Q']
-    let value = v
-    let unit = 0
-    while (value >= 1000 && unit < units.length - 1) {
-      value /= 1000
-      unit++
-    }
-    const decimals = value < 10 ? 2 : value < 100 ? 1 : 0
-    return `${value.toFixed(decimals)}${units[unit]}`
-  }
-  return `2^${r}`
-}
-
 const subtitle = computed(() => {
   if (mode.value === 'rate') return t('leaderboard.subtitleRate')
   if (mode.value === 'boss') return t('leaderboard.subtitleBoss')
-  if (mode.value === 'merge') return t('leaderboard.subtitleMerge')
   if (mode.value === 'memory') return t('leaderboard.subtitleMemory')
   if (mode.value === 'endless') return t('leaderboard.subtitleEndless')
   return t('leaderboard.subtitle')
@@ -204,13 +170,6 @@ const subtitle = computed(() => {
       @click="setMode('coins')"
     >
       🪙 {{ t('leaderboard.byCoins') }}
-    </Button>
-    <Button
-      class="lb-tab"
-      :class="{ active: mode === 'merge' }"
-      @click="setMode('merge')"
-    >
-      🐾 {{ t('leaderboard.byMerge') }}
     </Button>
     <Button
       class="lb-tab"
@@ -272,12 +231,7 @@ const subtitle = computed(() => {
             <span v-if="r.username === myUsername" class="me-tag">{{ t('leaderboard.you') }}</span>
           </div>
           <div class="sub">
-            <template v-if="mode === 'merge'">
-              <span class="primary">🐾 {{ t('leaderboard.mergeHighestTile') }}: {{ tileLabel(r.highest_rank) }}</span>
-              <span class="secondary">⭐ {{ formatCoins(r.score) }} {{ t('leaderboard.mergeScore') }}</span>
-              <span class="secondary">🔁 {{ formatCoins(r.total_fusions) }} {{ t('leaderboard.mergeFusions') }}</span>
-            </template>
-            <template v-else-if="mode === 'memory'">
+            <template v-if="mode === 'memory'">
               <span class="primary">🧠 {{ t('leaderboard.memoryLevel') }} {{ r.highest_level }}</span>
               <span class="secondary">🔁 {{ r.total_pairs }} {{ t('leaderboard.memoryPairs') }}</span>
             </template>
