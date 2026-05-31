@@ -4,11 +4,13 @@ import { supabase } from '../supabase'
 import { speciesInfo } from '../animals'
 import { locale } from '../i18n'
 import { useAuthStore } from '../stores/auth'
+import { useGameStore } from '../stores/game'
 import { hasUnseenAdminMessage } from '../supportTickets'
 
 const emit = defineEmits(['close'])
 
 const auth = useAuthStore()
+const game = useGameStore()
 const isFullAdmin = computed(() => !!auth.profile?.is_admin)
 const isSubadmin = computed(() => !isFullAdmin.value && !!auth.profile?.is_subadmin)
 
@@ -553,7 +555,7 @@ async function restock(species) {
   await callAdmin('admin_force_add', { p_species: species, p_qty: qty }, 'r-' + species)
   // Wenn craft_only oder Verschwindezeit gesetzt, zusätzlich admin_set_species_event aufrufen.
   if (craftOnly || days > 0) {
-    const disappearsAt = days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : null
+    const disappearsAt = days > 0 ? new Date(Date.now() + game.serverOffset + days * 86400000).toISOString() : null
     await callAdmin('admin_set_species_event', {
       p_species: species,
       p_craft_only: craftOnly,
