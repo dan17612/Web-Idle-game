@@ -292,7 +292,9 @@ export const useGameStore = defineStore('game', {
       if (!this.lastCollected) return
       if (this.pendingOfflineEarnings) return
       const capSec = this.maxOfflineHours * 3600
-      const rawElapsed = Math.max(0, (Date.now() - this.lastCollected.getTime()) / 1000)
+      // lastCollected stammt vom Server; ohne serverOffset rechnen wir Client-
+      // Uhrzeit gegen Server-Zeitstempel und verlieren/erfinden Offline-Zeit.
+      const rawElapsed = Math.max(0, (Date.now() + this.serverOffset - this.lastCollected.getTime()) / 1000)
       const elapsed = Math.min(rawElapsed, capSec)
       const rate = this.baseRate
       const earned = Math.floor(rate * elapsed)
@@ -333,7 +335,7 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user) return
       const pending = Math.max(0, Math.floor(this.tickCoins))
-      if (pending <= 0 && this.lastCollected && (Date.now() - this.lastCollected.getTime()) < 15000) return
+      if (pending <= 0 && this.lastCollected && (Date.now() + this.serverOffset - this.lastCollected.getTime()) < 15000) return
       this.coins += pending
       this.tickCoins -= pending
       try {
@@ -699,7 +701,7 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user || this._autoReleasing) return
       if (!this.autoReleaseMap || Object.keys(this.autoReleaseMap).length === 0) return
-      const groups = groupAnimalsForAutoRelease(this.animals, this.autoReleaseMap, Date.now())
+      const groups = groupAnimalsForAutoRelease(this.animals, this.autoReleaseMap, Date.now() + this.serverOffset)
       if (groups.length === 0) return
       this._autoReleasing = true
       try {

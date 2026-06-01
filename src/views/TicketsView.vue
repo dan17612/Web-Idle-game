@@ -194,7 +194,7 @@ const pendingAutoCount = computed(() => {
   return groupAnimalsForAutoRelease(
     game.animals,
     { [p.species]: p.value },
-    Date.now()
+    Date.now() + game.serverOffset
   ).reduce((s, g) => s + g.ids.length, 0);
 });
 const pendingAutoInfo = computed(() =>
@@ -225,8 +225,9 @@ const tierRank = { normal: 0, gold: 1, diamond: 2, epic: 3, rainbow: 4 };
 
 const groups = computed(() => {
   const map = new Map();
+  const now = Date.now() + game.serverOffset;
   for (const a of game.animals) {
-    if (isUpgrading(a)) continue;
+    if (isUpgrading(a, now)) continue;
     const tier = a.tier || "normal";
     const key = `${a.species}|${tier}`;
     if (!map.has(key)) {
