@@ -347,7 +347,7 @@ async function logout() {
           <i class="pi pi-chevron-down pref-chevron" />
         </button>
         <div v-if="expanded === 'username'" class="pref-body">
-          <InputText v-model="newUsername" type="text" placeholder="neuer_username" autocomplete="off" maxlength="20" />
+          <InputText v-model="newUsername" type="text" placeholder="neuer_username" autocomplete="off" maxlength="24" />
           <Button class="btn" :disabled="busy==='username'" @click="changeUsername">
             {{ busy==='username' ? t('common.loadingShort') : t('settings.usernameChangeAction') }}
           </Button>

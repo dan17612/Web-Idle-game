@@ -29,16 +29,17 @@ useReturnRefresh(loadSlot);
 const tierOrder = ["rainbow", "epic", "diamond", "gold", "normal"];
 const tierRank = { rainbow: 0, epic: 1, diamond: 2, gold: 3, normal: 4 };
 
-const enriched = computed(() =>
-  game.animals.map((a) => ({
+const enriched = computed(() => {
+  const now = Date.now() + game.serverOffset;
+  return game.animals.map((a) => ({
     ...a,
     info: speciesInfo(a.species),
     td: tierInfo(a.tier || "normal"),
     t: a.tier || "normal",
     rate: animalRate(a),
-    upgrading: isUpgrading(a),
-  })),
-);
+    upgrading: isUpgrading(a, now),
+  }));
+});
 
 const filteredAnimals = computed(() =>
   enriched.value

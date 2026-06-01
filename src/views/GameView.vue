@@ -685,10 +685,11 @@ async function loadCrafterRecipes() {
 function ingCount(recipe, idx) {
   const ing = recipe?.ingredients?.[idx]
   if (!ing) return 0
+  const now = Date.now() + game.serverOffset
   return game.animals.filter(a =>
     a.species === ing.species &&
     (a.tier || 'normal') === (ing.tier || 'normal') &&
-    !a.equipped && !isUpgrading(a)
+    !a.equipped && !isUpgrading(a, now)
   ).length
 }
 
@@ -768,10 +769,11 @@ const tierList = computed(() =>
 
 const fusionGroups = computed(() => {
   const groups = {};
+  const now = Date.now() + game.serverOffset;
   for (const a of game.animals) {
     if (a.equipped) continue;
     if ((a.tier || "normal") !== "normal") continue;
-    if (isUpgrading(a)) continue;
+    if (isUpgrading(a, now)) continue;
     groups[a.species] ??= [];
     groups[a.species].push(a);
   }
@@ -789,11 +791,13 @@ const fusionGroups = computed(() => {
     .sort((a, b) => b.count - a.count);
 });
 
-const upgradingList = computed(() =>
-  game.animals
-    .filter((a) => isUpgrading(a))
-    .map((a) => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier) })),
-);
+const upgradingList = computed(() => {
+  void now.value;
+  const t = Date.now() + game.serverOffset;
+  return game.animals
+    .filter((a) => isUpgrading(a, t))
+    .map((a) => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier) }));
+});
 
 function fmtReady(a) {
   void now.value;
@@ -854,20 +858,22 @@ async function doFusion(species, tier) {
 const fusionMode = ref("fuse"); // 'fuse' | 'split'
 const splitAnimalId = ref("");
 
-const splitAnimals = computed(() =>
-  game.animals
+const splitAnimals = computed(() => {
+  void now.value;
+  const t = Date.now() + game.serverOffset;
+  return game.animals
     .filter(
       (a) =>
         !a.equipped &&
         (a.tier || "normal") !== "normal" &&
-        !isUpgrading(a),
+        !isUpgrading(a, t),
     )
     .map((a) => ({
       ...a,
       info: speciesInfo(a.species),
       td: tierInfo(a.tier),
-    })),
-);
+    }));
+});
 
 const splitSelected = computed(
   () => splitAnimals.value.find((a) => a.id === splitAnimalId.value) || null,
