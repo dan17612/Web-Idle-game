@@ -9,6 +9,7 @@ import CoinInput from '../components/CoinInput.vue'
 import { locale, currentLocaleTag } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 import { hasWantedAnimals, pickWantedAnimals, wantedAnimalItems } from '../tradePublicWanted'
+import { EGG_TYPES, loadEggCatalog } from '../eggs'
 
 const route = useRoute()
 
@@ -309,14 +310,18 @@ const partnerError = ref('')
 // --- Mein Angebot
 const offer = reactive({
   myAnimals: new Set(),
+  myEggs: new Set(),
   myCoins: 0,
   theirAnimals: new Set(),
+  theirEggs: new Set(),
   theirCoins: 0,
   note: ''
 })
 const publicWanted = reactive({
-  items: {}
+  items: {},
+  eggs: {}
 })
+const partnerEggs = ref([])
 const mode = ref('trade')   // 'trade' | 'send'
 const sendForm = reactive({ username: '', amount: 0 })
 const pickerOpen = ref('') // 'mine' | 'theirs' | ''
@@ -388,6 +393,47 @@ function toggleTheirsGroup(group, remove = false) {
 
 const mySelectedGroups = computed(() => myGroups.value.map(g => ({ ...g, selected: myGroupSelected(g) })).filter(g => g.selected > 0))
 const theirSelectedGroups = computed(() => partnerGroups.value.map(g => ({ ...g, selected: theirGroupSelected(g) })).filter(g => g.selected > 0))
+
+// --- Eier-Picker ---
+const myEggs = computed(() => game.playerEggs.map(e => ({
+  ...e,
+  meta: EGG_TYPES[e.egg_type] || { name: e.egg_type, emoji: '🥚' }
+})))
+
+const myEggGroups = computed(() => {
+  const m = new Map()
+  for (const e of myEggs.value) {
+    if (!m.has(e.egg_type)) m.set(e.egg_type, { key: e.egg_type, meta: e.meta, list: [] })
+    m.get(e.egg_type).list.push(e)
+  }
+  return [...m.values()]
+})
+const theirEggGroups = computed(() => {
+  const m = new Map()
+  for (const e of partnerEggs.value) {
+    const meta = EGG_TYPES[e.egg_type] || { name: e.egg_type, emoji: '🥚' }
+    if (!m.has(e.egg_type)) m.set(e.egg_type, { key: e.egg_type, meta, list: [] })
+    m.get(e.egg_type).list.push(e)
+  }
+  return [...m.values()]
+})
+function myEggSelected(group) { return group.list.filter(e => offer.myEggs.has(e.id)).length }
+function theirEggSelected(group) { return group.list.filter(e => offer.theirEggs.has(e.id)).length }
+function toggleMyEgg(group, remove = false) {
+  if (remove) { for (let i = group.list.length - 1; i >= 0; i--) if (offer.myEggs.has(group.list[i].id)) { offer.myEggs.delete(group.list[i].id); return } }
+  else for (const e of group.list) if (!offer.myEggs.has(e.id)) { offer.myEggs.add(e.id); return }
+}
+function toggleTheirEgg(group, remove = false) {
+  if (remove) { for (let i = group.list.length - 1; i >= 0; i--) if (offer.theirEggs.has(group.list[i].id)) { offer.theirEggs.delete(group.list[i].id); return } }
+  else for (const e of group.list) if (!offer.theirEggs.has(e.id)) { offer.theirEggs.add(e.id); return }
+}
+function publicWantedEggQty(eggType) { return Math.max(0, Math.floor(Number(publicWanted.eggs[eggType] || 0))) }
+function togglePublicWantedEgg(eggType, remove = false) {
+  const cur = publicWantedEggQty(eggType)
+  if (remove) { if (cur <= 1) delete publicWanted.eggs[eggType]; else publicWanted.eggs[eggType] = cur - 1 }
+  else publicWanted.eggs[eggType] = cur + 1
+}
+const eggTypesList = computed(() => Object.values(EGG_TYPES).filter(et => et.enabled !== false))
 
 function publicWantedTrade() {
   const wanted_animals = Object.entries(publicWanted.items)
@@ -464,6 +510,9 @@ async function lookupPartner() {
       .select('id, species, equipped, tier').eq('owner_id', p.id).eq('equipped', false)
       .order('acquired_at')
     partnerAnimals.value = (animals || []).slice().sort(compareAnimalsByRate).map(a => ({ ...a, info: speciesInfo(a.species), td: tierInfo(a.tier || 'normal') }))
+    const { data: eggs } = await supabase.from('player_eggs')
+      .select('id, egg_type').eq('owner_id', p.id)
+    partnerEggs.value = eggs || []
   } finally {
     partnerSearching.value = false
   }
@@ -478,13 +527,17 @@ watch(partnerUsername, () => {
 function resetForm() {
   offer.myAnimals.clear()
   offer.theirAnimals.clear()
+  offer.myEggs.clear()
+  offer.theirEggs.clear()
   offer.myCoins = 0
   offer.theirCoins = 0
   offer.note = ''
   publicWanted.items = {}
+  publicWanted.eggs = {}
   partnerUsername.value = ''
   partnerProfile.value = null
   partnerAnimals.value = []
+  partnerEggs.value = []
 }
 
 async function propose() {
@@ -512,6 +565,13 @@ async function propose() {
   busy.value = true
   try {
     await game.persist()
+    const reqEggs = [...offer.myEggs]
+    const addEggs = [...offer.theirEggs]
+    const wantedEggs = isPublicOffer.value
+      ? Object.entries(publicWanted.eggs)
+          .map(([egg_type, qty]) => ({ egg_type, qty: Math.max(0, Math.floor(Number(qty) || 0)) }))
+          .filter(x => x.egg_type && x.qty > 0)
+      : []
     const { error: e } = await supabase.rpc('propose_trade', {
       p_addressee: isPublicOffer.value ? null : partnerProfile.value.username,
       p_requester_animals: reqAnimals,
@@ -522,7 +582,10 @@ async function propose() {
       p_wanted_species: isPublicOffer.value ? wanted.wanted_species : null,
       p_wanted_tier: isPublicOffer.value ? wanted.wanted_tier : null,
       p_wanted_qty: isPublicOffer.value ? wanted.wanted_qty : 0,
-      p_wanted_animals: isPublicOffer.value ? wanted.wanted_animals : []
+      p_wanted_animals: isPublicOffer.value ? wanted.wanted_animals : [],
+      p_requester_eggs: reqEggs,
+      p_addressee_eggs: isPublicOffer.value ? [] : addEggs,
+      p_wanted_eggs: wantedEggs
     })
     if (e) throw e
     success.value = isPublicOffer.value ? tx('success.publicPosted') : tx('success.tradeSent')
@@ -622,7 +685,7 @@ async function acceptPublic(t) {
   busy.value = true
   try {
     await game.persist()
-    const { error: e } = await supabase.rpc('accept_public_trade', { p_trade_id: t.id, p_my_animals: ids })
+    const { error: e } = await supabase.rpc('accept_public_trade', { p_trade_id: t.id, p_my_animals: ids, p_my_eggs: [] })
     if (e) throw e
     success.value = tx('success.tradeAccepted')
     confirmPublic.value = null
@@ -638,6 +701,7 @@ useReturnRefresh(loadTrades)
 let channel
 onMounted(async () => {
   await game.load()
+  await loadEggCatalog()
   await loadTrades()
   // Prefill from ?partner= or ?send= query (from Freunde-Ansicht)
   const p = route.query.partner
@@ -773,9 +837,29 @@ function statusLabel(status) {
               <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
               <span class="chip-count">×{{ g.selected }}</span>
             </div>
+            <div v-for="g in myEggGroups.filter(x => myEggSelected(x) > 0)" :key="'eg-' + g.key" class="chip-anim egg-chip" @click="toggleMyEgg(g, true)">
+              <span>{{ g.meta.emoji }}</span>
+              <span class="chip-count">×{{ myEggSelected(g) }}</span>
+            </div>
             <Button class="chip-add" @click="pickerOpen = pickerOpen==='mine'?'':'mine'">{{ tx('labels.addAnimal') }}</Button>
+            <Button v-if="myEggGroups.length" class="chip-add" @click="pickerOpen = pickerOpen==='myEggs'?'':'myEggs'">+ 🥚</Button>
           </div>
           <CoinInput v-model="offer.myCoins" :placeholder="tx('labels.coinsOptional')" />
+
+          <div v-if="pickerOpen==='myEggs'" class="picker">
+            <div v-if="!myEggGroups.length" class="subtitle">{{ tx('hints.noMyTradable') }}</div>
+            <div v-else class="picker-grid">
+              <div v-for="g in myEggGroups" :key="'pme-' + g.key"
+                   class="pick"
+                   :class="{ active: myEggSelected(g) > 0 }"
+                   @click="toggleMyEgg(g)"
+                   @contextmenu.prevent="toggleMyEgg(g, true)">
+                <div class="pick-emoji">{{ g.meta.emoji }}</div>
+                <div class="pick-name">{{ g.meta.name }}</div>
+                <div class="pick-count"><span v-if="myEggSelected(g) > 0" class="pick-selected">{{ myEggSelected(g) }}/</span>{{ g.list.length }}</div>
+              </div>
+            </div>
+          </div>
 
           <div v-if="pickerOpen==='mine'" class="picker">
             <div v-if="!myGroups.length" class="subtitle">{{ tx('hints.noMyTradable') }}</div>
@@ -812,14 +896,24 @@ function statusLabel(status) {
               <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
               <span class="chip-count">×{{ g.selected }}</span>
             </div>
+            <div v-for="g in theirEggGroups.filter(x => theirEggSelected(x) > 0)" :key="'teg-' + g.key" class="chip-anim egg-chip" @click="toggleTheirEgg(g, true)">
+              <span>{{ g.meta.emoji }}</span>
+              <span class="chip-count">×{{ theirEggSelected(g) }}</span>
+            </div>
             <Button class="chip-add" @click="pickerOpen = pickerOpen==='theirs'?'':'theirs'">{{ tx('labels.addAnimal') }}</Button>
+            <Button v-if="theirEggGroups.length" class="chip-add" @click="pickerOpen = pickerOpen==='theirEggs'?'':'theirEggs'">+ 🥚</Button>
           </div>
           <div v-else class="slots">
             <div v-for="g in publicWantedSelectedGroups" :key="g.key" class="chip-anim" @click="togglePublicWantedGroup(g, true)">
               <span>{{ g.info.emoji }}<sup v-if="g.td.badge" class="tb">{{ g.td.badge }}</sup></span>
               <span class="chip-count">×{{ g.selected }}</span>
             </div>
+            <div v-for="et in eggTypesList.filter(et => publicWantedEggQty(et.egg_type) > 0)" :key="'pweg-' + et.egg_type" class="chip-anim egg-chip" @click="togglePublicWantedEgg(et.egg_type, true)">
+              <span>{{ et.emoji }}</span>
+              <span class="chip-count">×{{ publicWantedEggQty(et.egg_type) }}</span>
+            </div>
             <Button class="chip-add" @click="pickerOpen = pickerOpen==='publicWanted'?'':'publicWanted'">{{ tx('labels.addAnimal') }}</Button>
+            <Button v-if="eggTypesList.length" class="chip-add" @click="pickerOpen = pickerOpen==='publicWantedEggs'?'':'publicWantedEggs'">+ 🥚</Button>
           </div>
           <CoinInput v-model="offer.theirCoins" :placeholder="tx('labels.coinsOptional')" />
 
@@ -860,6 +954,35 @@ function statusLabel(status) {
               </div>
             </div>
           </div>
+
+          <div v-if="pickerOpen==='theirEggs'" class="picker">
+            <div v-if="!theirEggGroups.length" class="subtitle">{{ tx('hints.noPartnerTradable') }}</div>
+            <div v-else class="picker-grid">
+              <div v-for="g in theirEggGroups" :key="'pte-' + g.key"
+                   class="pick"
+                   :class="{ active: theirEggSelected(g) > 0 }"
+                   @click="toggleTheirEgg(g)"
+                   @contextmenu.prevent="toggleTheirEgg(g, true)">
+                <div class="pick-emoji">{{ g.meta.emoji }}</div>
+                <div class="pick-name">{{ g.meta.name }}</div>
+                <div class="pick-count"><span v-if="theirEggSelected(g) > 0" class="pick-selected">{{ theirEggSelected(g) }}/</span>{{ g.list.length }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="pickerOpen==='publicWantedEggs'" class="picker">
+            <div class="picker-grid">
+              <div v-for="et in eggTypesList" :key="'pwe-' + et.egg_type"
+                   class="pick"
+                   :class="{ active: publicWantedEggQty(et.egg_type) > 0 }"
+                   @click="togglePublicWantedEgg(et.egg_type)"
+                   @contextmenu.prevent="togglePublicWantedEgg(et.egg_type, true)">
+                <div class="pick-emoji">{{ et.emoji }}</div>
+                <div class="pick-name">{{ et.name }}</div>
+                <div class="pick-count"><span v-if="publicWantedEggQty(et.egg_type) > 0" class="pick-selected">{{ publicWantedEggQty(et.egg_type) }}/</span>∞</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -889,6 +1012,7 @@ function statusLabel(status) {
           <div class="mini-label">{{ tx('labels.offer') }}</div>
           <div class="mini-row">
             <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
+            <span v-for="e in (t.requester_egg_details || [])" :key="'rqe-' + e.id" class="e">{{ e.emoji }}</span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
             <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">{{ tx('labels.nothing') }}</span>
           </div>
@@ -929,6 +1053,7 @@ function statusLabel(status) {
           <div class="mini-label">{{ tx('labels.youGet') }}</div>
           <div class="mini-row">
             <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
+            <span v-for="e in (t.requester_egg_details || [])" :key="'rqe-' + e.id" class="e">{{ e.emoji }}</span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
             <span v-if="!t.requester_animal_details.length && Number(t.requester_coins) === 0" class="subtitle">{{ tx('labels.nothing') }}</span>
           </div>
@@ -938,6 +1063,7 @@ function statusLabel(status) {
           <div class="mini-label">{{ tx('labels.youGive') }}</div>
           <div class="mini-row">
             <span v-for="a in t.addressee_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
+            <span v-for="e in (t.addressee_egg_details || [])" :key="'ade-' + e.id" class="e">{{ e.emoji }}</span>
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
             <span v-if="!t.addressee_animal_details.length && Number(t.addressee_coins) === 0" class="subtitle">{{ tx('labels.nothing') }}</span>
           </div>
@@ -964,6 +1090,7 @@ function statusLabel(status) {
           <div class="mini-label">{{ tx('labels.youGive') }}</div>
           <div class="mini-row">
             <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
+            <span v-for="e in (t.requester_egg_details || [])" :key="'rqe-' + e.id" class="e">{{ e.emoji }}</span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
           </div>
         </div>
@@ -972,6 +1099,7 @@ function statusLabel(status) {
           <div class="mini-label">{{ tx('labels.youGet') }}</div>
           <div class="mini-row">
             <span v-for="a in t.addressee_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
+            <span v-for="e in (t.addressee_egg_details || [])" :key="'ade-' + e.id" class="e">{{ e.emoji }}</span>
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
           </div>
         </div>
@@ -996,6 +1124,7 @@ function statusLabel(status) {
         <div class="side-mini">
           <div class="mini-row">
             <span v-for="a in t.requester_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
+            <span v-for="e in (t.requester_egg_details || [])" :key="'rqe-' + e.id" class="e">{{ e.emoji }}</span>
             <span v-if="Number(t.requester_coins) > 0" class="coins">🪙 {{ formatCoins(t.requester_coins) }}</span>
           </div>
         </div>
@@ -1003,6 +1132,7 @@ function statusLabel(status) {
         <div class="side-mini">
           <div class="mini-row">
             <span v-for="a in t.addressee_animal_details" :key="a.id" class="e" :style="{ '--tb': tierColor(a) }" :class="{ tiered: (a.tier && a.tier !== 'normal') }">{{ speciesInfo(a.species).emoji }}<sup v-if="tierBadge(a)" class="tb">{{ tierBadge(a) }}</sup></span>
+            <span v-for="e in (t.addressee_egg_details || [])" :key="'ade-' + e.id" class="e">{{ e.emoji }}</span>
             <span v-if="Number(t.addressee_coins) > 0" class="coins">🪙 {{ formatCoins(t.addressee_coins) }}</span>
           </div>
         </div>
