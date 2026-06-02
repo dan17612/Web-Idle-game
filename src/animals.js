@@ -47,7 +47,7 @@ export function speciesName(key, fallback = '') {
 
 export async function loadCatalog() {
   const [{ data: sp }, { data: tiers }] = await Promise.all([
-    supabase.from('species_costs').select('species, name, emoji, cost, rate, enabled, shop_visible').order('cost'),
+    supabase.from('species_costs').select('species, name, emoji, cost, rate, enabled, shop_visible, rarity').order('cost'),
     supabase.from('tier_defs').select('*')
   ])
   for (const k of Object.keys(SPECIES)) delete SPECIES[k]
@@ -59,7 +59,8 @@ export async function loadCatalog() {
       cost: Number(r.cost || 0),
       rate: Number(r.rate || 0),
       enabled: r.enabled !== false,
-      shop_visible: r.shop_visible !== false
+      shop_visible: r.shop_visible !== false,
+      rarity: r.rarity || 'common'
     }
   }
   for (const t of tiers || []) {
