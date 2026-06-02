@@ -44,7 +44,9 @@ export const useGameStore = defineStore('game', {
     eventSchedule: {},
     craftJob: null,
     autoReleaseMap: {},
-    _autoReleasing: false
+    _autoReleasing: false,
+    playerEggs: [],
+    incubation: { active: false, egg_type: null, started_at: null, ready_at: null, ready_now: false }
   }),
   getters: {
     favoriteAnimal(state) {
@@ -265,7 +267,50 @@ export const useGameStore = defineStore('game', {
         this.autoReleaseMap = clean
       } catch { this.autoReleaseMap = {} }
       this.autoReleaseSweep().catch(() => {})
+      this.loadPlayerEggs().catch(() => {})
+      this.loadIncubation().catch(() => {})
       this.lastLoadedAt = Date.now()
+    },
+    async loadPlayerEggs() {
+      const auth = useAuthStore()
+      if (!auth.user) return
+      const { data } = await supabase.from('player_eggs')
+        .select('id, egg_type, acquired_at')
+        .eq('owner_id', auth.user.id)
+        .order('acquired_at')
+      this.playerEggs = data || []
+    },
+    async loadIncubation() {
+      const auth = useAuthStore()
+      if (!auth.user) return
+      const { data, error } = await supabase.rpc('get_incubation_status')
+      if (error) return
+      this.incubation = data || { active: false }
+    },
+    async buyEgg(eggType, qty = 1) {
+      const { data, error } = await supabase.rpc('buy_egg', { p_egg_type: eggType, p_qty: qty })
+      if (error) throw error
+      this.coins = Number(data.coins)
+      await this.loadPlayerEggs()
+      return data
+    },
+    async startIncubation(eggId) {
+      const { data, error } = await supabase.rpc('start_incubation', { p_egg_id: eggId })
+      if (error) throw error
+      await Promise.all([this.loadPlayerEggs(), this.loadIncubation()])
+      return data
+    },
+    async claimHatched() {
+      const { data, error } = await supabase.rpc('claim_hatched')
+      if (error) throw error
+      const auth = useAuthStore()
+      if (auth.user) {
+        const { data: animals } = await supabase.from('animals')
+          .select('*').eq('owner_id', auth.user.id).order('acquired_at')
+        this.animals = animals || this.animals
+      }
+      await this.loadIncubation()
+      return data
     },
     async claimPendingGifts() {
       const auth = useAuthStore()
