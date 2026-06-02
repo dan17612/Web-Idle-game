@@ -232,7 +232,7 @@ const boostRemaining = computed(() =>
 );
 
 const speciesList = computed(() => {
-  void now.value;
+  const nowServer = serverNow();
   return Object.entries(SPECIES)
     .filter(([key, info]) => {
       const meta = speciesMeta.value[key] || {};
@@ -246,8 +246,8 @@ const speciesList = computed(() => {
       const remaining = Math.max(0, catalogQty - boughtQty);
       const meta = speciesMeta.value[key] || {};
       const disappearsAt = meta.disappears_at ? new Date(meta.disappears_at).getTime() : 0;
-      const disappeared = disappearsAt > 0 && disappearsAt <= now.value;
-      const disappearsInMs = disappearsAt > 0 ? Math.max(0, disappearsAt - now.value) : 0;
+      const disappeared = disappearsAt > 0 && disappearsAt <= nowServer;
+      const disappearsInMs = disappearsAt > 0 ? Math.max(0, disappearsAt - nowServer) : 0;
       const craftOnly = !!meta.craft_only;
       return {
         key,
