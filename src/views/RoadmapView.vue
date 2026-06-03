@@ -1,11 +1,13 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '../supabase'
+import { useAuthStore } from '../stores/auth'
 import { t } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 import { useAppToast } from '../composables/useAppToast'
 
 const toast = useAppToast()
+const auth = useAuthStore()
 const ideas = ref([])
 const loading = ref(false)
 const filter = ref('all')
@@ -13,6 +15,14 @@ const sortBy = ref('votes')
 const expanded = ref(new Set())
 const submitOpen = ref(false)
 const submitForm = reactive({ title: '', description: '', busy: false })
+const adminBusy = ref('')
+
+const isAdmin = computed(() => !!(auth.profile?.is_admin || auth.profile?.is_subadmin))
+const adminStatuses = ['idea', 'planned', 'in_progress', 'done', 'rejected']
+
+function isOwnIdea(idea) {
+  return !!auth.user && idea.created_by === auth.user.id
+}
 
 async function load() {
   loading.value = true
@@ -75,6 +85,39 @@ async function vote(idea) {
     idea.vote_count = data.count
     idea.my_vote = data.voted
   } catch (e) { toast.err(e) }
+}
+
+async function adminSetStatus(idea, status) {
+  if (status === idea.status) return
+  adminBusy.value = 'status-' + idea.id
+  try {
+    const { error } = await supabase.rpc('admin_set_idea_status', { p_idea_id: idea.id, p_status: status })
+    if (error) throw error
+    idea.status = status
+    toast.ok(t('roadmap.statusUpdated'))
+  } catch (e) { toast.err(e) } finally { adminBusy.value = '' }
+}
+
+async function adminDelete(idea) {
+  if (!confirm(t('roadmap.deleteConfirm'))) return
+  adminBusy.value = 'del-' + idea.id
+  try {
+    const { error } = await supabase.rpc('admin_delete_idea', { p_idea_id: idea.id })
+    if (error) throw error
+    ideas.value = ideas.value.filter(i => i.id !== idea.id)
+    toast.ok(t('roadmap.deleted'))
+  } catch (e) { toast.err(e) } finally { adminBusy.value = '' }
+}
+
+async function deleteOwn(idea) {
+  if (!confirm(t('roadmap.deleteConfirm'))) return
+  adminBusy.value = 'own-' + idea.id
+  try {
+    const { error } = await supabase.rpc('delete_own_idea', { p_idea_id: idea.id })
+    if (error) throw error
+    ideas.value = ideas.value.filter(i => i.id !== idea.id)
+    toast.ok(t('roadmap.deleted'))
+  } catch (e) { toast.err(e) } finally { adminBusy.value = '' }
 }
 
 async function submitIdea() {
@@ -159,6 +202,33 @@ async function submitIdea() {
               {{ statusEmoji(idea.status) }} {{ statusLabel(idea.status) }}
             </span>
             <span v-if="idea.author_username" class="author">— {{ idea.author_username }}</span>
+            <Button
+              v-if="!isAdmin && isOwnIdea(idea)"
+              class="own-delete"
+              :disabled="adminBusy === 'own-' + idea.id"
+              :title="t('roadmap.delete')"
+              @click.stop="deleteOwn(idea)"
+            >🗑️</Button>
+          </div>
+
+          <div v-if="isAdmin" class="admin-controls" @click.stop>
+            <span class="admin-label">🛠️ {{ t('roadmap.adminStatus') }}</span>
+            <div class="admin-status-row">
+              <Button
+                v-for="s in adminStatuses"
+                :key="s"
+                class="admin-status-btn"
+                :class="{ active: idea.status === s }"
+                :data-status="s"
+                :disabled="adminBusy === 'status-' + idea.id"
+                @click="adminSetStatus(idea, s)"
+              >{{ statusEmoji(s) }} {{ statusLabel(s) }}</Button>
+            </div>
+            <Button
+              class="btn danger small admin-delete"
+              :disabled="adminBusy === 'del-' + idea.id"
+              @click="adminDelete(idea)"
+            >🗑️ {{ t('roadmap.delete') }}</Button>
           </div>
         </div>
       </div>
@@ -270,6 +340,53 @@ async function submitIdea() {
   color: var(--danger);
 }
 .author { font-size: 11px; color: var(--muted); }
+.own-delete {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(239, 71, 111, 0.4);
+  color: var(--danger);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.own-delete:hover { border-color: var(--danger); background: rgba(239, 71, 111, 0.12); }
+.own-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.admin-controls {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.admin-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.admin-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+.admin-status-btn {
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.admin-status-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.admin-status-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.admin-delete {
+  margin-top: 2px;
+}
 
 .submit-fab {
   position: fixed;
