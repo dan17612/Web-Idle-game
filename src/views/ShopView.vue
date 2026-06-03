@@ -9,6 +9,7 @@ import { t } from "../i18n";
 import TutorialBubble from "../components/TutorialBubble.vue";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
+import { rarityInfo, loadEggCatalog, EGG_TYPES } from "../eggs";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -85,6 +86,9 @@ const stock = ref({});
 const forcedStock = ref({});
 const myPurchases = ref({});
 const speciesMeta = ref({});
+const eggStock = ref({});
+const eggMeta = ref({});
+const eggInfo = ref(null);
 const rotatesAt = ref(0);
 const serverOffset = ref(0);
 const now = ref(Date.now());
@@ -120,6 +124,8 @@ async function loadShop() {
   forcedStock.value = data?.forced_stock || {};
   myPurchases.value = data?.my_purchases || {};
   speciesMeta.value = data?.species_meta || {};
+  eggStock.value = data?.egg_stock || {};
+  eggMeta.value = data?.egg_meta || {};
   rotatesAt.value = data?.rotates_at ? new Date(data.rotates_at).getTime() : 0;
   if (data?.server_now)
     serverOffset.value = new Date(data.server_now).getTime() - Date.now();
@@ -172,6 +178,7 @@ useReturnRefresh(() => Promise.all([loadShop(), loadFoods(), loadChestStatus()])
 
 onMounted(async () => {
   if (game.tutorialStep === 3) game.setTutorialStep(4);
+  await loadEggCatalog();
   await Promise.all([loadShop(), loadAdminData(), loadFoods(), loadChestStatus()]);
   if (game.tutorialStep === 4) {
     nextTick(() => {
@@ -271,6 +278,34 @@ const speciesList = computed(() => {
 const stockTotal = computed(() =>
   speciesList.value.reduce((s, x) => s + x.remaining, 0),
 );
+
+const eggList = computed(() => {
+  return Object.entries(eggMeta.value).map(([eggType, meta]) => ({
+    eggType,
+    meta,
+    remaining: eggStock.value[eggType] || 0,
+    inStock: (eggStock.value[eggType] || 0) > 0,
+  })).filter(e => e.meta);
+});
+
+function eggDropPercent(drop, meta) {
+  const total = (meta?.drops || []).reduce((s, d) => s + (d.weight || 0), 0);
+  if (!total) return '0';
+  return String(Math.round((drop.weight / total) * 100));
+}
+
+async function buyEgg(eggType) {
+  busyKey.value = 'egg-' + eggType;
+  try {
+    await game.buyEgg(eggType);
+    await loadShop();
+    appToast.ok(t('eggs.buySuccess'));
+  } catch (e) {
+    appToast.err(e);
+  } finally {
+    busyKey.value = '';
+  }
+}
 
 async function buy(key) {
   // Check if user has 1000 or more animals
@@ -622,11 +657,40 @@ function goToTickets() {
 
     <div class="grid">
       <div
+        v-for="e in eggList"
+        :key="'egg-' + e.eggType"
+        class="animal-card egg-card"
+        :class="{ 'out-of-stock': !e.inStock }"
+      >
+        <div class="rarity-stripe egg-stripe">✨ EI ✨</div>
+        <Button class="egg-info-btn" @click="eggInfo = e" :title="t('eggs.shopCardDropChances')">ℹ️</Button>
+        <div class="animal-emoji">{{ e.meta.emoji }}</div>
+        <div class="animal-name">{{ e.meta.name }}</div>
+        <div class="animal-meta">
+          {{ t('eggs.shopCardSubtitle', { minutes: e.meta.incubation_minutes, count: e.meta.drops.length }) }}
+        </div>
+        <div class="animal-cost">🪙 {{ formatCoins(e.meta.price) }}</div>
+        <Button
+          v-if="e.inStock"
+          class="btn full"
+          style="margin-top: 8px"
+          :disabled="busyKey === 'egg-' + e.eggType || game.displayCoins < e.meta.price"
+          @click="buyEgg(e.eggType)"
+        >
+          {{ busyKey === 'egg-' + e.eggType ? t('common.loadingShort') : t('eggs.buy') }}
+        </Button>
+        <div v-else class="stock-badge">{{ t('shop.soldOut') }}</div>
+      </div>
+
+      <div
         v-for="s in speciesList"
         :key="s.key"
         class="animal-card"
         :class="{ 'out-of-stock': !s.inStock, 'is-forced': s.isForced, 'craft-only': s.craftOnly, 'disappeared': s.disappeared }"
       >
+        <div class="rarity-stripe" :style="{ background: rarityInfo(speciesMeta[s.key]?.rarity || s.info.rarity || 'common').color }">
+          {{ rarityInfo(speciesMeta[s.key]?.rarity || s.info.rarity || 'common').emoji }} {{ t('rarity.' + (speciesMeta[s.key]?.rarity || s.info.rarity || 'common')).toUpperCase() }}
+        </div>
         <div v-if="s.craftOnly" class="ribbon craft">🔧 {{ t("shop.craftOnly") }}</div>
         <div v-else-if="s.isForced" class="ribbon">⭐ {{ t("shop.restock") }}</div>
         <div v-if="s.remaining > 1" class="qty-badge">×{{ s.remaining }}</div>
@@ -740,6 +804,28 @@ function goToTickets() {
     <p v-if="promoMessage" class="success promo-msg">{{ promoMessage }}</p>
   </div>
 
+  <div v-if="eggInfo" class="chest-modal" @click.self="eggInfo = null">
+    <div class="egg-info-dialog">
+      <div class="row between" style="align-items:center;margin-bottom:12px">
+        <h3 style="margin:0;font-size:18px">{{ eggInfo.meta.emoji }} {{ eggInfo.meta.name }}</h3>
+        <Button class="btn secondary small" @click="eggInfo = null">×</Button>
+      </div>
+      <div class="subtitle" style="margin:0 0 10px;font-size:13px">{{ t('eggs.shopCardDropChances') }}</div>
+      <div class="egg-info-drops">
+        <div
+          v-for="d in eggInfo.meta.drops"
+          :key="d.species"
+          class="egg-info-row"
+          :style="{ color: rarityInfo(d.rarity).color, borderColor: rarityInfo(d.rarity).color }"
+        >
+          <span class="egg-info-rarity">{{ rarityInfo(d.rarity).emoji }}</span>
+          <span class="egg-info-pct">{{ eggDropPercent(d, eggInfo.meta) }}%</span>
+          <span class="egg-info-animal">{{ d.emoji }} {{ d.name }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Animal Limit Warning Modal -->
   <div v-if="animalLimitWarning" class="chest-modal" @click.self="closeAnimalLimitWarning">
     <div class="warning-dialog">
@@ -758,6 +844,81 @@ function goToTickets() {
   opacity: 0.45;
   filter: grayscale(0.6);
 }
+.rarity-stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  text-align: center;
+  letter-spacing: 1px;
+  border-radius: 10px 10px 0 0;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+.egg-card {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, #3a1d5c, #2d3a5c);
+  position: relative;
+  padding-top: 22px;
+}
+.egg-stripe {
+  background: linear-gradient(135deg, #ffd166, #a855f7);
+  color: #fff;
+}
+.animal-card {
+  position: relative;
+  padding-top: 22px;
+}
+.egg-info-btn {
+  position: absolute;
+  top: 24px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+.egg-info-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: var(--accent);
+}
+.egg-info-dialog {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 20px;
+  width: min(360px, 92vw);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+}
+.egg-info-drops {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.egg-info-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+}
+.egg-info-rarity { font-size: 18px; }
+.egg-info-pct { font-size: 16px; min-width: 48px; font-variant-numeric: tabular-nums; }
+.egg-info-animal { font-size: 16px; flex: 1; }
 .is-forced {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;

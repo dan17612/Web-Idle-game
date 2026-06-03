@@ -6,6 +6,7 @@ import { speciesInfo, formatCoins, tierInfo, isUpgrading, animalRate, compareAni
 import { t } from "../i18n";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
+import { EGG_TYPES, loadEggCatalog, rarityInfo } from "../eggs";
 
 const game = useGameStore();
 const appToast = useAppToast();
@@ -21,6 +22,7 @@ async function loadSlot() {
 
 onMounted(async () => {
   if (!game.animals.length) await game.load();
+  await loadEggCatalog();
   await loadSlot();
 });
 
@@ -212,6 +214,17 @@ const filters = computed(() => [
 <template>
   <h1 class="title">📦 {{ t("inventory.title") }}</h1>
 
+  <div v-if="game.playerEggs.length" class="card eggs-section">
+    <h3 class="eggs-section-title">{{ t('eggs.inventoryTitle') }}</h3>
+    <div class="egg-list">
+      <div v-for="e in game.playerEggs" :key="e.id" class="egg-item">
+        <span class="egg-emoji">{{ EGG_TYPES[e.egg_type]?.emoji || '🥚' }}</span>
+        <span class="egg-name">{{ EGG_TYPES[e.egg_type]?.name || e.egg_type }}</span>
+      </div>
+    </div>
+    <p class="subtitle eggs-hint">{{ t('eggs.cannotEquip') }}</p>
+  </div>
+
   <div class="card slot-bar">
     <div class="slot-info">
       <span class="slot-label">{{ t("inventory.equipSlots") }}</span>
@@ -274,6 +287,9 @@ const filters = computed(() => [
         }"
         :style="{ '--tier-color': g.td.color }"
       >
+        <div class="rarity-stripe" :style="{ background: rarityInfo(g.info.rarity || 'common').color }">
+          {{ rarityInfo(g.info.rarity || 'common').emoji }}
+        </div>
         <div class="inv-top">
           <span class="stack-badge">×{{ g.total }}</span>
           <Button
@@ -453,6 +469,31 @@ const filters = computed(() => [
 }
 
 /* Card */
+.eggs-section { margin-bottom: 10px; }
+.eggs-section-title { margin: 0 0 8px; font-size: 16px; }
+.egg-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.egg-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px;
+  background: var(--card-2);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.egg-emoji { font-size: 22px; }
+.egg-name { font-weight: 600; }
+.eggs-hint { margin: 8px 0 0; font-size: 11px; }
+.rarity-stripe {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  text-align: center;
+  letter-spacing: 1px;
+  border-radius: 10px 10px 0 0;
+  z-index: 1;
+}
 .inv-card {
   --tier-color: transparent;
   position: relative;

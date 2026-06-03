@@ -14,6 +14,7 @@ import {
 import { locale, t as tGlobal } from "../i18n";
 
 import TutorialBubble from "../components/TutorialBubble.vue";
+import EggMachine from "../components/EggMachine.vue";
 import { supabase } from "../supabase";
 import { useAppToast } from "../composables/useAppToast";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
@@ -1681,6 +1682,8 @@ async function doSplit(animalId) {
 
       </div>
     </div>
+
+    <EggMachine />
 
     <router-link to="/boss-fight" class="card boss-path-link">
       <div class="bpl-icon">👑</div>

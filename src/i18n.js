@@ -357,6 +357,32 @@ const messages = {
       animalLimitWarningTitle: 'Tier-Limit erreicht!',
       animalLimitWarningMessage: 'Du hast 1000 Tiere erreicht. Bitte gehe zur Ticket-Ansicht und lasse einige Tiere frei, um Platz für neue zu schaffen.',
       animalLimitWarningButton: 'Zur Ticket-Ansicht'
+    },
+    eggs: {
+      machineTitle: '🥚 Eier-Maschine',
+      empty: 'Wähle ein Ei zum Ausbrüten',
+      noEggs: 'Du hast keine Eier im Inventar.',
+      pickEgg: 'Ei wählen',
+      startIncubation: 'Ausbrüten starten',
+      brewing: '{name} brütet…',
+      readyIn: 'Fertig in: {time}',
+      ready: '✨ Ei geschlüpft!',
+      claim: '🎁 Abholen',
+      hatched: '{emoji} {name} ist geschlüpft!',
+      inventoryTitle: '🥚 Eier',
+      slotBusy: 'Bereits ein Ei in der Maschine.',
+      cannotEquip: 'Eier können nicht ausgerüstet werden — nur ausgebrütet.',
+      shopCardSubtitle: 'Schlüpft in {minutes} Min · {count} Tiere',
+      shopCardDropChances: 'Drop-Chancen:',
+      buy: 'Kaufen',
+      buySuccess: 'Ei gekauft!'
+    },
+    rarity: {
+      common: 'Common',
+      uncommon: 'Uncommon',
+      rare: 'Rare',
+      epic: 'Epic',
+      legendary: 'Legendary'
     }
   },
   en: {
@@ -705,6 +731,32 @@ const messages = {
       animalLimitWarningTitle: 'Animal limit reached!',
       animalLimitWarningMessage: 'You have reached 1000 animals. Please go to the Tickets view and release some animals to make room for new ones.',
       animalLimitWarningButton: 'Go to Tickets'
+    },
+    eggs: {
+      machineTitle: '🥚 Egg Machine',
+      empty: 'Pick an egg to incubate',
+      noEggs: 'You have no eggs in your inventory.',
+      pickEgg: 'Pick egg',
+      startIncubation: 'Start incubation',
+      brewing: '{name} is incubating…',
+      readyIn: 'Ready in: {time}',
+      ready: '✨ Egg hatched!',
+      claim: '🎁 Claim',
+      hatched: '{emoji} {name} has hatched!',
+      inventoryTitle: '🥚 Eggs',
+      slotBusy: 'Already incubating an egg.',
+      cannotEquip: 'Eggs cannot be equipped — only incubated.',
+      shopCardSubtitle: 'Hatches in {minutes} min · {count} animals',
+      shopCardDropChances: 'Drop chances:',
+      buy: 'Buy',
+      buySuccess: 'Egg purchased!'
+    },
+    rarity: {
+      common: 'Common',
+      uncommon: 'Uncommon',
+      rare: 'Rare',
+      epic: 'Epic',
+      legendary: 'Legendary'
     }
   },
   ru: {
@@ -1053,6 +1105,32 @@ const messages = {
       animalLimitWarningTitle: 'Достигнут лимит животных!',
       animalLimitWarningMessage: 'У вас 1000 животных. Пожалуйста, перейдите в раздел Тикеты и освободите некоторых животных, чтобы освободить место для новых.',
       animalLimitWarningButton: 'Перейти к тикетам'
+    },
+    eggs: {
+      machineTitle: '🥚 Машина для яиц',
+      empty: 'Выберите яйцо для инкубации',
+      noEggs: 'У вас нет яиц в инвентаре.',
+      pickEgg: 'Выбрать яйцо',
+      startIncubation: 'Начать инкубацию',
+      brewing: '{name} инкубируется…',
+      readyIn: 'Готово через: {time}',
+      ready: '✨ Яйцо вылупилось!',
+      claim: '🎁 Забрать',
+      hatched: '{emoji} {name} вылупился!',
+      inventoryTitle: '🥚 Яйца',
+      slotBusy: 'Уже инкубируется одно яйцо.',
+      cannotEquip: 'Яйца нельзя экипировать — только инкубировать.',
+      shopCardSubtitle: 'Вылупится через {minutes} мин · {count} животных',
+      shopCardDropChances: 'Шансы выпадения:',
+      buy: 'Купить',
+      buySuccess: 'Яйцо куплено!'
+    },
+    rarity: {
+      common: 'Обычная',
+      uncommon: 'Необычная',
+      rare: 'Редкая',
+      epic: 'Эпическая',
+      legendary: 'Легендарная'
     }
   }
 }
