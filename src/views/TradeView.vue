@@ -10,6 +10,7 @@ import { locale, currentLocaleTag } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 import { hasWantedAnimals, pickWantedAnimals, wantedAnimalItems } from '../tradePublicWanted'
 import { EGG_TYPES, loadEggCatalog } from '../eggs'
+import FriendsPanel from '../components/FriendsPanel.vue'
 
 const route = useRoute()
 
@@ -776,6 +777,7 @@ function statusLabel(status) {
       🌐 {{ tx('tabs.public') }}<span v-if="visiblePublicTrades.length" class="pill" style="background:var(--accent-2);color:#001a15">{{ visiblePublicTrades.length }}</span>
     </Button>
     <Button :class="{ active: tab==='hist' }" @click="tab='hist'">🗂️</Button>
+    <Button :class="{ active: tab==='friends' }" @click="tab='friends'">🤝</Button>
   </div>
 
   <p v-if="error" class="error">{{ error }}</p>
@@ -1138,6 +1140,10 @@ function statusLabel(status) {
         </div>
       </div>
     </div>
+  </template>
+
+  <template v-if="tab === 'friends'">
+    <FriendsPanel :hide-title="true" />
   </template>
 
   <div v-if="confirmPublic" class="confirm-overlay" @click.self="closePublicConfirm">
