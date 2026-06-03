@@ -59,6 +59,6 @@ test('pickFnError prefers the parsed response body over the generic error', () =
 test('pickFnError falls back to data.error then error.message then default', () => {
   assert.equal(pickFnError({ data: { error: 'wrong password' }, error: null, body: null }), 'wrong password')
   assert.equal(pickFnError({ data: null, error: { message: 'NetworkError' }, body: null }), 'NetworkError')
-  assert.equal(pickFnError({ data: null, error: null, body: null }), 'Fehler')
-  assert.equal(pickFnError({ data: null, error: {}, body: {} }), 'Fehler')
+  assert.equal(pickFnError({ data: null, error: null, body: null }), '')
+  assert.equal(pickFnError({ data: null, error: {}, body: {} }), '')
 })
