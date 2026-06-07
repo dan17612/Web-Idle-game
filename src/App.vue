@@ -5,6 +5,7 @@ import { useAuthStore } from "./stores/auth";
 import { useGameStore } from "./stores/game";
 import { useRoute } from "vue-router";
 import { SpeedInsights } from "@vercel/speed-insights/vue";
+import { Analytics } from "@vercel/analytics/vue";
 import { supabase } from "./supabase";
 import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
@@ -372,6 +373,7 @@ async function hardReload() {
     <AdminModal v-if="adminOpen" @close="adminOpen = false" />
     <SupportModal v-if="supportOpen" @close="supportOpen = false" />
     <SpeedInsights />
+    <Analytics />
   </div>
 </template>
 
