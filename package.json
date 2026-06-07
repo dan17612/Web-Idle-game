@@ -17,6 +17,7 @@
     "@capacitor/core": "^8.3.1",
     "@primeuix/themes": "^2.0.3",
     "@supabase/supabase-js": "^2.45.4",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "pinia": "^2.2.2",
     "primeicons": "^7.0.0",
