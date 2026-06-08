@@ -137,7 +137,7 @@ const eventStatus = computed(() => {
   void now.value
   if (mode.value === 'memory') {
     if (!game.memoryShowCountdown) return null
-    const ms = Math.max(0, game.memoryEndsAt - Date.now())
+    const ms = Math.max(0, game.memoryEndsAt - (Date.now() + game.serverOffset))
     return { ended: !game.memoryActive, remainingMs: ms }
   }
   return null

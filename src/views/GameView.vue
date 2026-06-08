@@ -588,7 +588,7 @@ function fmtCountdown(ms) {
 
 const memoryRemaining = computed(() => {
   void now.value;
-  return Math.max(0, game.memoryEndsAt - Date.now());
+  return Math.max(0, game.memoryEndsAt - (Date.now() + game.serverOffset));
 });
 const memoryEnded = computed(() => game.memoryShowCountdown && (memoryRemaining.value <= 0 || !game.memoryActive));
 
