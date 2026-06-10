@@ -166,10 +166,10 @@ function closeHatchResult() {
   color: inherit;
   cursor: pointer;
   background:
-    radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.20), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(255, 209, 102, 0.16), transparent 60%),
-    linear-gradient(135deg, #2a1f4d, #0d1130);
-  border: 1px solid rgba(168, 85, 247, 0.35);
+    radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.14), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(244, 169, 18, 0.14), transparent 60%),
+    var(--card);
+  border: 2px solid rgba(168, 85, 247, 0.4);
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 .egg-link:hover {
@@ -188,19 +188,19 @@ function closeHatchResult() {
 }
 .egg-link.is-brewing {
   cursor: default;
-  border-color: rgba(72, 202, 228, 0.5);
+  border-color: rgba(25, 146, 200, 0.5);
 }
 .egg-link.is-brewing:hover {
   transform: none;
 }
 .egg-link.is-ready {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 28px rgba(255, 209, 102, 0.28);
+  box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 28px rgba(244, 169, 18, 0.28);
   animation: readyGlow 1.4s ease-in-out infinite;
 }
 @keyframes readyGlow {
-  0%, 100% { box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 28px rgba(255, 209, 102, 0.22); }
-  50% { box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 36px rgba(255, 209, 102, 0.45); }
+  0%, 100% { box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 28px rgba(244, 169, 18, 0.22); }
+  50% { box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 36px rgba(244, 169, 18, 0.45); }
 }
 .egl-icon {
   font-size: 36px;
@@ -226,14 +226,14 @@ function closeHatchResult() {
   80% { transform: translate(2px, -1px) rotate(4deg); }
 }
 @keyframes eggSparkle {
-  0%, 100% { transform: scale(1) rotate(0); filter: drop-shadow(0 0 8px rgba(255, 209, 102, 0.6)); }
-  50% { transform: scale(1.15) rotate(8deg); filter: drop-shadow(0 0 18px rgba(255, 209, 102, 1)); }
+  0%, 100% { transform: scale(1) rotate(0); filter: drop-shadow(0 0 8px rgba(244, 169, 18, 0.6)); }
+  50% { transform: scale(1.15) rotate(8deg); filter: drop-shadow(0 0 18px rgba(244, 169, 18, 1)); }
 }
 .egl-body { flex: 1; min-width: 0; }
 .egl-title {
   font-weight: 800;
   font-size: 16px;
-  background: linear-gradient(90deg, #ffd166, #ff6bd6, #a855f7);
+  background: linear-gradient(90deg, #d98c00, #e8447a, #8b5cf6);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -247,21 +247,21 @@ function closeHatchResult() {
 .egl-progress {
   margin-top: 8px;
   height: 8px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--surface-deep);
   border-radius: 999px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
 }
 .egl-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #a855f7, #ffd166);
+  background: linear-gradient(90deg, #a855f7, var(--accent));
   transition: width 1s linear;
 }
 .egl-countdown {
   margin-top: 4px;
   font-size: 12px;
   font-weight: 800;
-  color: var(--accent);
+  color: var(--accent-deep);
   font-variant-numeric: tabular-nums;
 }
 .egl-status-pill {
@@ -273,13 +273,13 @@ function closeHatchResult() {
   border-radius: 999px;
   font-size: 10px;
   font-weight: 800;
-  background: rgba(255, 209, 102, 0.18);
-  border: 1px solid rgba(255, 209, 102, 0.55);
-  color: var(--accent);
+  background: rgba(244, 169, 18, 0.14);
+  border: 1px solid rgba(244, 169, 18, 0.55);
+  color: var(--accent-deep);
 }
 .egl-arrow {
   font-size: 30px;
-  color: var(--accent);
+  color: var(--accent-deep);
   font-weight: 800;
   line-height: 1;
   flex-shrink: 0;
@@ -348,7 +348,7 @@ function closeHatchResult() {
 .hatch-emoji {
   font-size: 88px;
   margin-bottom: 12px;
-  filter: drop-shadow(0 0 18px rgba(255, 209, 102, 0.7));
+  filter: drop-shadow(0 0 18px rgba(244, 169, 18, 0.7));
 }
 .hatch-rarity { font-weight: 800; font-size: 14px; margin-bottom: 6px; letter-spacing: 1.5px; }
 .hatch-name { font-size: 22px; font-weight: 800; margin-bottom: 18px; }

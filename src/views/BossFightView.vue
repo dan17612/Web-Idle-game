@@ -76,7 +76,7 @@ function backHome() {
   margin: 0;
   font-size: 22px;
   font-weight: 900;
-  background: linear-gradient(90deg, #ffd166, #ff476f, #a855f7);
+  background: linear-gradient(90deg, var(--accent), #ff476f, #a855f7);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

@@ -639,7 +639,7 @@ onUnmounted(() => {
 .mo-scores .active { color:var(--accent); }
 .mo-scores .left { opacity:0.5; text-decoration:line-through; }
 .memory-board { display:grid; gap:8px; padding:10px; border-radius:18px;
-  background:linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.15)),#0d1528;
+  background:linear-gradient(135deg,rgba(255,255,255,0.05),rgba(0,0,0,0.15)),var(--surface-deep);
   border:1px solid var(--border); box-shadow:inset 0 0 28px rgba(0,0,0,0.35);
   transition:border-color 0.25s ease, box-shadow 0.25s ease; }
 .memory-board.my-turn { border-color:#ffd400;
@@ -664,12 +664,12 @@ onUnmounted(() => {
 .card-face { position:absolute; inset:0; display:flex; align-items:center;
   justify-content:center; border-radius:12px; backface-visibility:hidden;
   font-size:clamp(20px,7vw,38px); }
-.card-back { background:linear-gradient(145deg,#48cae4,#115b73);
+.card-back { background:linear-gradient(145deg,#1992c8,#115b73);
   border:1px solid rgba(255,255,255,0.2); }
-.card-front { background:linear-gradient(145deg,#ffd166,#9b5b12);
+.card-front { background:linear-gradient(145deg,var(--accent),#9b5b12);
   border:1px solid rgba(255,255,255,0.28); transform:rotateY(180deg); }
-.memory-card.matched .card-front { background:linear-gradient(145deg,#06d6a0,#0b6b55);
-  box-shadow:0 0 0 2px rgba(6,214,160,0.45) inset; }
+.memory-card.matched .card-front { background:linear-gradient(145deg,var(--accent-2),#0b6b55);
+  box-shadow:0 0 0 2px rgba(46, 194, 114,0.45) inset; }
 .mo-finish-title { margin:0; font-size:20px; font-weight:900; text-align:center; }
 .mo-finish-winner { margin:4px 0 8px; text-align:center; font-weight:800;
   color:var(--accent); }

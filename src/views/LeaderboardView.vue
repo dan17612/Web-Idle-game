@@ -273,8 +273,8 @@ const subtitle = computed(() => {
   font-weight: 600;
 }
 .lb-tab.active {
-  background: rgba(255, 209, 102, 0.12);
-  border-color: var(--gold, #ffd166);
+  background: rgba(244, 169, 18, 0.12);
+  border-color: var(--gold, var(--accent));
   color: var(--text);
 }
 .lb-event-banner {
@@ -285,10 +285,10 @@ const subtitle = computed(() => {
   margin-bottom: 12px;
   border-radius: 12px;
   background:
-    radial-gradient(circle at 0% 0%, rgba(72, 202, 228, 0.18), transparent 60%),
-    linear-gradient(135deg, #142244, #0d1730);
-  border: 1px solid rgba(72, 202, 228, 0.45);
-  color: #48cae4;
+    radial-gradient(circle at 0% 0%, rgba(25, 146, 200, 0.18), transparent 60%),
+    linear-gradient(135deg, var(--card-2), var(--surface-deep));
+  border: 1px solid rgba(25, 146, 200, 0.45);
+  color: #1992c8;
   font-weight: 800;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -311,18 +311,18 @@ const subtitle = computed(() => {
   cursor: pointer;
 }
 .lb-row:last-child { border-bottom: none; }
-.lb-row:hover { background: rgba(255,255,255,0.03); }
+.lb-row:hover { background: rgba(140, 105, 35, 0.03); }
 .lb-row.me {
-  background: rgba(255, 209, 102, 0.08);
-  border-left: 3px solid var(--gold, #ffd166);
+  background: rgba(244, 169, 18, 0.08);
+  border-left: 3px solid var(--gold, var(--accent));
 }
-.lb-row.me:hover { background: rgba(255, 209, 102, 0.14); }
+.lb-row.me:hover { background: rgba(244, 169, 18, 0.14); }
 .lb-rank {
   width: 28px; text-align: center; font-weight: 700;
 }
 .lb-avatar {
   width: 36px; height: 36px; border-radius: 50%;
-  background: #162048; border: 1px solid var(--border);
+  background: var(--card-2); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   font-size: 20px; flex-shrink: 0;
 }
@@ -332,7 +332,7 @@ const subtitle = computed(() => {
   padding: 1px 6px;
   font-size: 10px;
   border-radius: 8px;
-  background: var(--gold, #ffd166);
+  background: var(--gold, var(--accent));
   color: #1a1a1a;
   font-weight: 700;
   text-transform: uppercase;

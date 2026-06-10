@@ -215,14 +215,14 @@ const TERRAIN_BG = {
   forest:        "linear-gradient(180deg, #2d6a3e 0%, #1c4d2a 100%)",
   farm:          "linear-gradient(180deg, #c8a94a 0%, #8a6d2c 100%)",
   plains:        "linear-gradient(180deg, #b6cf69 0%, #71924a 100%)",
-  mountain_low:  "linear-gradient(180deg, #6b7c98 0%, #3d4a66 100%)",
+  mountain_low:  "linear-gradient(180deg, var(--muted) 0%, var(--bg-2) 100%)",
   desert:        "linear-gradient(180deg, #f0c870 0%, #b3833f 100%)",
   bamboo:        "linear-gradient(180deg, #4f8a4d 0%, #2c5e2a 100%)",
   jungle:        "linear-gradient(180deg, #3a7250 0%, #18452f 100%)",
   savanna:       "linear-gradient(180deg, #d8a55c 0%, #966b30 100%)",
   volcano:       "linear-gradient(180deg, #7a2820 0%, #3a0d0a 100%)",
-  peak:          "linear-gradient(180deg, #7d8eaa 0%, #2f3c5d 100%)",
-  abyss:         "linear-gradient(180deg, #1a3a6a 0%, #051528 100%)",
+  peak:          "linear-gradient(180deg, var(--muted) 0%, var(--bg-2) 100%)",
+  abyss:         "linear-gradient(180deg, var(--card-2) 0%, var(--surface-deep) 100%)",
   dragon_lair:   "linear-gradient(180deg, #4a0e2a 0%, #1a0210 100%)"
 };
 
@@ -717,7 +717,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   font-size: 22px;
   font-weight: 800;
   margin: 0;
-  background: linear-gradient(90deg, #ffd166, #ff476f, #a855f7);
+  background: linear-gradient(90deg, var(--accent), #ff476f, #a855f7);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -744,9 +744,9 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   margin-bottom: 12px;
   border-radius: 14px;
   background:
-    radial-gradient(circle at 0% 0%, rgba(72, 202, 228, 0.18), transparent 60%),
-    linear-gradient(135deg, #142244, #0d1730);
-  border: 1px solid rgba(72, 202, 228, 0.45);
+    radial-gradient(circle at 0% 0%, rgba(25, 146, 200, 0.18), transparent 60%),
+    linear-gradient(135deg, var(--card-2), var(--surface-deep));
+  border: 1px solid rgba(25, 146, 200, 0.45);
 }
 .bp-event-banner.ended {
   background:
@@ -759,7 +759,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 .bp-event-title {
   font-weight: 900;
   font-size: 14px;
-  color: #48cae4;
+  color: #1992c8;
   font-variant-numeric: tabular-nums;
 }
 .bp-event-banner.ended .bp-event-title { color: #ef476f; }
@@ -812,7 +812,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 .bp-progress-bar span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #06d6a0, #ffd166, #ff476f);
+  background: linear-gradient(90deg, var(--accent-2), var(--accent), #ff476f);
   background-size: 200% 100%;
   transition: width 0.3s ease;
   animation: progressShimmer 3s linear infinite;
@@ -823,9 +823,9 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 }
 
 .bp-boost-live {
-  background: rgba(6, 214, 160, 0.16);
+  background: rgba(46, 194, 114, 0.16);
   color: var(--accent-2);
-  border: 1px solid rgba(6, 214, 160, 0.35);
+  border: 1px solid rgba(46, 194, 114, 0.35);
   border-radius: 12px;
   padding: 10px;
   text-align: center;
@@ -859,15 +859,15 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   padding: 10px;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: linear-gradient(135deg, #1d294f, #131b3a);
+  background: linear-gradient(135deg, var(--card-2), var(--card-2));
 }
 .bp-reward.chest {
-  background: linear-gradient(135deg, rgba(255, 209, 102, 0.18), rgba(255, 71, 126, 0.12));
-  border-color: rgba(255, 209, 102, 0.4);
+  background: linear-gradient(135deg, rgba(244, 169, 18, 0.18), rgba(255, 71, 126, 0.12));
+  border-color: rgba(244, 169, 18, 0.4);
 }
 .bp-reward.boost {
-  background: linear-gradient(135deg, rgba(6, 214, 160, 0.15), rgba(99, 242, 255, 0.1));
-  border-color: rgba(6, 214, 160, 0.4);
+  background: linear-gradient(135deg, rgba(46, 194, 114, 0.15), rgba(99, 242, 255, 0.1));
+  border-color: rgba(46, 194, 114, 0.4);
 }
 .bp-reward-icon {
   font-size: 28px;
@@ -896,8 +896,8 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   text-align: center;
   padding: 14px;
   border-radius: 14px;
-  background: linear-gradient(90deg, rgba(255, 209, 102, 0.2), rgba(168, 85, 247, 0.2));
-  border: 1px solid rgba(255, 209, 102, 0.5);
+  background: linear-gradient(90deg, rgba(244, 169, 18, 0.2), rgba(168, 85, 247, 0.2));
+  border: 1px solid rgba(244, 169, 18, 0.5);
   font-weight: 800;
   font-size: 16px;
 }
@@ -967,12 +967,12 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 }
 .stage-current .bp-stage-card {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.25), 0 14px 30px rgba(0,0,0,0.55);
+  box-shadow: 0 0 0 3px rgba(244, 169, 18, 0.25), 0 14px 30px rgba(0,0,0,0.55);
   animation: cardPulse 2.4s ease-in-out infinite;
 }
 @keyframes cardPulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 209, 102, 0.18), 0 14px 30px rgba(0,0,0,0.55); }
-  50% { box-shadow: 0 0 0 8px rgba(255, 209, 102, 0.05), 0 14px 30px rgba(0,0,0,0.55); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(244, 169, 18, 0.18), 0 14px 30px rgba(0,0,0,0.55); }
+  50% { box-shadow: 0 0 0 8px rgba(244, 169, 18, 0.05), 0 14px 30px rgba(0,0,0,0.55); }
 }
 .bp-stage-num {
   font-size: 11px;
@@ -997,12 +997,12 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 }
 .bp-boss-circle.st-current {
   border-color: var(--accent);
-  box-shadow: 0 0 24px rgba(255, 209, 102, 0.5);
+  box-shadow: 0 0 24px rgba(244, 169, 18, 0.5);
   animation: bossFloat 2.8s ease-in-out infinite;
 }
 .bp-boss-circle.st-cleared {
   border-color: var(--accent-2);
-  background: radial-gradient(circle at 40% 30%, rgba(6, 214, 160, 0.4), rgba(0,0,0,0.3));
+  background: radial-gradient(circle at 40% 30%, rgba(46, 194, 114, 0.4), rgba(0,0,0,0.3));
 }
 @keyframes bossFloat {
   0%, 100% { transform: translateY(0); }
@@ -1022,11 +1022,11 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   place-items: center;
   font-size: 14px;
   font-weight: 900;
-  border: 2px solid #0a0e1e;
+  border: 2px solid var(--surface-deep);
 }
-.bp-status-badge.cleared { background: var(--accent-2); color: #0a0e1e; }
+.bp-status-badge.cleared { background: var(--accent-2); color: var(--surface-deep); }
 .bp-status-badge.locked { background: rgba(0,0,0,0.6); color: var(--muted); }
-.bp-status-badge.current { background: var(--accent); color: #0a0e1e; }
+.bp-status-badge.current { background: var(--accent); color: var(--surface-deep); }
 
 .bp-stage-name {
   font-size: 16px;
@@ -1113,8 +1113,8 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 }
 
 .bp-victory {
-  background: linear-gradient(135deg, #1a1f3d, #0a0e1e);
-  border: 1px solid rgba(255, 209, 102, 0.5);
+  background: linear-gradient(135deg, var(--card-2), var(--surface-deep));
+  border: 1px solid rgba(244, 169, 18, 0.5);
   border-radius: 16px;
   padding: 26px;
   text-align: center;
@@ -1129,7 +1129,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 }
 .bp-victory-burst {
   font-size: 64px;
-  filter: drop-shadow(0 6px 14px rgba(255, 209, 102, 0.6));
+  filter: drop-shadow(0 6px 14px rgba(244, 169, 18, 0.6));
   animation: victorySpin 1.2s ease-out;
 }
 @keyframes victorySpin {
@@ -1139,7 +1139,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 .bp-victory-title {
   font-size: 22px;
   font-weight: 900;
-  background: linear-gradient(90deg, #ffd166, #ff476f);
+  background: linear-gradient(90deg, var(--accent), #ff476f);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -1156,21 +1156,21 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   font-size: 13px;
 }
 .bp-victory-row.chest {
-  background: rgba(255, 209, 102, 0.18);
-  border: 1px solid rgba(255, 209, 102, 0.4);
+  background: rgba(244, 169, 18, 0.18);
+  border: 1px solid rgba(244, 169, 18, 0.4);
   color: var(--accent);
 }
 .bp-victory-row.boost {
-  background: rgba(6, 214, 160, 0.15);
-  border: 1px solid rgba(6, 214, 160, 0.4);
+  background: rgba(46, 194, 114, 0.15);
+  border: 1px solid rgba(46, 194, 114, 0.4);
   color: var(--accent-2);
 }
 .bp-pet-reward {
   border-radius: 14px;
   border: 1px solid rgba(168, 85, 247, 0.45);
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 209, 102, 0.2), transparent 48%),
-    linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(255, 209, 102, 0.12));
+    radial-gradient(circle at 50% 18%, rgba(244, 169, 18, 0.2), transparent 48%),
+    linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(244, 169, 18, 0.12));
   padding: 12px;
   overflow: hidden;
 }
@@ -1186,13 +1186,13 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   width: 160px;
   height: 160px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 209, 102, 0.56), transparent 68%);
+  background: radial-gradient(circle, rgba(244, 169, 18, 0.56), transparent 68%);
   animation: glow-pulse 1s ease-in-out infinite;
 }
 .bp-pet-gift {
   position: absolute;
   font-size: 82px;
-  filter: drop-shadow(0 0 28px rgba(255, 209, 102, 0.58));
+  filter: drop-shadow(0 0 28px rgba(244, 169, 18, 0.58));
   animation:
     chest-shake 0.55s ease-in-out 0s 2,
     chest-pop 0.45s ease-out 1.1s forwards;
@@ -1212,7 +1212,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 .bp-pet-emoji {
   font-size: 74px;
   line-height: 1;
-  filter: drop-shadow(0 0 18px rgba(255, 209, 102, 0.8));
+  filter: drop-shadow(0 0 18px rgba(244, 169, 18, 0.8));
 }
 .bp-pet-name {
   color: #fff;
@@ -1261,7 +1261,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 }
 .chest-box {
   font-size: 110px;
-  filter: drop-shadow(0 0 30px rgba(255, 209, 102, 0.5));
+  filter: drop-shadow(0 0 30px rgba(244, 169, 18, 0.5));
   transition: transform 0.4s, opacity 0.4s;
 }
 .chest-box.shake {
@@ -1277,7 +1277,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 .chest-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle, rgba(255, 209, 102, 0.6), transparent 70%);
+  background: radial-gradient(circle, rgba(244, 169, 18, 0.6), transparent 70%);
   animation: glow-pulse 1s ease-in-out infinite;
   pointer-events: none;
 }
@@ -1296,7 +1296,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
   opacity: 0;
   transform: translateY(40px) scale(0.4);
   animation: reveal-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  filter: drop-shadow(0 0 14px rgba(255, 209, 102, 0.7));
+  filter: drop-shadow(0 0 14px rgba(244, 169, 18, 0.7));
 }
 .reveal-name {
   font-size: 12px;
@@ -1314,7 +1314,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 }
 @keyframes chest-pop {
   0% { transform: scale(1); }
-  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(255, 209, 102, 1)); }
+  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(244, 169, 18, 1)); }
   100% { transform: scale(0.1); opacity: 0; }
 }
 @keyframes glow-pulse {

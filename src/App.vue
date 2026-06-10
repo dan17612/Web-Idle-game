@@ -231,7 +231,7 @@ async function hardReload() {
     <header v-if="showNav" class="top-bar">
       <div class="brand">
         <span class="brand-logo">🐾</span>
-        <span class="brand-text">Zoo Empire</span>
+        <span class="brand-text">Zoo <em>Empire</em></span>
       </div>
       <div class="top-right">
         <div class="balance">
@@ -340,7 +340,9 @@ async function hardReload() {
       <router-link to="/trade" class="nav-item">
         <span class="ico">🔄</span><span>{{ t('app.nav.trade') }}</span>
       </router-link>
-      <router-link to="/" class="nav-fab" :title="t('app.nav.home')">🏡</router-link>
+      <router-link to="/" class="nav-item">
+        <span class="ico">🏡</span><span>{{ t('app.nav.home') }}</span>
+      </router-link>
       <router-link to="/roadmap" class="nav-item">
         <span class="ico">🗺️</span><span>{{ t('app.nav.roadmap') }}</span>
       </router-link>
@@ -381,15 +383,15 @@ async function hardReload() {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: linear-gradient(135deg, #ffd166, #06d6a0);
-  color: #0b1220;
+  background: linear-gradient(135deg, #fbd35c, #5fe3b3);
+  color: #3a2c17;
   padding: 20px 28px;
-  border-radius: 18px;
-  font-weight: 700;
+  border-radius: 22px;
+  font-weight: 800;
   font-size: 16px;
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.6),
-    0 0 0 4px rgba(255, 255, 255, 0.15);
+    0 20px 60px rgba(110, 80, 20, 0.35),
+    0 0 0 4px rgba(255, 255, 255, 0.6);
   z-index: 9999;
   max-width: min(90vw, 420px);
   text-align: center;
@@ -422,7 +424,7 @@ async function hardReload() {
 .gift-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(74, 52, 12, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -431,20 +433,20 @@ async function hardReload() {
   padding: 20px;
 }
 .gift-dialog {
-  background: linear-gradient(135deg, #3a1d5c, #1d3a5c);
-  border: 2px solid var(--accent);
-  border-radius: 18px;
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 26px;
   padding: 24px;
   max-width: min(90vw, 420px);
   width: 100%;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 6px 0 var(--border), 0 30px 70px rgba(110, 80, 20, 0.35);
   animation: gift-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .gift-burst {
   font-size: 72px;
   animation: gift-bounce 1.2s ease-in-out infinite;
-  filter: drop-shadow(0 0 20px rgba(255, 209, 102, 0.6));
+  filter: drop-shadow(0 0 20px rgba(244, 169, 18, 0.55));
   margin-bottom: 6px;
 }
 .nav-shop { position: relative; }
@@ -462,27 +464,27 @@ async function hardReload() {
   transition: transform 0.15s;
 }
 .tickets-balance:hover { transform: scale(1.05); }
-.gift-title { font-weight: 800; font-size: 22px; color: var(--accent); }
+.gift-title { font-weight: 800; font-size: 22px; color: var(--heading); }
 .gift-sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
 .gift-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
 .gift-item {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: var(--card-2);
+  border: 2px solid var(--border);
+  border-radius: 16px;
   padding: 10px 12px;
 }
-.gift-line { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; font-size: 18px; font-weight: 700; }
-.gift-coins { color: var(--accent); }
+.gift-line { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; font-size: 18px; font-weight: 800; }
+.gift-coins { color: var(--accent-deep); }
 .gift-pet { display: inline-flex; align-items: center; gap: 6px; }
 .gift-tier { font-size: 12px; color: var(--muted); }
 .gift-note {
   font-style: italic;
-  color: #fff;
+  color: var(--text);
   margin-top: 6px;
   font-size: 14px;
   padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  background: rgba(244, 169, 18, 0.10);
+  border-radius: 10px;
 }
 @keyframes gift-in {
   0% { opacity: 0; transform: scale(0.6); }
@@ -496,7 +498,7 @@ async function hardReload() {
 .offline-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(74, 52, 12, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -505,20 +507,20 @@ async function hardReload() {
   padding: 20px;
 }
 .offline-dialog {
-  background: linear-gradient(135deg, #3a1d5c, #1d3a5c);
-  border: 2px solid var(--accent);
-  border-radius: 18px;
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 26px;
   padding: 28px 24px 22px;
   max-width: min(90vw, 420px);
   width: 100%;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 6px 0 var(--border), 0 30px 70px rgba(110, 80, 20, 0.35);
   animation: gift-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .offline-title {
   font-weight: 800;
   font-size: 26px;
-  color: var(--accent);
+  color: var(--heading);
   letter-spacing: 0.5px;
 }
 .offline-sub {
@@ -535,11 +537,11 @@ async function hardReload() {
   margin: 12px 0 10px;
   font-weight: 800;
   font-size: 44px;
-  color: var(--accent);
-  text-shadow: 0 4px 14px rgba(255, 209, 102, 0.35);
+  color: var(--accent-deep);
+  text-shadow: 0 4px 14px rgba(244, 169, 18, 0.35);
 }
 .offline-plus { font-size: 36px; }
-.offline-coin-icon { font-size: 38px; filter: drop-shadow(0 0 12px rgba(255, 209, 102, 0.5)); }
+.offline-coin-icon { font-size: 38px; filter: drop-shadow(0 0 12px rgba(244, 169, 18, 0.45)); }
 .offline-meta {
   color: var(--muted);
   font-size: 13px;

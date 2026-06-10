@@ -462,7 +462,7 @@ function goToTickets() {
     <div
       v-if="false"
       class="card"
-      style="background: linear-gradient(135deg, #3a1d5c, #1d2a5c)"
+      style="background: linear-gradient(135deg, var(--card-2), var(--card-2))"
     >
       <div
         class="row between"
@@ -501,7 +501,7 @@ function goToTickets() {
                   v-if="s.forcedQty > 0"
                   class="badge"
                   style="
-                    background: rgba(255, 209, 102, 0.15);
+                    background: rgba(244, 169, 18, 0.15);
                     color: var(--accent);
                   "
                 >
@@ -860,12 +860,12 @@ function goToTickets() {
 }
 .egg-card {
   border-color: var(--accent);
-  background: linear-gradient(135deg, #3a1d5c, #2d3a5c);
+  background: linear-gradient(135deg, var(--card-2), var(--card-2));
   position: relative;
   padding-top: 22px;
 }
 .egg-stripe {
-  background: linear-gradient(135deg, #ffd166, #a855f7);
+  background: linear-gradient(135deg, var(--accent), #a855f7);
   color: #fff;
 }
 .animal-card {
@@ -880,7 +880,7 @@ function goToTickets() {
   height: 28px;
   padding: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(140, 105, 35, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.3);
   font-size: 14px;
   display: flex;
@@ -981,9 +981,9 @@ function goToTickets() {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
-  background: rgba(72, 202, 228, 0.15);
-  border: 1px solid rgba(72, 202, 228, 0.45);
-  color: #48cae4;
+  background: rgba(25, 146, 200, 0.15);
+  border: 1px solid rgba(25, 146, 200, 0.45);
+  color: #1992c8;
   font-variant-numeric: tabular-nums;
 }
 .disappears-chip.ended {
@@ -998,9 +998,9 @@ function goToTickets() {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
-  background: rgba(255, 209, 102, 0.16);
-  border: 1px solid rgba(255, 209, 102, 0.5);
-  color: var(--accent, #ffd166);
+  background: rgba(244, 169, 18, 0.16);
+  border: 1px solid rgba(244, 169, 18, 0.5);
+  color: var(--accent, var(--accent));
   text-align: center;
 }
 .admin-row {
@@ -1008,7 +1008,7 @@ function goToTickets() {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(140, 105, 35, 0.06);
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -1060,7 +1060,7 @@ function goToTickets() {
 
 .chest-card {
   position: relative;
-  background: linear-gradient(135deg, #3a1d5c, #1d3a5c);
+  background: linear-gradient(135deg, var(--card-2), var(--card-2));
   border-color: var(--accent);
   margin-bottom: 10px;
 }
@@ -1073,16 +1073,16 @@ function goToTickets() {
 .qty-pick.active {
   border-color: var(--accent);
   color: var(--accent);
-  background: rgba(255, 209, 102, 0.08);
+  background: rgba(244, 169, 18, 0.08);
 }
 
 .food-hero {
   margin-bottom: 10px;
-  background: linear-gradient(135deg, #1e4c44, #163a52 52%, #17284a);
-  border-color: rgba(6, 214, 160, 0.45);
+  background: linear-gradient(135deg, #1e4c44, var(--card-2) 52%, var(--card-2));
+  border-color: rgba(46, 194, 114, 0.45);
 }
 .food-hero.boosted {
-  box-shadow: 0 0 0 1px rgba(6, 214, 160, 0.45) inset;
+  box-shadow: 0 0 0 1px rgba(46, 194, 114, 0.45) inset;
 }
 .food-hero-head {
   display: flex;
@@ -1097,8 +1097,8 @@ function goToTickets() {
   align-items: center;
   justify-content: center;
   font-size: 26px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(140, 105, 35, 0.12);
+  border: 1px solid rgba(140, 105, 35, 0.2);
   flex-shrink: 0;
 }
 .food-hero-title {
@@ -1123,8 +1123,8 @@ function goToTickets() {
   gap: 6px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(140, 105, 35, 0.1);
+  border: 1px solid rgba(140, 105, 35, 0.2);
 }
 .food-pet.empty {
   color: rgba(255, 255, 255, 0.72);
@@ -1141,9 +1141,9 @@ function goToTickets() {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
-  background: rgba(255, 209, 102, 0.2);
+  background: rgba(244, 169, 18, 0.2);
   color: #ffdf9f;
-  border: 1px solid rgba(255, 209, 102, 0.45);
+  border: 1px solid rgba(244, 169, 18, 0.45);
   font-variant-numeric: tabular-nums;
 }
 .food-note {
@@ -1151,7 +1151,7 @@ function goToTickets() {
 }
 
 .food-card {
-  background: linear-gradient(165deg, #19284d, #122344 62%, #101d39);
+  background: linear-gradient(165deg, var(--card-2), var(--card-2) 62%, var(--surface-deep));
   border-color: rgba(98, 169, 255, 0.25);
   transition:
     transform 0.12s ease,
@@ -1160,7 +1160,7 @@ function goToTickets() {
 }
 .food-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 209, 102, 0.6);
+  border-color: rgba(244, 169, 18, 0.6);
 }
 .food-card.locked {
   opacity: 0.75;
@@ -1176,8 +1176,8 @@ function goToTickets() {
   font-weight: 700;
   padding: 3px 7px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(140, 105, 35, 0.08);
+  border: 1px solid rgba(140, 105, 35, 0.16);
 }
 .feed-btn {
   font-weight: 800;
@@ -1218,7 +1218,7 @@ function goToTickets() {
 }
 .chest-box {
   font-size: 110px;
-  filter: drop-shadow(0 0 30px rgba(255, 209, 102, 0.5));
+  filter: drop-shadow(0 0 30px rgba(244, 169, 18, 0.5));
   transition: transform 0.4s, opacity 0.4s;
 }
 .chest-box.shake {
@@ -1233,7 +1233,7 @@ function goToTickets() {
 .chest-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle, rgba(255, 209, 102, 0.6), transparent 70%);
+  background: radial-gradient(circle, rgba(244, 169, 18, 0.6), transparent 70%);
   animation: glow-pulse 1s ease-in-out infinite;
   pointer-events: none;
 }
@@ -1252,7 +1252,7 @@ function goToTickets() {
   opacity: 0;
   transform: translateY(40px) scale(0.4);
   animation: reveal-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  filter: drop-shadow(0 0 14px rgba(255, 209, 102, 0.7));
+  filter: drop-shadow(0 0 14px rgba(244, 169, 18, 0.7));
 }
 .reveal-name {
   font-size: 12px;
@@ -1270,7 +1270,7 @@ function goToTickets() {
 }
 @keyframes chest-pop {
   0% { transform: scale(1); }
-  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(255, 209, 102, 1)); }
+  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(244, 169, 18, 1)); }
   100% { transform: scale(0.1); opacity: 0; }
 }
 @keyframes glow-pulse {
@@ -1285,8 +1285,8 @@ function goToTickets() {
 
 .promo-card {
   margin-top: 16px;
-  background: linear-gradient(135deg, rgba(155, 110, 255, 0.18), rgba(255, 209, 102, 0.12));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, rgba(155, 110, 255, 0.18), rgba(244, 169, 18, 0.12));
+  border: 1px solid rgba(140, 105, 35, 0.12);
 }
 .promo-head {
   display: flex;
@@ -1296,7 +1296,7 @@ function goToTickets() {
 }
 .promo-icon {
   font-size: 32px;
-  filter: drop-shadow(0 0 8px rgba(255, 209, 102, 0.4));
+  filter: drop-shadow(0 0 8px rgba(244, 169, 18, 0.4));
 }
 .promo-title { font-weight: 800; font-size: 16px; }
 .promo-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }

@@ -243,7 +243,7 @@ function openProfile(username) {
 .friend-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
 .avatar {
   width: 40px; height: 40px; border-radius: 50%;
-  background: #162048; border: 1px solid var(--border);
+  background: var(--card-2); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; cursor: pointer;
   color: inherit;

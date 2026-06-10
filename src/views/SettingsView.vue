@@ -557,8 +557,8 @@ async function logout() {
   font-size: 14px;
 }
 .flash-info {
-  background: rgba(6, 214, 160, 0.1);
-  border: 1px solid rgba(6, 214, 160, 0.35);
+  background: rgba(46, 194, 114, 0.1);
+  border: 1px solid rgba(46, 194, 114, 0.35);
   color: var(--accent-2);
 }
 .flash-error {
@@ -646,11 +646,11 @@ async function logout() {
 }
 .pref-status.ok {
   color: var(--accent-2);
-  background: rgba(6, 214, 160, 0.12);
-  border: 1px solid rgba(6, 214, 160, 0.35);
+  background: rgba(46, 194, 114, 0.12);
+  border: 1px solid rgba(46, 194, 114, 0.35);
 }
 .pref-status.warn {
-  color: #ffb347;
+  color: #f0a312;
   background: rgba(255, 179, 71, 0.12);
   border: 1px solid rgba(255, 179, 71, 0.35);
 }
@@ -685,7 +685,7 @@ async function logout() {
   width: 56px;
   height: 56px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #2a3866, #162048);
+  background: linear-gradient(135deg, var(--card-2), var(--card-2));
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -743,7 +743,7 @@ async function logout() {
   gap: var(--space-1);
 }
 .avatar-cell {
-  background: #162048;
+  background: var(--card-2);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 6px 0;

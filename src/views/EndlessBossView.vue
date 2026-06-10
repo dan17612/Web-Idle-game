@@ -396,8 +396,8 @@ onUnmounted(() => {
   align-items: center;
   background:
     radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.18), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(255, 209, 102, 0.15), transparent 60%),
-    linear-gradient(135deg, #1a1f3e, #0d1230);
+    radial-gradient(circle at 100% 100%, rgba(244, 169, 18, 0.15), transparent 60%),
+    linear-gradient(135deg, var(--card-2), var(--card-2));
   border-color: rgba(168, 85, 247, 0.4);
 }
 .eb-hero.inactive {
@@ -414,7 +414,7 @@ onUnmounted(() => {
 .eb-hero-title {
   font-weight: 900;
   font-size: 18px;
-  background: linear-gradient(90deg, #ffd166, #a855f7);
+  background: linear-gradient(90deg, var(--accent), #a855f7);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -487,12 +487,12 @@ onUnmounted(() => {
   font-variant-numeric: tabular-nums;
 }
 .eb-warn.cooldown {
-  background: rgba(72, 202, 228, 0.16);
-  border-color: rgba(72, 202, 228, 0.45);
-  color: #48cae4;
+  background: rgba(25, 146, 200, 0.16);
+  border-color: rgba(25, 146, 200, 0.45);
+  color: #1992c8;
 }
 .eb-start {
-  background: linear-gradient(135deg, #ffd166, #a855f7);
+  background: linear-gradient(135deg, var(--accent), #a855f7);
   color: #1a0b2e;
   font-weight: 900;
 }
@@ -507,8 +507,8 @@ onUnmounted(() => {
   font-size: 13px;
   padding: 8px 12px;
   border-radius: 12px;
-  background: rgba(6, 214, 160, 0.16);
-  border: 1px solid rgba(6, 214, 160, 0.4);
+  background: rgba(46, 194, 114, 0.16);
+  border: 1px solid rgba(46, 194, 114, 0.4);
   color: var(--accent-2);
 }
 .eb-leaderboard {
@@ -550,7 +550,7 @@ onUnmounted(() => {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #162048;
+  background: var(--card-2);
   border: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -583,8 +583,8 @@ onUnmounted(() => {
 }
 .eb-result-card {
   width: min(380px, 100%);
-  background: linear-gradient(135deg, #1c2452, #0d1130);
-  border: 2px solid rgba(255, 209, 102, 0.6);
+  background: linear-gradient(135deg, var(--card-2), var(--surface-deep));
+  border: 2px solid rgba(244, 169, 18, 0.6);
   border-radius: 18px;
   padding: 22px;
   text-align: center;
@@ -595,7 +595,7 @@ onUnmounted(() => {
 }
 .eb-result-icon {
   font-size: 56px;
-  filter: drop-shadow(0 4px 12px rgba(255, 209, 102, 0.5));
+  filter: drop-shadow(0 4px 12px rgba(244, 169, 18, 0.5));
 }
 .eb-result-title {
   font-weight: 900;
@@ -606,8 +606,8 @@ onUnmounted(() => {
   font-size: 13px;
   padding: 4px 12px;
   border-radius: 999px;
-  background: rgba(255, 209, 102, 0.2);
-  border: 1px solid rgba(255, 209, 102, 0.55);
+  background: rgba(244, 169, 18, 0.2);
+  border: 1px solid rgba(244, 169, 18, 0.55);
   color: var(--accent);
   align-self: center;
 }
@@ -664,7 +664,7 @@ onUnmounted(() => {
 }
 .eb-chest-box {
   font-size: 78px;
-  filter: drop-shadow(0 0 24px rgba(255, 209, 102, 0.55));
+  filter: drop-shadow(0 0 24px rgba(244, 169, 18, 0.55));
 }
 .eb-chest-box.shake {
   animation: ebChestShake 0.72s ease-in-out infinite;
@@ -683,7 +683,7 @@ onUnmounted(() => {
 }
 @keyframes ebChestOpen {
   0% { transform: scale(1); }
-  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(255, 209, 102, 1)); }
+  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(244, 169, 18, 1)); }
   100% { transform: scale(0.1); opacity: 0; }
 }
 @keyframes ebPop {

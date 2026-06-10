@@ -265,7 +265,7 @@ async function submitIdea() {
 .filter-chip {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; gap: 4px;
-  background: #162048; border: 1px solid var(--border);
+  background: var(--card-2); border: 1px solid var(--border);
   color: inherit; padding: 6px 10px; border-radius: 999px; cursor: pointer;
   font-size: 12px;
 }
@@ -292,7 +292,7 @@ async function submitIdea() {
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
 .idea-card:hover { transform: translateY(-1px); border-color: var(--accent); }
-.idea-card.has-voted { border-color: rgba(255, 209, 102, 0.5); }
+.idea-card.has-voted { border-color: rgba(244, 169, 18, 0.5); }
 .idea-row { display: flex; align-items: flex-start; gap: 12px; }
 .vote-col {
   display: flex; flex-direction: column; align-items: center;
@@ -320,18 +320,18 @@ async function submitIdea() {
   color: #b894ff;
 }
 .status-chip[data-status="planned"] {
-  background: rgba(72, 202, 228, 0.18);
-  border-color: rgba(72, 202, 228, 0.45);
-  color: #48cae4;
+  background: rgba(25, 146, 200, 0.18);
+  border-color: rgba(25, 146, 200, 0.45);
+  color: #1992c8;
 }
 .status-chip[data-status="in_progress"] {
-  background: rgba(255, 209, 102, 0.18);
-  border-color: rgba(255, 209, 102, 0.5);
+  background: rgba(244, 169, 18, 0.18);
+  border-color: rgba(244, 169, 18, 0.5);
   color: var(--accent);
 }
 .status-chip[data-status="done"] {
-  background: rgba(6, 214, 160, 0.18);
-  border-color: rgba(6, 214, 160, 0.5);
+  background: rgba(46, 194, 114, 0.18);
+  border-color: rgba(46, 194, 114, 0.5);
   color: var(--accent-2);
 }
 .status-chip[data-status="rejected"] {

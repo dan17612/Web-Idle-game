@@ -130,10 +130,10 @@ const badges = computed(() => {
   if (!allSpecies.length || !entries.value.length) return []
   const out = []
   const every = allSpecies.every(s => !!allEntriesMap.value[s.key])
-  if (every) out.push({ key: 'complete', label: t('profile.badges.complete'), emoji: '📚', color: '#9bb0ff' })
+  if (every) out.push({ key: 'complete', label: t('profile.badges.complete'), emoji: '📚', color: 'var(--muted)' })
   const minRank = every ? Math.min(...allSpecies.map(s => tierRank[allEntriesMap.value[s.key] || 'normal'])) : -1
-  if (minRank >= 1) out.push({ key: 'all-gold', label: t('profile.badges.allGold'), emoji: '🥇', color: '#ffd166' })
-  if (minRank >= 2) out.push({ key: 'all-diamond', label: t('profile.badges.allDiamond'), emoji: '💎', color: '#63f2ff' })
+  if (minRank >= 1) out.push({ key: 'all-gold', label: t('profile.badges.allGold'), emoji: '🥇', color: 'var(--accent)' })
+  if (minRank >= 2) out.push({ key: 'all-diamond', label: t('profile.badges.allDiamond'), emoji: '💎', color: '#11a7c9' })
   if (minRank >= 3) out.push({ key: 'all-epic', label: t('profile.badges.allEpic'), emoji: '🟣', color: '#a855f7' })
   if (minRank >= 4) out.push({ key: 'all-rainbow', label: t('profile.badges.allRainbow'), emoji: '🌈', color: '#ff6bd6' })
   return out
@@ -304,7 +304,7 @@ async function sendFriendRequest() {
 }
 .big-avatar {
   width: 64px; height: 64px; border-radius: 50%;
-  background: linear-gradient(135deg, #2a3866, #162048);
+  background: linear-gradient(135deg, var(--card-2), var(--card-2));
   border: 2px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   font-size: 36px;
@@ -327,7 +327,7 @@ async function sendFriendRequest() {
 }
 .stat {
   --c: #aaa;
-  background: color-mix(in srgb, var(--c) 15%, #0f1736);
+  background: color-mix(in srgb, var(--c) 15%, var(--surface-deep));
   border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
   border-radius: 10px;
   padding: 8px 4px; text-align: center;
@@ -340,9 +340,9 @@ async function sendFriendRequest() {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px;
 }
 .col-cell {
-  --tier-color: #2a3866;
+  --tier-color: var(--card-2);
   position: relative;
-  background: color-mix(in srgb, var(--tier-color) 18%, #162048);
+  background: color-mix(in srgb, var(--tier-color) 18%, var(--card-2));
   border: 1px solid color-mix(in srgb, var(--tier-color) 40%, var(--border));
   border-radius: 12px;
   padding: 10px 6px 8px;
@@ -350,7 +350,7 @@ async function sendFriendRequest() {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
 .col-cell.missing {
-  background: repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0 8px, transparent 8px 16px);
+  background: repeating-linear-gradient(45deg, rgba(140, 105, 35, 0.02) 0 8px, transparent 8px 16px);
   border-style: dashed;
   opacity: 0.55;
   filter: grayscale(1);
@@ -400,7 +400,7 @@ async function sendFriendRequest() {
 .filter-chip {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; gap: 4px;
-  background: #162048; border: 1px solid var(--border);
+  background: var(--card-2); border: 1px solid var(--border);
   color: inherit; font: inherit;
   padding: 6px 10px; border-radius: 999px; cursor: pointer;
   font-size: 12px;
@@ -411,7 +411,7 @@ async function sendFriendRequest() {
 }
 .filter-chip:disabled { opacity: 0.4; cursor: not-allowed; }
 .filter-count {
-  background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 999px;
+  background: rgba(140, 105, 35, 0.1); padding: 1px 6px; border-radius: 999px;
   font-size: 10px; font-weight: 700;
 }
 .filter-chip.active .filter-count { background: rgba(0,0,0,0.15); }

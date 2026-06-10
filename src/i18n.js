@@ -40,7 +40,7 @@ const messages = {
       nav: {
         shop: "Shop",
         trade: "Trade",
-        home: "Farm",
+        home: "Zoo",
         friends: "Freunde",
         roadmap: "Vorschläge",
         rank: "Rang",
@@ -464,7 +464,7 @@ const messages = {
       nav: {
         shop: "Shop",
         trade: "Trade",
-        home: "Farm",
+        home: "Zoo",
         friends: "Friends",
         roadmap: "Suggestions",
         rank: "Rank",
@@ -880,7 +880,7 @@ const messages = {
       nav: {
         shop: "Магазин",
         trade: "Обмен",
-        home: "Ферма",
+        home: "Зоопарк",
         friends: "Друзья",
         roadmap: "Предложения",
         rank: "Рейтинг",

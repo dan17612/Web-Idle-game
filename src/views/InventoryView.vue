@@ -430,7 +430,7 @@ const filters = computed(() => [
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #162048;
+  background: var(--card-2);
   border: 1px solid var(--border);
   color: inherit;
   font: inherit;
@@ -511,12 +511,12 @@ const filters = computed(() => [
   background: linear-gradient(
     160deg,
     color-mix(in srgb, var(--tier-color) 16%, var(--card-2)),
-    color-mix(in srgb, var(--tier-color) 5%, #101a34)
+    color-mix(in srgb, var(--tier-color) 5%, var(--surface-deep))
   );
 }
 .inv-card.is-equipped {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(255,209,102,.18) inset, 0 2px 12px rgba(255,209,102,.08);
+  box-shadow: 0 0 0 1px rgba(244, 169, 18,.18) inset, 0 2px 12px rgba(244, 169, 18,.08);
 }
 .inv-card.is-fav {
   border-color: color-mix(in srgb, var(--accent) 70%, transparent);
@@ -535,8 +535,8 @@ const filters = computed(() => [
   font-size: 11px;
   font-weight: 800;
   color: var(--accent);
-  background: rgba(255,209,102,.14);
-  border: 1px solid rgba(255,209,102,.3);
+  background: rgba(244, 169, 18,.14);
+  border: 1px solid rgba(244, 169, 18,.3);
   border-radius: 999px;
   padding: 2px 7px;
   line-height: 1.4;
@@ -547,7 +547,7 @@ const filters = computed(() => [
   border-radius: 999px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,.05);
-  color: #cdd6ff;
+  color: var(--text);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
@@ -559,7 +559,7 @@ const filters = computed(() => [
 .fav-btn.active {
   color: var(--accent);
   border-color: var(--accent);
-  background: rgba(255,209,102,.14);
+  background: rgba(244, 169, 18,.14);
 }
 .fav-btn:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -623,10 +623,10 @@ const filters = computed(() => [
 }
 .step-btn:not(:disabled):hover { background: rgba(255,255,255,.14); }
 .step-btn.plus:not(:disabled) {
-  border-color: rgba(255,209,102,.5);
+  border-color: rgba(244, 169, 18,.5);
   color: var(--accent);
 }
-.step-btn.plus:not(:disabled):hover { background: rgba(255,209,102,.1); }
+.step-btn.plus:not(:disabled):hover { background: rgba(244, 169, 18,.1); }
 .step-btn:disabled { opacity: .35; cursor: not-allowed; }
 
 .equip-counter {
