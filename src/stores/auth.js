@@ -76,12 +76,22 @@ export const useAuthStore = defineStore('auth', {
     },
     async loadProfile() {
       if (!this.session) return
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', this.session.user.id)
-        .maybeSingle()
-      if (error) console.error(error)
+      // Bei transienten Fehlern (Netzwerk-Glitch, kalter Postgres-Pool nach Inaktivitaet)
+      // einmal kurz retryen, damit nachfolgende RPCs nicht ohne Profil scheitern.
+      let data = null
+      let error = null
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const res = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', this.session.user.id)
+          .maybeSingle()
+        data = res.data
+        error = res.error
+        if (!error) break
+        await new Promise(r => setTimeout(r, 400))
+      }
+      if (error && import.meta.env?.DEV) console.error('[auth] loadProfile', error)
       this.profile = data
       if (this.profile?.is_banned) {
         await supabase.auth.signOut()
