@@ -1187,7 +1187,7 @@ function statusLabel(status) {
 .partner-card { display:flex; gap:10px; align-items:center; padding:8px; background:var(--card-2); border-radius:10px; }
 .partner-avatar {
   width: 40px; height: 40px; border-radius: 50%;
-  background: #162048; border: 1px solid var(--border);
+  background: var(--card-2); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   font-size: 22px; flex-shrink: 0;
 }
@@ -1216,7 +1216,7 @@ function statusLabel(status) {
 }
 .chip-anim {
   display:inline-flex; align-items:center; gap:4px;
-  background: rgba(255,209,102,0.1); border:1px solid var(--accent);
+  background: rgba(244, 169, 18,0.1); border:1px solid var(--accent);
   color: var(--accent); padding: 6px 8px; border-radius: 10px;
   font-size: 20px; cursor: pointer;
 }
@@ -1269,7 +1269,7 @@ function statusLabel(status) {
 .confirm-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .confirm-zone { border-radius: 10px; padding: 10px; min-height: 78px; }
 .danger-zone { border: 1px solid rgba(239,71,111,0.55); background: rgba(239,71,111,0.12); }
-.success-zone { border: 1px solid rgba(6,214,160,0.55); background: rgba(6,214,160,0.12); }
+.success-zone { border: 1px solid rgba(46, 194, 114,0.55); background: rgba(46, 194, 114,0.12); }
 .danger-zone .mini-label { color: #ff8aa3; }
 .success-zone .mini-label { color: var(--accent-2); }
 .tb {
@@ -1278,6 +1278,6 @@ function statusLabel(status) {
 }
 .pick.tiered { border-color: var(--tb, var(--accent)); box-shadow: 0 0 0 1px var(--tb, transparent) inset; }
 .e.tiered { filter: drop-shadow(0 0 2px var(--tb, transparent)); }
-.status-accepted .badge { background: rgba(6,214,160,0.15); color: var(--accent-2); }
+.status-accepted .badge { background: rgba(46, 194, 114,0.15); color: var(--accent-2); }
 .status-declined .badge, .status-cancelled .badge { background: rgba(239,71,111,0.15); color: var(--danger); }
 </style>

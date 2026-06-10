@@ -446,7 +446,7 @@ const BOSS_TILE_PALETTE = [
   ["#2a9d8f", "#0f4d47"], // tuerkis
   ["#06d6a0", "#0a5a44"], // gruen
   ["#118ab2", "#0a4458"], // teal
-  ["#3a86ff", "#0d2a5c"], // blau
+  ["#3a86ff", "#1d2a5c"], // blau
   ["#7209b7", "#33044f"], // violett
   ["#ff476f", "#6e1731"], // pink
   ["#ff9f1c", "#6b3d05"], // amber
@@ -461,7 +461,7 @@ const BOSS_TILE_PALETTE = [
   ["#bc6c25", "#4a2607"], // bronze
   ["#8338ec", "#3a0f70"], // indigo
   ["#fcbf49", "#7a5505"], // honey
-  ["#48cae4", "#0d4c5a"], // cyan
+  ["#1992c8", "#0d4c5a"], // cyan
   ["#ff006e", "#660029"], // magenta
   ["#90be6d", "#33502a"], // olive
 ];
@@ -888,7 +888,7 @@ function exitFight() {
 
 <style scoped>
 .boss-card {
-  border-color: rgba(255, 209, 102, 0.2);
+  border-color: rgba(244, 169, 18, 0.2);
 }
 .boss-arena {
   position: relative;
@@ -896,14 +896,14 @@ function exitFight() {
   flex-direction: column;
   gap: 12px;
   background:
-    linear-gradient(135deg, rgba(255, 71, 126, 0.12), rgba(6, 214, 160, 0.08)),
+    linear-gradient(135deg, rgba(255, 71, 126, 0.12), rgba(46, 194, 114, 0.08)),
     var(--card);
 }
 .boss-arena.stage-mode {
   background:
     radial-gradient(
       circle at 20% 0%,
-      rgba(255, 209, 102, 0.18),
+      rgba(244, 169, 18, 0.18),
       transparent 55%
     ),
     radial-gradient(
@@ -911,8 +911,8 @@ function exitFight() {
       rgba(168, 85, 247, 0.16),
       transparent 60%
     ),
-    linear-gradient(135deg, #161b3a, #0b1230);
-  border-color: rgba(255, 209, 102, 0.35);
+    linear-gradient(135deg, var(--card-2), var(--surface-deep));
+  border-color: rgba(244, 169, 18, 0.35);
 }
 .boss-head {
   display: flex;
@@ -926,11 +926,11 @@ function exitFight() {
   border-radius: 16px;
   background: radial-gradient(
     circle at 35% 30%,
-    rgba(255, 209, 102, 0.32),
+    rgba(244, 169, 18, 0.32),
     rgba(255, 71, 126, 0.18) 52%,
-    #162048
+    var(--card-2)
   );
-  border: 1px solid rgba(255, 209, 102, 0.4);
+  border: 1px solid rgba(244, 169, 18, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -938,7 +938,7 @@ function exitFight() {
   overflow: hidden;
   box-shadow:
     0 8px 22px rgba(0, 0, 0, 0.35),
-    inset 0 0 18px rgba(255, 209, 102, 0.1);
+    inset 0 0 18px rgba(244, 169, 18, 0.1);
 }
 .boss-face.shaking {
   animation: bossShake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97);
@@ -1032,7 +1032,7 @@ function exitFight() {
 .boss-health span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #ef476f, #ff9f1c, #ffd166);
+  background: linear-gradient(90deg, #ef476f, #ff9f1c, var(--accent));
   background-size: 200% 100%;
   transition: width 0.25s ease;
   animation: healthShimmer 2.5s linear infinite;
@@ -1063,9 +1063,9 @@ function exitFight() {
   text-align: center;
   font-size: 12px;
   font-weight: 800;
-  background: rgba(6, 214, 160, 0.16);
+  background: rgba(46, 194, 114, 0.16);
   color: var(--accent-2);
-  border: 1px solid rgba(6, 214, 160, 0.35);
+  border: 1px solid rgba(46, 194, 114, 0.35);
 }
 .boss-message-slot {
   position: relative;
@@ -1095,8 +1095,8 @@ function exitFight() {
   text-overflow: ellipsis;
 }
 .boss-message.success {
-  background: rgba(6, 214, 160, 0.16);
-  border-color: rgba(6, 214, 160, 0.4);
+  background: rgba(46, 194, 114, 0.16);
+  border-color: rgba(46, 194, 114, 0.4);
   color: var(--accent-2);
 }
 .boss-message.error {
@@ -1153,7 +1153,7 @@ function exitFight() {
   min-height: 0;
   padding: 0;
   border-radius: 10px;
-  background: var(--tile-bg, linear-gradient(135deg, #22305a, #162048));
+  background: var(--tile-bg, linear-gradient(135deg, var(--card-2), var(--card-2)));
   border: 1px solid rgba(255, 255, 255, 0.12);
   font-size: clamp(22px, 8vw, 34px);
   line-height: 1;
@@ -1182,12 +1182,12 @@ function exitFight() {
   filter: brightness(1.22);
 }
 .boss-tile.swapping {
-  border-color: rgba(255, 209, 102, 0.65);
-  box-shadow: 0 10px 26px rgba(255, 209, 102, 0.18);
+  border-color: rgba(244, 169, 18, 0.65);
+  box-shadow: 0 10px 26px rgba(244, 169, 18, 0.18);
 }
 .boss-tile.matched {
-  background: linear-gradient(135deg, #ffd166, #06d6a0);
-  color: #0b1220;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: var(--card-2);
   transform: scale(0.88);
   opacity: 0.65;
 }
@@ -1225,10 +1225,10 @@ function exitFight() {
   width: min(100%, 360px);
   min-height: 190px;
   border-radius: 14px;
-  border: 1px dashed rgba(255, 209, 102, 0.45);
+  border: 1px dashed rgba(244, 169, 18, 0.45);
   background: linear-gradient(
     135deg,
-    rgba(255, 209, 102, 0.14),
+    rgba(244, 169, 18, 0.14),
     rgba(255, 71, 126, 0.14)
   );
   color: inherit;

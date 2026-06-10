@@ -160,8 +160,8 @@ async function sendReply(ticket) {
 
 <style scoped>
 .support-modal {
-  background: var(--card, #161b2b);
-  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  background: var(--card, var(--card-2));
+  border: 1px solid var(--border, rgba(140, 105, 35, 0.1));
   border-radius: 16px;
   padding: 18px;
   width: min(560px, 94vw);
@@ -177,10 +177,10 @@ async function sendReply(ticket) {
   align-items: center;
   gap: 10px;
 }
-.subtitle { color: var(--muted, #9aa3b2); font-size: 13px; margin: 0; }
+.subtitle { color: var(--muted, var(--muted)); font-size: 13px; margin: 0; }
 .ticket-card {
   background: rgba(0,0,0,0.25);
-  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border: 1px solid var(--border, rgba(140, 105, 35, 0.1));
   border-radius: 12px;
   padding: 12px;
 }
@@ -193,7 +193,7 @@ async function sendReply(ticket) {
 .ticket-num {
   font-family: monospace;
   font-size: 13px;
-  color: var(--accent, #ffd166);
+  color: var(--accent, var(--accent));
 }
 .ticket-subject { font-weight: 700; margin: 6px 0 4px; }
 .ticket-msg {
@@ -201,7 +201,7 @@ async function sendReply(ticket) {
   word-break: break-word;
   font-family: inherit;
   font-size: 13px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(140, 105, 35, 0.04);
   border-radius: 8px;
   padding: 8px;
   margin: 4px 0 0;
@@ -229,8 +229,8 @@ async function sendReply(ticket) {
 }
 .bubble-user {
   align-self: flex-end;
-  background: rgba(255, 209, 102, 0.14);
-  border: 1px solid rgba(255, 209, 102, 0.35);
+  background: rgba(244, 169, 18, 0.14);
+  border: 1px solid rgba(244, 169, 18, 0.35);
 }
 .bubble-admin {
   align-self: flex-start;
@@ -246,7 +246,7 @@ async function sendReply(ticket) {
 }
 .bubble-time {
   font-size: 11px;
-  color: var(--muted, #9aa3b2);
+  color: var(--muted, var(--muted));
   margin-top: 2px;
 }
 .row { display: flex; gap: 6px; }

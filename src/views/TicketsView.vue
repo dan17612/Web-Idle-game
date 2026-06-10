@@ -784,19 +784,19 @@ onUnmounted(() => {
   display: flex;
   gap: 6px;
   align-items: baseline;
-  background: rgba(255, 209, 102, 0.12);
-  border: 1px solid rgba(255, 209, 102, 0.35);
+  background: rgba(244, 169, 18, 0.12);
+  border: 1px solid rgba(244, 169, 18, 0.35);
   padding: 6px 12px;
   border-radius: 12px;
   font-size: 14px;
 }
 .balance strong {
   font-size: 16px;
-  color: var(--accent, #ffd166);
+  color: var(--accent, var(--accent));
 }
 .card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  background: rgba(140, 105, 35, 0.04);
+  border: 1px solid var(--border, rgba(140, 105, 35, 0.1));
   border-radius: 14px;
   padding: 14px;
   display: flex;
@@ -810,7 +810,7 @@ onUnmounted(() => {
   gap: 10px;
 }
 .hint {
-  color: var(--muted, #9aa3b2);
+  color: var(--muted, var(--muted));
   font-size: 13px;
   margin: 0;
 }
@@ -823,7 +823,7 @@ onUnmounted(() => {
   align-items: stretch;
   padding: 10px;
   background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--border, rgba(140, 105, 35, 0.08));
   border-radius: 12px;
 }
 .fm-slot {
@@ -833,7 +833,7 @@ onUnmounted(() => {
 }
 .fm-slot-title {
   font-size: 12px;
-  color: var(--muted, #9aa3b2);
+  color: var(--muted, var(--muted));
   text-align: center;
 }
 .fm-slot-body {
@@ -850,7 +850,7 @@ onUnmounted(() => {
 .fm-chip {
   font-size: 40px;
   position: relative;
-  filter: drop-shadow(0 0 6px var(--tier-color, rgba(255, 255, 255, 0.2)));
+  filter: drop-shadow(0 0 6px var(--tier-color, rgba(140, 105, 35, 0.2)));
 }
 .fm-chip .tb { font-size: 16px; }
 .fm-arrow {
@@ -860,11 +860,11 @@ onUnmounted(() => {
   justify-content: center;
   gap: 4px;
 }
-.fm-arrow-icon { font-size: 28px; color: var(--accent, #ffd166); }
+.fm-arrow-icon { font-size: 28px; color: var(--accent, var(--accent)); }
 .tickets-out {
   font-size: 26px;
   font-weight: 800;
-  color: var(--accent, #ffd166);
+  color: var(--accent, var(--accent));
 }
 .fm-controls {
   display: flex;
@@ -886,15 +886,15 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   padding: 6px 10px !important;
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.15)) !important;
-  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid var(--border, rgba(140, 105, 35, 0.15)) !important;
+  background: rgba(140, 105, 35, 0.04) !important;
   border-radius: 10px !important;
   font-size: 18px !important;
   color: inherit !important;
 }
 .fusion-sp.active {
-  border-color: var(--tier-color, var(--accent, #ffd166)) !important;
-  background: rgba(255, 209, 102, 0.12) !important;
+  border-color: var(--tier-color, var(--accent, var(--accent))) !important;
+  background: rgba(244, 169, 18, 0.12) !important;
 }
 .fusion-sp.not-owned { opacity: 0.45; }
 .fusion-sp.not-owned.active { opacity: 1; }
@@ -908,7 +908,7 @@ onUnmounted(() => {
 }
 .qty-range {
   flex: 1;
-  accent-color: var(--accent, #ffd166);
+  accent-color: var(--accent, var(--accent));
 }
 .release-actions {
   display: flex;
@@ -937,7 +937,7 @@ onUnmounted(() => {
   gap: 8px;
   padding: 12px;
   background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border: 1px solid var(--border, rgba(140, 105, 35, 0.1));
   border-radius: 12px;
 }
 .shop-emoji { font-size: 40px; }
@@ -969,7 +969,7 @@ onUnmounted(() => {
 }
 .chest-box {
   font-size: 110px;
-  filter: drop-shadow(0 0 30px rgba(255, 209, 102, 0.5));
+  filter: drop-shadow(0 0 30px rgba(244, 169, 18, 0.5));
   transition: transform 0.4s, opacity 0.4s;
 }
 .chest-box.shake {
@@ -984,7 +984,7 @@ onUnmounted(() => {
 .chest-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle, rgba(255, 209, 102, 0.6), transparent 70%);
+  background: radial-gradient(circle, rgba(244, 169, 18, 0.6), transparent 70%);
   animation: glow-pulse 1s ease-in-out infinite;
   pointer-events: none;
 }
@@ -1003,7 +1003,7 @@ onUnmounted(() => {
   opacity: 0;
   transform: translateY(40px) scale(0.4);
   animation: reveal-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  filter: drop-shadow(0 0 14px rgba(255, 209, 102, 0.7));
+  filter: drop-shadow(0 0 14px rgba(244, 169, 18, 0.7));
 }
 .reveal-name {
   font-size: 12px;
@@ -1021,7 +1021,7 @@ onUnmounted(() => {
 }
 @keyframes chest-pop {
   0% { transform: scale(1); }
-  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(255, 209, 102, 1)); }
+  40% { transform: scale(1.35); filter: drop-shadow(0 0 40px rgba(244, 169, 18, 1)); }
   100% { transform: scale(0.1); opacity: 0; }
 }
 @keyframes glow-pulse {

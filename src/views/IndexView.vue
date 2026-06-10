@@ -175,7 +175,7 @@ const filters = computed(() => [
 .profile-row { display: flex; align-items: center; gap: 10px; }
 .avatar {
   width: 40px; height: 40px; border-radius: 50%;
-  background: #162048; border: 1px solid var(--border);
+  background: var(--card-2); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
   font-size: 22px;
 }
@@ -189,7 +189,7 @@ const filters = computed(() => [
 .filter-chip {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; gap: 4px;
-  background: #162048; border: 1px solid var(--border);
+  background: var(--card-2); border: 1px solid var(--border);
   color: inherit; font: inherit;
   padding: 6px 10px; border-radius: 999px; cursor: pointer;
   font-size: 12px;
@@ -200,7 +200,7 @@ const filters = computed(() => [
 }
 .filter-chip:disabled { opacity: 0.4; cursor: not-allowed; }
 .filter-count {
-  background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 999px;
+  background: rgba(140, 105, 35, 0.1); padding: 1px 6px; border-radius: 999px;
   font-size: 10px; font-weight: 700;
 }
 .filter-chip.active .filter-count { background: rgba(0,0,0,0.15); }
@@ -211,9 +211,9 @@ const filters = computed(() => [
   gap: 8px;
 }
 .idx-cell {
-  --tier-color: #2a3866;
+  --tier-color: var(--card-2);
   position: relative;
-  background: color-mix(in srgb, var(--tier-color) 18%, #162048);
+  background: color-mix(in srgb, var(--tier-color) 18%, var(--card-2));
   border: 1px solid color-mix(in srgb, var(--tier-color) 40%, var(--border));
   border-radius: 12px;
   padding: 18px 6px 8px;
@@ -233,7 +233,7 @@ const filters = computed(() => [
   display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
 .idx-cell.missing {
-  background: repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0 8px, transparent 8px 16px);
+  background: repeating-linear-gradient(45deg, rgba(140, 105, 35, 0.02) 0 8px, transparent 8px 16px);
   border-style: dashed;
   opacity: 0.5;
   filter: grayscale(1);

@@ -40,6 +40,14 @@ const I18N = {
       defaultPlayer: "Spieler",
       profileHint: "-> Profil & Sammlung"
     },
+    hero: {
+      income: "Einkommen · pro Sekunde",
+      budget: "Tap-Budget",
+      tap: "TAP"
+    },
+    scene: { favorite: "Liebling" },
+    team: { edit: "Team bearbeiten" },
+    stats: { mult: "Mult", caps: "Taps", idle: "Idle" },
     tap: {
       income: "Einkommen",
       taps: "Taps",
@@ -80,7 +88,7 @@ const I18N = {
       release: "Tier freilassen"
     },
     equipped: {
-      title: "🎯 Ausgerüstet",
+      title: "Ausgerüstet",
       manage: "📦 Inventar",
       equipBest: "🏆 Beste ausrüsten",
       freeSlotAria: "Freier Slot {slot} - zum Inventar",
@@ -167,6 +175,14 @@ const I18N = {
       defaultPlayer: "Player",
       profileHint: "-> Profile & Collection"
     },
+    hero: {
+      income: "Income · per second",
+      budget: "Tap budget",
+      tap: "TAP"
+    },
+    scene: { favorite: "Favorite" },
+    team: { edit: "Edit team" },
+    stats: { mult: "Mult", caps: "Taps", idle: "Idle" },
     tap: {
       income: "Income",
       taps: "Taps",
@@ -207,7 +223,7 @@ const I18N = {
       release: "Release pet"
     },
     equipped: {
-      title: "🎯 Equipped",
+      title: "Equipped",
       manage: "📦 Inventory",
       equipBest: "🏆 Equip best",
       freeSlotAria: "Free slot {slot} - to inventory",
@@ -294,6 +310,14 @@ const I18N = {
       defaultPlayer: "Игрок",
       profileHint: "-> Профиль и коллекция"
     },
+    hero: {
+      income: "Доход · в секунду",
+      budget: "Тап-бюджет",
+      tap: "TAP"
+    },
+    scene: { favorite: "Любимец" },
+    team: { edit: "Изменить команду" },
+    stats: { mult: "Множ.", caps: "Тапы", idle: "Офлайн" },
     tap: {
       income: "Доход",
       taps: "Тапы",
@@ -334,7 +358,7 @@ const I18N = {
       release: "Отпустить питомца"
     },
     equipped: {
-      title: "🎯 Экипировано",
+      title: "Экипировано",
       buySlot: "Купить слот",
       slotMaxed: "Макс. слоты",
       slotBought: "Новый слот открыт!",
@@ -472,6 +496,27 @@ const favAnimal = computed(() => {
 
 const favEmoji = computed(() => favAnimal.value?.info.emoji || "🐾");
 
+const SCENE_SPOTS = [
+  { left: 12, bottom: 18, size: 56, delay: 0, flip: false },
+  { left: 72, bottom: 30, size: 38, delay: 0.4, flip: true },
+  { left: 44, bottom: 8, size: 40, delay: 0.8, flip: false },
+  { left: 85, bottom: 10, size: 42, delay: 0.2, flip: true },
+  { left: 30, bottom: 34, size: 32, delay: 0.6, flip: true },
+  { left: 60, bottom: 24, size: 34, delay: 1.0, flip: false },
+];
+const sceneAnimals = computed(() => {
+  const fav = equipped.value.find((a) => a.id === game.favoriteAnimalId);
+  const rest = equipped.value.filter((a) => a.id !== game.favoriteAnimalId);
+  const list = (fav ? [fav, ...rest] : rest).slice(0, SCENE_SPOTS.length);
+  return list.map((a, i) => ({
+    ...a,
+    spot: SCENE_SPOTS[i],
+    isFav: a.id === game.favoriteAnimalId,
+  }));
+});
+const perTap = computed(() => Math.max(1, Math.floor(game.ratePerSec)));
+const sceneWrap = ref(null);
+
 const ownedAnimals = computed(() =>
   game.animals
     .slice()
@@ -598,13 +643,12 @@ const tapLimitReached = computed(
 
 async function tap(e) {
   if (tapLimitReached.value) return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  const x =
-    (e.clientX ?? e.touches?.[0]?.clientX ?? rect.left + rect.width / 2) -
-    rect.left;
-  const y =
-    (e.clientY ?? e.touches?.[0]?.clientY ?? rect.top + rect.height / 2) -
-    rect.top;
+  const host = sceneWrap.value || e.currentTarget;
+  const rect = host.getBoundingClientRect();
+  const cx = e.clientX ?? e.touches?.[0]?.clientX;
+  const cy = e.clientY ?? e.touches?.[0]?.clientY;
+  const x = (cx != null ? cx : rect.left + rect.width / 2) - rect.left;
+  const y = (cy != null ? cy : rect.top + rect.height * 0.45) - rect.top;
   const id = ++floatId;
   const earnGuess = Math.max(1, Math.floor(game.ratePerSec));
   floats.value.push({ id, x, y, v: "+" + formatCoins(earnGuess) });
@@ -957,211 +1001,217 @@ async function doSplit(animalId) {
       </div>
     </div>
 
-    <div class="card tap-card">
-      <div class="row between" style="margin-bottom: 4px">
-        <div>
-          <div class="subtitle" style="margin: 0">{{ tx("tap.income") }}</div>
-          <div class="rate">
-            +{{ formatCoins(game.ratePerSec) }}
-            <span style="opacity: 0.6">/s</span>
-            <span v-if="game.favoriteBoostActive || game.bossBoostActive" class="rate-boost"
-              >×{{ game.petBoostMultiplier }}</span
-            >
-          </div>
-        </div>
-        <div style="text-align: right">
-          <div class="subtitle" style="margin: 0">{{ tx("tap.taps") }}</div>
-          <div class="tap-count">
-            <span
-              :class="{ low: game.tapsRemaining <= 3, zero: tapLimitReached }"
-            >
-              {{ game.tapsRemaining }}
-            </span>
-            <span style="opacity: 0.4"> / {{ game.tapsMax }}</span>
-            <span
-              v-if="game.bonusTaps > 0"
-              class="bonus-chip"
-              :title="tx('tap.bonusTitle')"
-              >+{{ game.bonusTaps }} 🎁</span
-            >
-          </div>
-          <div class="tap-reset">↻ {{ fmtTime(tapCooldown) }}</div>
+    <div class="hero-banner">
+      <div class="hb-left">
+        <div class="hb-label">{{ tx("hero.income") }}</div>
+        <div class="hb-value">
+          +{{ formatCoins(game.ratePerSec) }}<span class="hb-unit">/s</span>
+          <span
+            v-if="game.favoriteBoostActive || game.bossBoostActive"
+            class="hb-boost"
+            >×{{ game.petBoostMultiplier }}</span
+          >
         </div>
       </div>
-
-      <div class="tap-wrap">
-        <TutorialBubble
-          v-if="game.tutorialStep === 0 && !shouldShowGiftDialog"
-          class="tap-tutorial"
-          :text="tGlobal('tutorial.tap')"
-          finger="👇"
-        />
-        <div
-          class="tap-zone"
-          :class="{
-            disabled: tapLimitReached,
-            boosted: game.favoriteBoostActive || game.bossBoostActive,
-            empty: !favAnimal,
-            'tut-highlight': game.tutorialStep === 0 && !shouldShowGiftDialog,
-          }"
-          @pointerdown="tap"
-        >
-          <span class="tap-emoji">{{ tapLimitReached ? "⏳" : favEmoji }}</span>
-          <span v-if="game.favoriteBoostActive || game.bossBoostActive" class="tap-sparkle">✨</span>
+      <div class="hb-right">
+        <div class="hb-label">{{ tx("hero.budget") }}</div>
+        <div class="hb-budget">
+          <span :class="{ low: game.tapsRemaining <= 3, zero: tapLimitReached }">{{
+            game.tapsRemaining
+          }}</span>
+          <span class="hb-budget-max"> / {{ game.tapsMax }}</span>
+          <span
+            v-if="game.bonusTaps > 0"
+            class="hb-bonus"
+            :title="tx('tap.bonusTitle')"
+            >+{{ game.bonusTaps }} 🎁</span
+          >
         </div>
-        <span
-          v-for="f in floats"
-          :key="f.id"
-          class="float"
-          :style="{ left: f.x + 'px', top: f.y + 'px' }"
-          >{{ f.v }}</span
-        >
+        <div class="hb-reset">↻ {{ fmtTime(tapCooldown) }}</div>
       </div>
-
-      <p v-if="tapLimitReached" class="tap-note locked">
-        {{ tx("tap.limitReached", { time: fmtTime(tapCooldown) }) }}
-      </p>
-      <p v-else-if="favAnimal" class="tap-note">
-        <b>{{ favAnimal.info.name }}</b> {{ tx("tap.favoriteHint") }}
-      </p>
-      <p v-else class="tap-note">
-        {{ tx("tap.buyFirst") }}
-      </p>
     </div>
 
-    <div class="card">
-      <div class="row between" style="margin-bottom: 8px">
-        <h2 class="title" style="margin: 0; font-size: 16px">
-          {{ tx("upgrades.title") }}
-        </h2>
-      </div>
-      <div class="tap-upgrade-grid">
-        <div class="tu-card">
-          <div class="tu-head">
-            <span class="tu-icon">⚡</span>
-            <div>
-              <div class="tu-title">{{ tx("upgrades.multiplier") }}</div>
-              <div class="tu-sub">
-                {{ tx("upgrades.level", { lvl: game.tapLevel }) }} · ×{{ game.tapMultiplier.toFixed(2) }}
-              </div>
-            </div>
-          </div>
-          <div class="tu-next">
-            <template v-if="!game.tapMulMaxed"
-              >{{ tx("upgrades.nextLevel", { value: `×${(game.tapMultiplier + 0.25).toFixed(2)}` }) }}</template
-            >
-            <template v-else>{{ tx("upgrades.maximum") }}</template>
-          </div>
-          <Button
-            class="btn"
-            :disabled="game.tapMulMaxed || !canUpgradeMul || !!upgradingTap"
-            @click="upgradeTap('mul')"
-          >
-            {{
-              upgradingTap === "mul"
-                ? "..."
-                : game.tapMulMaxed
-                  ? tx("upgrades.max")
-                  : tx("upgrades.upgrade", { cost: formatCoins(game.nextTapCost) })
-            }}
-          </Button>
-        </div>
-        <div class="tu-card">
-          <div class="tu-head">
-            <span class="tu-icon">🔋</span>
-            <div>
-              <div class="tu-title">{{ tx("upgrades.moreTaps") }}</div>
-              <div class="tu-sub">
-                {{ tx("upgrades.level", { lvl: game.tapCapLevel }) }} · {{ game.tapsMax }} / {{ tx("upgrades.round") }}
-              </div>
-            </div>
-          </div>
-          <div class="tu-next">
-            <template v-if="!game.tapCapMaxed"
-              >{{ tx("upgrades.nextLevel", { value: `${10 + game.tapCapLevel * 5} / ${tx('upgrades.round')}` }) }}</template
-            >
-            <template v-else>{{ tx("upgrades.maximum") }}</template>
-          </div>
-          <Button
-            class="btn"
-            :disabled="game.tapCapMaxed || !canUpgradeCap || !!upgradingTap"
-            @click="upgradeTap('cap')"
-          >
-            {{
-              upgradingTap === "cap"
-                ? "..."
-                : game.tapCapMaxed
-                  ? tx("upgrades.max")
-                  : tx("upgrades.upgrade", { cost: formatCoins(game.nextCapCost) })
-            }}
-          </Button>
-        </div>
-        <div class="tu-card">
-          <div class="tu-head">
-            <span class="tu-icon">💤</span>
-            <div>
-              <div class="tu-title">{{ tx("upgrades.offline") }}</div>
-              <div class="tu-sub">
-                {{ tx("upgrades.level", { lvl: game.offlineLevel }) }} · {{ game.maxOfflineHours }}h max
-              </div>
-            </div>
-          </div>
-          <div class="tu-next">
-            <template v-if="game.maxOfflineHours < 8">
-              {{ tx("upgrades.nextLevel", { value: `${(game.maxOfflineHours + 0.5).toFixed(1)}h` }) }}
-            </template>
-            <template v-else>{{ tx("upgrades.maximum") }}</template>
-          </div>
-          <Button
-            class="btn"
-            :disabled="!canUpgradeOffline || !!upgradingTap"
-            @click="upgradeTap('offline')"
-          >
-            {{
-              upgradingTap === "offline"
-                ? "..."
-                : game.maxOfflineHours >= 8
-                  ? tx("upgrades.max")
-                  : tx("upgrades.upgrade", { cost: formatCoins(game.nextOfflineCost) })
-            }}
-          </Button>
+    <div class="scene-wrap" ref="sceneWrap">
+      <TutorialBubble
+        v-if="game.tutorialStep === 0 && !shouldShowGiftDialog"
+        class="tap-tutorial"
+        :text="tGlobal('tutorial.tap')"
+        finger="👇"
+      />
+      <div
+        class="zoo-scene"
+        :class="{
+          disabled: tapLimitReached,
+          boosted: game.favoriteBoostActive || game.bossBoostActive,
+          'tut-highlight': game.tutorialStep === 0 && !shouldShowGiftDialog,
+        }"
+        @pointerdown="tap"
+      >
+        <div class="sun"></div>
+        <div class="cloud c1"></div>
+        <div class="cloud c2"></div>
+        <div class="cloud c3"></div>
+        <div class="grass"></div>
+        <span class="deco d1">🌳</span>
+        <span class="deco d2">🌼</span>
+        <span class="deco d3">🌷</span>
+        <span class="deco d4">🌳</span>
+        <div v-if="favAnimal" class="fav-flag">★ {{ tx("scene.favorite") }}</div>
+        <div
+          v-if="game.favoriteBoostActive || game.bossBoostActive"
+          class="scene-boost"
+        >
+          ✨ ×{{ game.petBoostMultiplier }}
         </div>
         <div
-          class="card pet-card"
-          :class="{ boosted: game.favoriteBoostActive }"
+          v-for="a in sceneAnimals"
+          :key="a.id"
+          class="scene-animal"
+          :class="{ fav: a.isFav }"
+          :style="{
+            left: a.spot.left + '%',
+            bottom: a.spot.bottom + '%',
+            fontSize: a.spot.size + 'px',
+            animationDelay: a.spot.delay + 's',
+          }"
         >
-          <div class="pet-top">
-            <div class="pet-emoji">
-              {{ favEmoji }}
-            </div>
-            <div class="pet-body">
-              <div class="pet-title">
-                {{ favAnimal ? favAnimal.info.name : tx("upgrades.noFavorite") }}
-              </div>
-              <div v-if="game.favoriteBoostActive" class="pet-status boost">
-                ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
-              </div>
-              <div v-else class="pet-status">
-                {{ tx("upgrades.chooseFavorite") }}
-              </div>
-            </div>
-            <div class="pet-actions">
-              <Button
-                class="btn secondary"
-                :disabled="!ownedAnimals.length"
-                @click="router.push('/inventory')"
-              >
-                {{ tx("upgrades.choose") }}
-              </Button>
-              <Button
-                class="btn"
-                :disabled="!favAnimal"
-                @click="router.push('/shop?tab=food')"
-              >
-                {{ tx("upgrades.feed") }}
-              </Button>
-            </div>
+          <span class="sa-emoji" :class="{ flip: a.spot.flip }">{{
+            a.info.emoji
+          }}</span>
+          <span v-if="a.td && a.td.badge" class="sa-tier">{{ a.td.badge }}</span>
+          <span v-if="a.isFav" class="sa-rate"
+            >+{{ formatCoins(game.rateForAnimal(a)) }}/s</span
+          >
+        </div>
+        <div v-if="!sceneAnimals.length" class="scene-empty">🐾</div>
+        <div v-if="tapLimitReached" class="scene-locked">⏳</div>
+      </div>
+      <span
+        v-for="f in floats"
+        :key="f.id"
+        class="float"
+        :style="{ left: f.x + 'px', top: f.y + 'px' }"
+        >{{ f.v }}</span
+      >
+      <button
+        type="button"
+        class="tap-btn"
+        :disabled="tapLimitReached"
+        @pointerdown.stop="tap"
+      >
+        <span class="tap-hand">👆</span> {{ tx("hero.tap") }} +{{
+          formatCoins(perTap)
+        }}
+      </button>
+    </div>
+
+    <p v-if="tapLimitReached" class="tap-note locked">
+      {{ tx("tap.limitReached", { time: fmtTime(tapCooldown) }) }}
+    </p>
+    <p v-else-if="favAnimal" class="tap-note">
+      <b>{{ favAnimal.info.name }}</b> {{ tx("tap.favoriteHint") }}
+    </p>
+    <p v-else class="tap-note">
+      {{ tx("tap.buyFirst") }}
+    </p>
+
+    <div class="stat-grid">
+      <button
+        type="button"
+        class="stat-card"
+        :disabled="game.tapMulMaxed || !canUpgradeMul || !!upgradingTap"
+        :title="tx('upgrades.multiplier')"
+        @click="upgradeTap('mul')"
+      >
+        <span class="st-icon">⚡</span>
+        <span class="st-label">{{ tx("stats.mult") }}</span>
+        <span class="st-lvl">Lvl {{ game.tapLevel }}</span>
+        <span class="st-next">×{{ game.tapMultiplier.toFixed(2) }}</span>
+        <span class="st-cost" :class="{ maxed: game.tapMulMaxed }">
+          {{
+            upgradingTap === "mul"
+              ? "…"
+              : game.tapMulMaxed
+                ? tx("upgrades.max")
+                : "🪙 " + formatCoins(game.nextTapCost)
+          }}
+        </span>
+      </button>
+      <button
+        type="button"
+        class="stat-card"
+        :disabled="game.tapCapMaxed || !canUpgradeCap || !!upgradingTap"
+        :title="tx('upgrades.moreTaps')"
+        @click="upgradeTap('cap')"
+      >
+        <span class="st-icon">🔋</span>
+        <span class="st-label">{{ tx("stats.caps") }}</span>
+        <span class="st-lvl">Lvl {{ game.tapCapLevel }}</span>
+        <span class="st-next">{{ game.tapsMax }} / {{ tx("upgrades.round") }}</span>
+        <span class="st-cost" :class="{ maxed: game.tapCapMaxed }">
+          {{
+            upgradingTap === "cap"
+              ? "…"
+              : game.tapCapMaxed
+                ? tx("upgrades.max")
+                : "🪙 " + formatCoins(game.nextCapCost)
+          }}
+        </span>
+      </button>
+      <button
+        type="button"
+        class="stat-card"
+        :disabled="!canUpgradeOffline || !!upgradingTap"
+        :title="tx('upgrades.offline')"
+        @click="upgradeTap('offline')"
+      >
+        <span class="st-icon">💤</span>
+        <span class="st-label">{{ tx("stats.idle") }}</span>
+        <span class="st-lvl">Lvl {{ game.offlineLevel }}</span>
+        <span class="st-next">{{ game.maxOfflineHours }}h</span>
+        <span class="st-cost" :class="{ maxed: game.maxOfflineHours >= 8 }">
+          {{
+            upgradingTap === "offline"
+              ? "…"
+              : game.maxOfflineHours >= 8
+                ? tx("upgrades.max")
+                : "🪙 " + formatCoins(game.nextOfflineCost)
+          }}
+        </span>
+      </button>
+    </div>
+
+    <div class="card pet-card" :class="{ boosted: game.favoriteBoostActive }">
+      <div class="pet-top">
+        <div class="pet-emoji">
+          {{ favEmoji }}
+        </div>
+        <div class="pet-body">
+          <div class="pet-title">
+            {{ favAnimal ? favAnimal.info.name : tx("upgrades.noFavorite") }}
           </div>
+          <div v-if="game.favoriteBoostActive" class="pet-status boost">
+            ×{{ game.petBoostMultiplier }} · {{ fmtTime(boostRemaining) }}
+          </div>
+          <div v-else class="pet-status">
+            {{ tx("upgrades.chooseFavorite") }}
+          </div>
+        </div>
+        <div class="pet-actions">
+          <Button
+            class="btn secondary"
+            :disabled="!ownedAnimals.length"
+            @click="router.push('/inventory')"
+          >
+            {{ tx("upgrades.choose") }}
+          </Button>
+          <Button
+            class="btn"
+            :disabled="!favAnimal"
+            @click="router.push('/shop?tab=food')"
+          >
+            {{ tx("upgrades.feed") }}
+          </Button>
         </div>
       </div>
     </div>
@@ -1205,34 +1255,14 @@ async function doSplit(animalId) {
     </div>
 
     <div class="card equip-card">
-      <div class="row between" style="margin-bottom: 8px">
-        <h2 class="title" style="margin: 0; font-size: 18px">
+      <div class="team-head">
+        <h2 class="team-title">
           {{ tx("equipped.title") }}
-          <span class="badge" style="margin-left: 6px"
-            >{{ game.equippedCount }} / {{ game.equipSlots }}</span
-          >
+          <span class="team-count">· {{ game.equippedCount }} / {{ game.equipSlots }}</span>
         </h2>
-        <div class="equip-actions">
-          <router-link to="/inventory" class="btn inventory-btn">
-            {{ tx("equipped.manage") }}
-          </router-link>
-          <div class="equip-best-wrap" ref="equipBestWrap">
-            <TutorialBubble
-              v-if="game.tutorialStep === 2"
-              class="equip-best-tutorial"
-              :text="tGlobal('tutorial.equipBest')"
-              finger="👇"
-            />
-            <Button
-              class="btn inventory-btn equip-best-btn"
-              :class="{ 'tut-highlight': game.tutorialStep === 2 }"
-              :disabled="equipBestBusy || !ownedAnimals.length"
-              @click="equipBest"
-            >
-              {{ equipBestBusy ? tx("common.loadingShort") : tx("equipped.equipBest") }}
-            </Button>
-          </div>
-        </div>
+        <router-link to="/inventory" class="team-edit">
+          {{ tx("team.edit") }} →
+        </router-link>
       </div>
       <div class="farm-grid">
         <template v-for="(cell, i) in slotCells" :key="i">
@@ -1249,6 +1279,7 @@ async function doSplit(animalId) {
                 ? { '--tier-color': cell.td.color }
                 : null
             "
+            :title="cell.info.name"
           >
             <div v-if="cell.id === game.favoriteAnimalId" class="farm-star">
               ⭐
@@ -1257,7 +1288,6 @@ async function doSplit(animalId) {
               {{ cell.td.badge }}
             </div>
             <div class="farm-emoji">{{ cell.info.emoji }}</div>
-            <div class="farm-name">{{ cell.info.name }}</div>
             <div class="farm-rate">
               +{{ formatCoins(game.rateForAnimal(cell)) }}/s
             </div>
@@ -1275,8 +1305,6 @@ async function doSplit(animalId) {
             :aria-label="tx('equipped.freeSlotAria', { slot: i + 1 })"
           >
             <div class="farm-plus">＋</div>
-            <div class="farm-meta">{{ tx("equipped.freeSlot") }}</div>
-            <div class="farm-meta-sub">{{ tx("equipped.tapToEquip") }}</div>
           </router-link>
         </template>
         <button
@@ -1285,12 +1313,30 @@ async function doSplit(animalId) {
           class="farm-cell slot-buy"
           :class="{ disabled: !canBuySlot || slotBuyBusy }"
           :disabled="!canBuySlot || slotBuyBusy"
+          :title="tx('equipped.buySlot')"
           @click="buySlot"
         >
           <div class="farm-plus">＋</div>
-          <div class="farm-meta">{{ tx("equipped.buySlot") }}</div>
-          <div class="farm-meta-sub coin-line">🪙 {{ formatCoins(slotInfo.next_cost) }}</div>
+          <div class="farm-meta coin-line">🪙 {{ formatCoins(slotInfo.next_cost) }}</div>
         </button>
+      </div>
+      <div class="equip-actions">
+        <div class="equip-best-wrap" ref="equipBestWrap">
+          <TutorialBubble
+            v-if="game.tutorialStep === 2"
+            class="equip-best-tutorial"
+            :text="tGlobal('tutorial.equipBest')"
+            finger="👇"
+          />
+          <Button
+            class="btn inventory-btn equip-best-btn"
+            :class="{ 'tut-highlight': game.tutorialStep === 2 }"
+            :disabled="equipBestBusy || !ownedAnimals.length"
+            @click="equipBest"
+          >
+            {{ equipBestBusy ? tx("common.loadingShort") : tx("equipped.equipBest") }}
+          </Button>
+        </div>
       </div>
     </div>
 
@@ -1738,9 +1784,10 @@ async function doSplit(animalId) {
 .welcome-avatar {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #2a3866, #162048);
-  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  border: 2px solid var(--border);
+  box-shadow: 0 2px 0 var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1748,26 +1795,18 @@ async function doSplit(animalId) {
   flex-shrink: 0;
 }
 .welcome-link:hover .welcome-avatar {
-  border-color: var(--accent);
+  border-color: var(--accent-soft);
 }
 .username {
   font-weight: 800;
   font-size: 18px;
+  color: var(--heading);
 }
 .profile-hint {
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--muted);
   margin-left: 6px;
-}
-.boost-chip {
-  background: linear-gradient(135deg, #06d6a0, #ffd166);
-  color: #0b1220;
-  font-weight: 800;
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(6, 214, 160, 0.35);
 }
 .boost-stack {
   display: flex;
@@ -1775,144 +1814,422 @@ async function doSplit(animalId) {
   flex-wrap: wrap;
   gap: 6px;
 }
+.boost-chip {
+  background: linear-gradient(135deg, #5fe3b3, #fbd35c);
+  color: #2a3a14;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(46, 194, 114, 0.35);
+}
 .boost-chip.boss {
-  background: linear-gradient(135deg, #ff477e, #ffd166 48%, #06d6a0);
-  box-shadow: 0 4px 18px rgba(255, 71, 126, 0.35);
+  background: linear-gradient(135deg, #ff7ba1, #fbd35c 48%, #5fe3b3);
+  box-shadow: 0 4px 18px rgba(255, 123, 161, 0.35);
 }
 
-.tap-card {
-  text-align: center;
-  position: relative;
-  overflow: hidden;
+/* ── Hero-Banner: Einkommen + Tap-Budget ───────────────────────── */
+.hero-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 12px;
+  background: linear-gradient(180deg, #fbcf4a, #f2a812);
+  border-radius: 22px;
+  padding: 13px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 0 #cf8a08, 0 14px 30px rgba(242, 168, 18, 0.35);
+  color: var(--accent-ink);
 }
-.rate {
-  font-size: 22px;
+.hb-left { min-width: 0; }
+.hb-right { text-align: right; flex-shrink: 0; }
+.hb-label {
+  font-size: 10px;
   font-weight: 800;
-  color: var(--accent-2);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  opacity: 0.72;
 }
-.rate-boost {
+.hb-value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #45300a;
+}
+.hb-unit {
+  font-size: 14px;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+.hb-boost {
   font-size: 12px;
-  background: var(--accent);
-  color: #1b1300;
-  padding: 2px 6px;
+  background: #45300a;
+  color: #ffd96b;
+  padding: 2px 8px;
   border-radius: 999px;
-  margin-left: 4px;
+  margin-left: 6px;
   vertical-align: middle;
 }
-.tap-count {
-  font-size: 22px;
+.hb-budget {
+  font-size: 24px;
   font-weight: 800;
+  color: #45300a;
+  line-height: 1.2;
 }
-.tap-count .low {
-  color: var(--accent);
-}
-.tap-count .zero {
-  color: var(--danger);
-}
-.tap-reset {
+.hb-budget .low { color: #a3470a; }
+.hb-budget .zero { color: #c2201f; }
+.hb-budget-max { opacity: 0.55; font-size: 17px; }
+.hb-bonus {
+  display: inline-block;
+  margin-left: 6px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  padding: 1px 8px;
   font-size: 11px;
-  color: var(--muted);
+  font-weight: 800;
+  vertical-align: middle;
+}
+.hb-reset {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.7;
   font-variant-numeric: tabular-nums;
 }
-.tap-wrap {
+
+/* ── Zoo-Szene ──────────────────────────────────────────────────── */
+.scene-wrap {
   position: relative;
-  display: flex;
-  justify-content: center;
+  margin-bottom: 28px;
 }
 .tap-tutorial {
   position: absolute;
   top: -28px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 5;
 }
-.equip-best-wrap {
+.zoo-scene {
   position: relative;
-  display: inline-block;
-}
-.equip-best-tutorial {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 6px;
-}
-.tap-zone {
-  position: relative;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #3b4a88, #162048 70%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 250px;
+  border-radius: 26px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #6cc6ef 0%, #8fd6f4 52%, #8fd6f4 100%);
+  border: 3px solid #fff;
+  box-shadow: 0 4px 0 var(--border), 0 18px 40px rgba(120, 160, 60, 0.25);
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.4),
-    inset 0 0 40px rgba(255, 255, 255, 0.05);
-  transition: transform 0.08s ease;
 }
-.tap-zone:active {
-  transform: scale(0.96);
-}
-.tap-zone.disabled {
-  filter: grayscale(0.8);
-  opacity: 0.55;
+.zoo-scene:active .grass { filter: brightness(1.04); }
+.zoo-scene.disabled {
+  filter: grayscale(0.7) brightness(0.92);
   cursor: not-allowed;
 }
-.tap-zone.empty {
-  opacity: 0.6;
-}
-.tap-zone.boosted {
+.zoo-scene.boosted {
   box-shadow:
-    0 0 0 3px rgba(6, 214, 160, 0.4),
-    0 20px 50px rgba(6, 214, 160, 0.25),
-    inset 0 0 40px rgba(255, 209, 102, 0.1);
-  animation: pulse 1.6s ease-in-out infinite;
+    0 0 0 3px rgba(46, 194, 114, 0.55),
+    0 18px 40px rgba(46, 194, 114, 0.3);
 }
-.tap-emoji {
-  font-size: 150px;
-  line-height: 1;
-  animation: bob 2.4s ease-in-out infinite;
-}
-.tap-sparkle {
+.grass {
   position: absolute;
-  top: 20px;
-  right: 30px;
-  font-size: 28px;
-  animation: sparkle 1.8s linear infinite;
+  left: -4%;
+  right: -4%;
+  bottom: -6px;
+  height: 47%;
+  background: linear-gradient(180deg, #6ecb52 0%, #51b441 100%);
+  border-radius: 50% 50% 0 0 / 26% 26% 0 0;
+  box-shadow: inset 0 6px 0 rgba(255, 255, 255, 0.22);
 }
-.tap-note {
+.sun {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #ffd96b, #f4a912);
+  box-shadow: 0 0 0 10px rgba(255, 217, 107, 0.25), 0 0 36px rgba(244, 169, 18, 0.7);
+  animation: sunPulse 4s ease-in-out infinite;
+}
+.cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  animation: cloudDrift 26s linear infinite;
+}
+.cloud::after {
+  content: "";
+  position: absolute;
+  bottom: 40%;
+  left: 22%;
+  width: 46%;
+  height: 90%;
+  background: inherit;
+  border-radius: 50%;
+}
+.cloud.c1 { top: 26px; left: 8%; width: 64px; height: 20px; }
+.cloud.c2 { top: 58px; left: 42%; width: 44px; height: 15px; animation-duration: 34s; animation-delay: -12s; opacity: 0.85; }
+.cloud.c3 { top: 14px; left: 64%; width: 52px; height: 17px; animation-duration: 30s; animation-delay: -22s; opacity: 0.75; }
+@keyframes cloudDrift {
+  from { transform: translateX(-30px); }
+  50%  { transform: translateX(40px); }
+  to   { transform: translateX(-30px); }
+}
+@keyframes sunPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.07); }
+}
+.deco {
+  position: absolute;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 3px rgba(40, 80, 20, 0.3));
+}
+.deco.d1 { font-size: 34px; left: 4%; bottom: 30%; }
+.deco.d2 { font-size: 16px; left: 56%; bottom: 6%; }
+.deco.d3 { font-size: 16px; left: 22%; bottom: 9%; }
+.deco.d4 { font-size: 26px; right: 3%; bottom: 26%; }
+.fav-flag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(58, 44, 23, 0.82);
+  color: #ffe9ad;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 999px;
+  z-index: 3;
+}
+.scene-boost {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  color: #1d9457;
   font-size: 12px;
-  color: var(--muted);
-  margin: 8px 0 0;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  z-index: 3;
 }
-.tap-note.locked {
-  color: var(--danger);
-  font-weight: 600;
+.scene-animal {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  z-index: 2;
+  animation: bob 2.6s ease-in-out infinite;
+  pointer-events: none;
 }
-@keyframes pulse {
-  0%,
-  100% {
-    transform: scale(1);
+.scene-animal .sa-emoji {
+  filter: drop-shadow(0 5px 4px rgba(30, 70, 15, 0.35));
+}
+.scene-animal .sa-emoji.flip {
+  transform: scaleX(-1);
+}
+.scene-animal.fav {
+  z-index: 3;
+}
+.sa-tier {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  font-size: 0.38em;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3));
+}
+.sa-rate {
+  margin-top: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(58, 44, 23, 0.82);
+  color: #ffe9ad;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.scene-empty {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  transform: translateX(-50%);
+  font-size: 56px;
+  opacity: 0.45;
+}
+.scene-locked {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  background: rgba(255, 248, 230, 0.35);
+  z-index: 4;
+}
+.float {
+  position: absolute;
+  pointer-events: none;
+  font-weight: 800;
+  font-size: 17px;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(50, 90, 20, 0.6);
+  animation: floatUp 0.9s ease-out forwards;
+  z-index: 6;
+}
+@keyframes floatUp {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
   }
-  50% {
-    transform: scale(1.03);
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -70px) scale(1.25);
   }
 }
 
+/* ── TAP-Button ─────────────────────────────────────────────────── */
+.tap-btn {
+  position: absolute;
+  left: 50%;
+  bottom: -24px;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 3px solid #fff;
+  border-radius: 22px;
+  padding: 13px 28px;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--accent-ink);
+  background: linear-gradient(180deg, #fbcf4a, #f0a312);
+  box-shadow: 0 6px 0 #cf8a08, 0 18px 36px rgba(242, 168, 18, 0.5);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.06s ease, box-shadow 0.06s ease;
+}
+.tap-btn:active {
+  transform: translateX(-50%) translateY(4px);
+  box-shadow: 0 2px 0 #cf8a08, 0 8px 16px rgba(242, 168, 18, 0.4);
+}
+.tap-btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+.tap-hand {
+  font-size: 24px;
+  animation: handTap 1.4s ease-in-out infinite;
+}
+@keyframes handTap {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(4px) rotate(-8deg); }
+}
+.tap-note {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 4px 12px;
+  text-align: center;
+}
+.tap-note.locked {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* ── Stat-Karten (Mult / Taps / Idle) ───────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 12px 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 3px 0 var(--border), 0 10px 22px rgba(186, 140, 50, 0.10);
+  transition: transform 0.07s ease, box-shadow 0.07s ease;
+}
+.stat-card:not([disabled]):hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-soft);
+}
+.stat-card:not([disabled]):active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--border);
+}
+.stat-card[disabled] {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+.st-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+.st-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.st-lvl {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--heading);
+  line-height: 1.1;
+}
+.st-next {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.st-cost {
+  margin-top: 5px;
+  background: linear-gradient(180deg, #6f5215, #57400e);
+  color: #ffd96b;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 12px;
+  border-radius: 999px;
+  box-shadow: 0 2px 0 #46330a;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-cost.maxed {
+  background: linear-gradient(180deg, #34d399, #0ea974);
+  color: #fff;
+  box-shadow: 0 2px 0 #0b7e57;
+}
+
+/* ── Pet-Karte (Liebling) ───────────────────────────────────────── */
 .pet-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: #162048;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px;
+}
+.pet-card.boosted {
+  background: linear-gradient(135deg, rgba(46, 194, 114, 0.10), rgba(251, 211, 92, 0.16));
+  border-color: rgba(46, 194, 114, 0.5);
 }
 .pet-top {
   display: flex;
@@ -1921,10 +2238,42 @@ async function doSplit(animalId) {
   min-width: 0;
   flex-wrap: wrap;
 }
+.pet-emoji {
+  font-size: 38px;
+  line-height: 1;
+  width: 62px;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-2);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  flex-shrink: 0;
+}
+.pet-body {
+  flex: 1;
+  min-width: 0;
+  flex-basis: 140px;
+}
+.pet-title {
+  font-weight: 800;
+  color: var(--heading);
+}
+.pet-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.pet-status.boost {
+  color: #1d9457;
+  font-weight: 800;
+}
 .pet-actions {
   display: flex;
   flex-direction: row;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
   width: 100%;
   margin-top: 4px;
@@ -1934,68 +2283,11 @@ async function doSplit(animalId) {
   min-width: 0;
   min-height: 40px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   white-space: nowrap;
 }
-.fav-strip {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 4px 2px;
-  scrollbar-width: thin;
-}
-.fav-pill {
-  --tier-color: transparent;
-  position: relative;
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 10px;
-  background: #162048;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  min-width: 64px;
-}
-.fav-pill.tiered {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--tier-color) 35%, #162048),
-    color-mix(in srgb, var(--tier-color) 10%, #0f1736)
-  );
-  border-color: color-mix(in srgb, var(--tier-color) 60%, transparent);
-}
-.fav-pill.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent) inset;
-}
-.fav-pill-emoji {
-  font-size: 26px;
-  line-height: 1;
-}
-.fav-pill-badge {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  font-size: 12px;
-}
-.fav-pill-name {
-  font-size: 10px;
-  opacity: 0.8;
-  max-width: 80px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tap-upgrade {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+
+/* ── Quick-Actions ──────────────────────────────────────────────── */
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2008,27 +2300,29 @@ async function doSplit(animalId) {
   align-items: center;
   gap: 2px;
   padding: 10px 6px;
-  background: #162048;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: var(--card-2);
+  border: 2px solid var(--border);
+  border-radius: 16px;
   text-decoration: none;
   color: inherit;
-  transition: transform 0.08s ease;
+  transition: transform 0.08s ease, border-color 0.08s ease;
 }
 .qa-btn:hover {
   transform: translateY(-2px);
-  border-color: var(--accent);
+  border-color: var(--accent-soft);
 }
 .qa-icon {
   font-size: 24px;
   line-height: 1;
 }
 .qa-label {
-  font-weight: 700;
+  font-weight: 800;
   font-size: 12px;
+  color: var(--heading);
 }
 .qa-sub {
   font-size: 10px;
+  font-weight: 600;
   color: var(--muted);
 }
 @media (max-width: 520px) {
@@ -2041,172 +2335,97 @@ async function doSplit(animalId) {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-.pet-card.boosted {
-  background: linear-gradient(
-    135deg,
-    rgba(6, 214, 160, 0.12),
-    rgba(255, 209, 102, 0.12)
-  );
-  border-color: rgba(6, 214, 160, 0.5);
-}
-.pet-emoji {
-  font-size: 44px;
-  line-height: 1;
-}
-.pet-body {
-  flex: 1;
-  min-width: 0;
-  flex-basis: 140px;
-}
-.pet-title {
-  font-weight: 700;
-}
-.pet-status {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 2px;
-}
-.pet-status.boost {
-  color: var(--accent-2);
-  font-weight: 700;
-}
 
-.fav-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-  gap: 8px;
-}
-.fav-cell {
-  position: relative;
-  background: #162048;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 8px 4px;
-  text-align: center;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-}
-.fav-cell.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset;
-}
-.fav-emoji {
-  font-size: 32px;
-  line-height: 1;
-}
-.fav-name {
-  font-size: 11px;
-  margin-top: 4px;
-  opacity: 0.8;
-}
-.fav-star {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  font-size: 12px;
-}
-.btn.small {
-  padding: 6px 10px;
-  font-size: 12px;
-}
-
+/* ── Team / Ausgerüstet ─────────────────────────────────────────── */
 .equip-card {
   position: relative;
+}
+.team-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.team-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.team-count {
+  color: var(--heading);
+}
+.team-edit {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--accent-deep);
+  white-space: nowrap;
+}
+.team-edit:hover {
+  text-decoration: underline;
 }
 .equip-actions {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  margin-top: 10px;
+}
+.equip-best-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+.equip-best-wrap .equip-best-btn {
+  flex: 1;
+}
+.equip-best-tutorial {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+}
+.inventory-btn {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 40px;
 }
 .farm-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 8px;
 }
 .farm-cell {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #2a3866, #162048);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px 8px 10px;
+  background: var(--card-2);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  padding: 10px 4px 8px;
   text-align: center;
-  min-height: 130px;
+  aspect-ratio: 0.92;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  box-shadow: 0 2px 0 var(--border);
 }
 .farm-cell.empty {
-  background: repeating-linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.02) 0 10px,
-    transparent 10px 20px
-  );
+  background: transparent;
   border-style: dashed;
-}
-.farm-cell.alive::before {
-  content: "";
-  position: absolute;
-  inset: -20% -20% auto -20%;
-  height: 80%;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(255, 209, 102, 0.18),
-    transparent 60%
-  );
-  pointer-events: none;
-}
-.farm-cell.favorite {
-  border-color: var(--accent);
-}
-.farm-cell.tiered {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--tier-color) 40%, #2a3866) 0%,
-    color-mix(in srgb, var(--tier-color) 12%, #162048) 100%
-  );
-  border-color: color-mix(in srgb, var(--tier-color) 70%, transparent);
-  box-shadow: 0 6px 22px color-mix(in srgb, var(--tier-color) 30%, transparent);
-}
-.farm-tier {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  font-size: 16px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-}
-.farm-cell.boosted {
-  border-color: var(--accent-2);
-  box-shadow:
-    0 0 0 1px var(--accent-2) inset,
-    0 6px 20px rgba(6, 214, 160, 0.3);
-}
-.farm-emoji {
-  font-size: 48px;
-  line-height: 1;
-  animation: bob 2.4s ease-in-out infinite;
-}
-.farm-name {
-  font-weight: 700;
-  margin-top: 6px;
-  font-size: 13px;
-}
-.farm-rate {
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 700;
-  margin-top: 2px;
-}
-.farm-cell.empty {
+  box-shadow: none;
   text-decoration: none;
   color: inherit;
   cursor: pointer;
-  transition:
-    transform 0.1s ease,
-    border-color 0.1s ease;
+  transition: transform 0.1s ease, border-color 0.1s ease;
 }
 .farm-cell.empty:hover,
 .farm-cell.empty:active {
@@ -2214,32 +2433,65 @@ async function doSplit(animalId) {
   border-style: solid;
   transform: translateY(-2px);
 }
+.farm-cell.favorite {
+  border-color: var(--accent);
+}
+.farm-cell.tiered {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tier-color) 24%, #fff) 0%,
+    color-mix(in srgb, var(--tier-color) 8%, #fff) 100%
+  );
+  border-color: color-mix(in srgb, var(--tier-color) 55%, transparent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--tier-color) 25%, transparent);
+}
+.farm-tier {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 13px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+}
+.farm-cell.boosted {
+  border-color: var(--accent-2);
+  box-shadow:
+    0 0 0 1px var(--accent-2) inset,
+    0 6px 20px rgba(46, 194, 114, 0.3);
+}
+.farm-emoji {
+  font-size: 34px;
+  line-height: 1;
+  animation: bob 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 3px 3px rgba(110, 80, 20, 0.2));
+}
+.farm-rate {
+  color: var(--accent-deep);
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 5px;
+  white-space: nowrap;
+}
 .farm-plus {
-  font-size: 36px;
-  opacity: 0.5;
-  color: var(--accent);
+  font-size: 28px;
+  opacity: 0.6;
+  color: var(--accent-deep);
+  line-height: 1;
 }
 .farm-meta {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  margin-top: 2px;
-}
-.farm-meta-sub {
   font-size: 10px;
-  color: var(--muted);
-  opacity: 0.7;
+  font-weight: 700;
   margin-top: 2px;
 }
 .farm-cell.slot-buy {
-  background: linear-gradient(135deg, rgba(255, 209, 102, 0.18), rgba(255, 71, 126, 0.12));
-  border: 2px dashed rgba(255, 209, 102, 0.6);
+  background: rgba(251, 211, 92, 0.18);
+  border: 2px dashed var(--accent);
   cursor: pointer;
   font: inherit;
   color: inherit;
+  box-shadow: none;
 }
 .farm-cell.slot-buy:hover:not(.disabled) {
-  border-color: var(--accent);
   border-style: solid;
   transform: translateY(-2px);
 }
@@ -2249,22 +2501,40 @@ async function doSplit(animalId) {
 }
 .farm-cell.slot-buy .coin-line {
   font-weight: 800;
-  color: var(--accent);
+  color: var(--accent-deep);
   opacity: 1;
+  font-size: 10px;
+}
+.farm-spark {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 13px;
+  animation: sparkle 1.8s linear infinite;
+}
+.farm-star {
+  position: absolute;
+  top: 4px;
+  left: 6px;
   font-size: 12px;
 }
 
+/* ── Crafter / Fusion ───────────────────────────────────────────── */
 .craft-job {
   margin: 6px 0 10px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(99, 242, 255, 0.12), rgba(168, 85, 247, 0.12));
-  border: 1px solid rgba(99, 242, 255, 0.35);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(96, 165, 250, 0.10));
+  border: 2px solid rgba(124, 58, 237, 0.25);
 }
 .craft-job.ready {
-  background: linear-gradient(135deg, rgba(6, 214, 160, 0.18), rgba(255, 209, 102, 0.12));
-  border-color: rgba(6, 214, 160, 0.5);
+  background: linear-gradient(135deg, rgba(46, 194, 114, 0.12), rgba(251, 211, 92, 0.14));
+  border-color: rgba(46, 194, 114, 0.5);
   animation: cardPulse 2s ease-in-out infinite;
+}
+@keyframes cardPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.012); }
 }
 .craft-job-row {
   display: flex;
@@ -2273,13 +2543,13 @@ async function doSplit(animalId) {
 }
 .craft-job-emoji { font-size: 32px; flex-shrink: 0; }
 .craft-job-body { flex: 1; min-width: 0; }
-.craft-job-title { font-weight: 800; font-size: 14px; }
+.craft-job-title { font-weight: 800; font-size: 14px; color: var(--heading); }
 .craft-job-time { font-size: 12px; color: var(--muted); font-weight: 700; }
 .craft-job-bar {
   width: 100%;
-  height: 6px;
+  height: 8px;
   border-radius: 999px;
-  background: rgba(0,0,0,0.3);
+  background: var(--surface-deep);
   overflow: hidden;
   border: 1px solid var(--border);
   margin-top: 4px;
@@ -2287,117 +2557,452 @@ async function doSplit(animalId) {
 .craft-job-bar span {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #06d6a0, #ffd166);
+  background: linear-gradient(90deg, #2ec272, #fbd35c);
   transition: width 0.3s ease;
-}
-.inventory-btn {
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 40px;
-}
-@media (max-width: 520px) {
-  .equip-actions {
-    width: 100%;
-    justify-content: stretch;
-  }
-  .equip-actions .inventory-btn {
-    flex: 1 1 150px;
-    justify-content: center;
-  }
 }
 .fusion-toggle {
   padding: 10px 16px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   min-height: 40px;
 }
-.farm-spark {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  font-size: 16px;
-  animation: sparkle 1.8s linear infinite;
-}
-.farm-star {
-  position: absolute;
-  top: 6px;
-  left: 8px;
-  font-size: 14px;
-}
-@keyframes bob {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-2deg);
-  }
-  50% {
-    transform: translateY(-4px) rotate(2deg);
-  }
-}
-@keyframes sparkle {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.3);
-  }
-}
-.tap-upgrade-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  align-items: stretch;
-}
-.tu-card {
-  background: #162048;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.tu-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.tu-icon {
-  font-size: 28px;
-}
-.tu-title {
-  font-weight: 700;
-  font-size: 14px;
-}
-.tu-sub {
-  font-size: 11px;
-  color: var(--muted);
-}
-.tu-next {
-  font-size: 11px;
-  color: var(--accent-2);
-}
-.btn.secondary.small {
+.btn.small {
   padding: 6px 10px;
   font-size: 12px;
 }
 .hint {
   font-size: 12px;
-  opacity: 0.75;
+  font-weight: 600;
+  color: var(--muted);
   margin: 0 0 8px;
 }
+.crafter-card,
+.fusion-card {
+  position: relative;
+}
+.fusion-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+.fm-mode-toggle {
+  display: flex;
+  gap: 6px;
+  background: var(--surface-deep);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 4px;
+}
+.fm-mode-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 6px 10px;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 700;
+}
+.fm-mode-btn.active {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--heading);
+  box-shadow: 0 2px 0 var(--border);
+}
+.fusion-preview {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--card-2);
+  border: 2px dashed var(--border);
+  border-radius: 18px;
+  padding: 18px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.08s ease;
+}
+.fusion-preview:hover {
+  background: var(--surface-deep);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.fusion-preview-emoji {
+  font-size: 56px;
+  line-height: 1;
+  animation: bob 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.25));
+}
+.fusion-preview-label {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--heading);
+}
+.fusion-machine {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+.fm-slot {
+  background: var(--card-2);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  padding: 10px;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fm-slot-title {
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fm-slot-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  flex: 1;
+}
+.fm-chip {
+  font-size: 26px;
+  background: var(--card);
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+}
+.fm-chip.big {
+  font-size: 44px;
+  padding: 6px 14px;
+  filter: drop-shadow(0 0 6px var(--tier-color, transparent));
+}
+.fm-chip .tb {
+  font-size: 0.5em;
+  vertical-align: super;
+}
+.fm-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+.fm-factory {
+  font-size: 64px;
+  animation: bob 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.25));
+}
+.fm-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fm-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fm-species-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+}
+.fm-sp-btn {
+  background: var(--card-2);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 4px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.fm-sp-btn.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.fm-sp-emoji {
+  font-size: 24px;
+  line-height: 1;
+}
+.fm-sp-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.fm-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+.fm-tier-chip.active {
+  outline: 2px solid var(--accent);
+}
+.fusion-locked {
+  padding: 14px;
+}
+@media (max-width: 520px) {
+  .fm-factory {
+    font-size: 48px;
+  }
+  .fm-chip {
+    font-size: 22px;
+    padding: 3px 6px;
+  }
+  .fm-chip.big {
+    font-size: 34px;
+    padding: 4px 10px;
+  }
+}
+.upgrading-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tier-chip {
+  position: relative;
+  --tier-color: #b8a888;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tier-color) 26%, #fff) 0%,
+    color-mix(in srgb, var(--tier-color) 8%, #fff) 100%
+  );
+  border: 2px solid color-mix(in srgb, var(--tier-color) 55%, transparent);
+  border-radius: 14px;
+  padding: 10px 6px;
+  text-align: center;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--tier-color) 22%, transparent);
+  transition: transform 0.08s ease;
+}
+.tier-chip:not([disabled]):hover {
+  transform: translateY(-2px);
+}
+.tier-chip.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+  box-shadow: none;
+}
+.tier-chip.busy {
+  opacity: 0.6;
+}
+.tier-chip.upgrading {
+  cursor: default;
+  animation: pulse 2s ease-in-out infinite;
+}
+.tier-emoji {
+  font-size: 36px;
+  line-height: 1;
+  position: relative;
+}
+.tier-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -6px;
+  font-size: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+.tier-name {
+  font-weight: 800;
+  font-size: 12px;
+  text-transform: capitalize;
+  margin-top: 4px;
+  color: var(--heading);
+}
+.tier-meta {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0.8;
+  margin-top: 2px;
+}
+.tier-time {
+  font-size: 11px;
+  color: var(--accent-deep);
+  font-weight: 800;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.cr-ing-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.cr-qty-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.cr-qty-label.ok {
+  color: #1d9457;
+}
+.cr-ready-dot {
+  font-size: 8px;
+  color: var(--border);
+  margin-top: 2px;
+  line-height: 1;
+}
+.cr-ready-dot.ready {
+  color: var(--accent-2);
+  filter: drop-shadow(0 0 4px var(--accent-2));
+}
+.fm-chip.cr-out-chip {
+  filter: drop-shadow(0 0 12px rgba(244, 169, 18, 0.45));
+  border-color: rgba(244, 169, 18, 0.45);
+  animation: bob 2.4s ease-in-out infinite;
+}
+.fm-chip.cr-short {
+  opacity: 0.45;
+  border-color: var(--danger);
+}
 
+/* ── Boss-Pfad & Event-Links ────────────────────────────────────── */
+.boss-path-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(251, 211, 92, 0.35), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(167, 139, 250, 0.25), transparent 60%),
+    var(--card);
+  border: 2px solid rgba(244, 169, 18, 0.45);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.boss-path-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 12px 28px rgba(244, 169, 18, 0.25);
+}
+.bpl-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
+  flex-shrink: 0;
+  animation: bplFloat 3s ease-in-out infinite;
+}
+@keyframes bplFloat {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-3px) rotate(3deg); }
+}
+.bpl-body {
+  flex: 1;
+  min-width: 0;
+}
+.bpl-title {
+  font-weight: 800;
+  font-size: 16px;
+  background: linear-gradient(90deg, #d98c00, #e8447a, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.bpl-sub {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  margin-top: 2px;
+}
+.bpl-event-status {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(14, 140, 200, 0.10);
+  border: 1px solid rgba(14, 140, 200, 0.4);
+  color: #0e7eb4;
+  font-variant-numeric: tabular-nums;
+}
+.bpl-event-status.ended {
+  background: rgba(239, 71, 111, 0.10);
+  border-color: rgba(239, 71, 111, 0.5);
+  color: #d92b56;
+}
+.event-link.event-ended {
+  cursor: not-allowed;
+  filter: grayscale(0.65);
+  opacity: 0.7;
+  border-color: rgba(239, 71, 111, 0.45);
+}
+.event-link.event-ended:hover {
+  transform: none;
+  box-shadow: none;
+}
+.bpl-arrow {
+  font-size: 30px;
+  color: var(--accent-deep);
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.event-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(46, 194, 114, 0.18), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(72, 202, 228, 0.18), transparent 60%),
+    var(--card);
+  border: 2px solid rgba(46, 194, 114, 0.4);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.event-link:hover {
+  transform: translateY(-2px);
+  border-color: #2ec272;
+  box-shadow: 0 12px 28px rgba(46, 194, 114, 0.2);
+}
+.ml-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
+  flex-shrink: 0;
+  animation: mlFloat 3.4s ease-in-out infinite;
+}
+@keyframes mlFloat {
+  0%, 100% { transform: translateY(0) rotate(3deg); }
+  50% { transform: translateY(-3px) rotate(-3deg); }
+}
+.ml-title {
+  font-weight: 800;
+  font-size: 16px;
+  background: linear-gradient(90deg, #0ea974, #0e8cc8, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Geschenk-Dialog ────────────────────────────────────────────── */
 .gift-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(74, 52, 12, 0.5);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2443,479 +3048,34 @@ async function doSplit(animalId) {
     transform: scale(1);
   }
 }
-.bonus-chip {
-  display: inline-block;
-  margin-left: 6px;
-  background: rgba(255, 209, 102, 0.18);
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 11px;
-  font-weight: 700;
-}
-.fusion-card {
-  position: relative;
-}
-.fusion-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 8px;
-}
-.fm-mode-toggle {
-  display: flex;
-  gap: 6px;
-  background: #0f1736;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 4px;
-}
-.fm-mode-btn {
-  flex: 1;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 6px 10px;
-  color: inherit;
-  cursor: pointer;
-  font-weight: 600;
-}
-.fm-mode-btn.active {
-  background: var(--surface, #1a2350);
-  border-color: var(--border);
-}
-.fusion-row {
-  background: #0f1736;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px;
-}
-.fusion-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-.fusion-sp {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.fusion-tiers {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 8px;
-}
-.fusion-preview {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  background: #0f1736;
-  border: 1px dashed var(--border);
-  border-radius: 14px;
-  padding: 18px 14px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.08s ease;
-}
-.fusion-preview:hover {
-  background: #162048;
-  border-color: var(--accent);
-  transform: translateY(-1px);
-}
-.fusion-preview-emoji {
-  font-size: 56px;
-  line-height: 1;
-  animation: bob 2.2s ease-in-out infinite;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
-}
-.fusion-preview-label {
-  font-weight: 700;
-  font-size: 15px;
-}
-.fusion-machine {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 10px;
-  align-items: stretch;
-  margin-bottom: 12px;
-}
-.fm-slot {
-  background: #0f1736;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 10px;
-  min-height: 110px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.fm-slot-title {
-  font-weight: 700;
-  font-size: 12px;
-  color: var(--muted);
-}
-.fm-slot-body {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  flex: 1;
-}
-.fm-chip {
-  font-size: 26px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 4px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-}
-.fm-chip.big {
-  font-size: 44px;
-  padding: 6px 14px;
-  filter: drop-shadow(0 0 6px var(--tier-color, transparent));
-}
-.fm-chip .tb {
-  font-size: 0.5em;
-  vertical-align: super;
-}
-.fm-core {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-}
-.fm-factory {
-  font-size: 64px;
-  animation: bob 2.2s ease-in-out infinite;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
-}
-.fm-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.fm-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.fm-species-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-  gap: 6px;
-}
-.fm-sp-btn {
-  background: #162048;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px 4px;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-.fm-sp-btn.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset;
-}
-.fm-sp-emoji {
-  font-size: 24px;
-  line-height: 1;
-}
-.fm-sp-count {
-  font-size: 10px;
-  color: var(--muted);
-}
-.fm-tier-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 8px;
-}
-.fm-tier-chip.active {
-  outline: 2px solid var(--accent);
-}
-.fusion-locked {
-  padding: 14px;
-}
-@media (max-width: 520px) {
-  .fm-factory {
-    font-size: 48px;
-  }
-  .fm-chip {
-    font-size: 22px;
-    padding: 3px 6px;
-  }
-  .fm-chip.big {
-    font-size: 34px;
-    padding: 4px 10px;
-  }
-}
-@media (max-width: 760px) {
-  .tap-upgrade-grid {
-    grid-template-columns: 1fr;
-  }
-  .pet-top {
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-}
-.upgrading-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.tier-chip {
-  position: relative;
-  --tier-color: #aaa;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--tier-color) 35%, #162048) 0%,
-    color-mix(in srgb, var(--tier-color) 10%, #0f1736) 100%
-  );
-  border: 1px solid color-mix(in srgb, var(--tier-color) 60%, transparent);
-  border-radius: 12px;
-  padding: 10px 6px;
-  text-align: center;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  box-shadow: 0 4px 18px color-mix(in srgb, var(--tier-color) 25%, transparent);
-  transition: transform 0.08s ease;
-}
-.tier-chip:not([disabled]):hover {
-  transform: translateY(-2px);
-}
-.tier-chip.locked {
-  opacity: 0.45;
-  cursor: not-allowed;
-  filter: grayscale(0.3);
-  box-shadow: none;
-}
-.tier-chip.busy {
-  opacity: 0.6;
-}
-.tier-chip.upgrading {
-  cursor: default;
-  animation: pulse 2s ease-in-out infinite;
-}
-.tier-emoji {
-  font-size: 36px;
-  line-height: 1;
-  position: relative;
-}
-.tier-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -6px;
-  font-size: 18px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-}
-.tier-name {
-  font-weight: 700;
-  font-size: 12px;
-  text-transform: capitalize;
-  margin-top: 4px;
-}
-.tier-meta {
-  font-size: 10px;
-  opacity: 0.8;
-  margin-top: 2px;
-}
-.tier-time {
-  font-size: 11px;
-  color: var(--accent);
-  font-weight: 700;
-  margin-top: 4px;
-  font-variant-numeric: tabular-nums;
-}
 
-.float {
-  position: absolute;
-  pointer-events: none;
-  font-weight: 800;
-  color: var(--accent);
-  animation: floatUp 0.9s ease-out forwards;
-}
-@keyframes floatUp {
-  0% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
+@keyframes bob {
+  0%,
   100% {
-    opacity: 0;
-    transform: translate(-50%, -60px);
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(2deg);
   }
 }
-
-/* === Crafter-Maschine === */
-.crafter-card {
-  position: relative;
+@keyframes sparkle {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
 }
-.cr-ing-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-}
-.cr-qty-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--danger);
-  font-variant-numeric: tabular-nums;
-}
-.cr-qty-label.ok {
-  color: var(--accent-2);
-}
-.cr-ready-dot {
-  font-size: 8px;
-  color: var(--border);
-  margin-top: 2px;
-  line-height: 1;
-}
-.cr-ready-dot.ready {
-  color: var(--accent-2);
-  filter: drop-shadow(0 0 4px var(--accent-2));
-}
-.fm-chip.cr-out-chip {
-  filter: drop-shadow(0 0 12px rgba(255, 209, 102, 0.5));
-  border-color: rgba(255, 209, 102, 0.35);
-  animation: bob 2.4s ease-in-out infinite;
-}
-.fm-chip.cr-short {
-  opacity: 0.45;
-  border-color: var(--danger);
-}
-.boss-path-link {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  text-decoration: none;
-  color: inherit;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(255, 209, 102, 0.18), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.16), transparent 60%),
-    linear-gradient(135deg, #1c2452, #0d1130);
-  border: 1px solid rgba(255, 209, 102, 0.35);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-.boss-path-link:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent);
-  box-shadow: 0 12px 28px rgba(255, 209, 102, 0.18);
-}
-.bpl-icon {
-  font-size: 36px;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
-  flex-shrink: 0;
-  animation: bplFloat 3s ease-in-out infinite;
-}
-@keyframes bplFloat {
-  0%, 100% { transform: translateY(0) rotate(-3deg); }
-  50% { transform: translateY(-3px) rotate(3deg); }
-}
-.bpl-body {
-  flex: 1;
-  min-width: 0;
-}
-.bpl-title {
-  font-weight: 800;
-  font-size: 16px;
-  background: linear-gradient(90deg, #ffd166, #ff476f, #a855f7);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.bpl-sub {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 700;
-  margin-top: 2px;
-}
-.bpl-event-status {
-  margin-top: 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 800;
-  background: rgba(72, 202, 228, 0.14);
-  border: 1px solid rgba(72, 202, 228, 0.45);
-  color: #48cae4;
-  font-variant-numeric: tabular-nums;
-}
-.bpl-event-status.ended {
-  background: rgba(239, 71, 111, 0.16);
-  border-color: rgba(239, 71, 111, 0.55);
-  color: #ef476f;
-}
-.event-link.event-ended {
-  cursor: not-allowed;
-  filter: grayscale(0.65);
-  opacity: 0.7;
-  border-color: rgba(239, 71, 111, 0.45);
-}
-.event-link.event-ended:hover {
-  transform: none;
-  box-shadow: none;
-}
-.bpl-arrow {
-  font-size: 30px;
-  color: var(--accent);
-  font-weight: 800;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.event-link {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  text-decoration: none;
-  color: inherit;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(6, 214, 160, 0.18), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(72, 202, 228, 0.16), transparent 60%),
-    linear-gradient(135deg, #122436, #0d1628);
-  border: 1px solid rgba(6, 214, 160, 0.3);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-.event-link:hover {
-  transform: translateY(-2px);
-  border-color: #06d6a0;
-  box-shadow: 0 12px 28px rgba(6, 214, 160, 0.15);
-}
-.ml-icon {
-  font-size: 36px;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
-  flex-shrink: 0;
-  animation: mlFloat 3.4s ease-in-out infinite;
-}
-@keyframes mlFloat {
-  0%, 100% { transform: translateY(0) rotate(3deg); }
-  50% { transform: translateY(-3px) rotate(-3deg); }
-}
-.ml-title {
-  font-weight: 800;
-  font-size: 16px;
-  background: linear-gradient(90deg, #06d6a0, #48cae4, #c77dff);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
 }
 </style>

@@ -1126,7 +1126,7 @@ async function deleteUser(u) {
   justify-content: space-between;
   align-items: center;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(140, 105, 35, 0.06);
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -1142,7 +1142,7 @@ async function deleteUser(u) {
   padding: 2px 6px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(140, 105, 35, 0.08);
 }
 .pill.banned {
   border-color: #ff6b6b;
@@ -1160,11 +1160,11 @@ async function deleteUser(u) {
   border-radius: 12px;
   padding: 12px;
   margin-bottom: 10px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(140, 105, 35, 0.02);
 }
 .ticket-num {
   font-family: ui-monospace, monospace;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(140, 105, 35, 0.06);
   padding: 1px 6px;
   border-radius: 6px;
   font-size: 12px;
@@ -1173,7 +1173,7 @@ async function deleteUser(u) {
   white-space: pre-wrap;
   word-break: break-word;
   font-family: inherit;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(140, 105, 35, 0.04);
   padding: 8px 10px;
   border-radius: 8px;
   margin: 4px 0 0;
@@ -1184,11 +1184,11 @@ async function deleteUser(u) {
   width: 10px; height: 10px; border-radius: 50%;
   background: #3b82f6; display: inline-block;
 }
-.tcaret { display: inline-block; width: 14px; color: var(--muted, #9aa3b2); }
+.tcaret { display: inline-block; width: 14px; color: var(--muted, var(--muted)); }
 .ticket-last {
   margin-top: 6px;
   font-size: 13px;
-  color: var(--text, #e8eaf0);
+  color: var(--text, var(--heading));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1197,8 +1197,8 @@ async function deleteUser(u) {
 .adm-bubble { border-radius: 10px; padding: 6px 9px; max-width: 92%; }
 .adm-bubble-user {
   align-self: flex-start;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  background: rgba(140, 105, 35, 0.05);
+  border: 1px solid var(--border, rgba(140, 105, 35, 0.1));
 }
 .adm-bubble-admin {
   align-self: flex-end;
