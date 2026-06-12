@@ -46,7 +46,9 @@ export const useGameStore = defineStore('game', {
     autoReleaseMap: {},
     _autoReleasing: false,
     playerEggs: [],
-    incubation: { active: false, egg_type: null, started_at: null, ready_at: null, ready_now: false }
+    incubation: { active: false, egg_type: null, started_at: null, ready_at: null, ready_now: false },
+    dailyReward: null,
+    driftProgress: { highest_level: 0, stars: {}, max_level: 12 }
   }),
   getters: {
     favoriteAnimal(state) {
@@ -197,6 +199,9 @@ export const useGameStore = defineStore('game', {
       if (!job || !job.active || !job.ready_at) return false
       const ready = new Date(job.ready_at).getTime()
       return Date.now() + state.serverOffset >= ready
+    },
+    dailyRewardAvailable(state) {
+      return !!state.dailyReward?.can_claim
     }
   },
   actions: {
@@ -269,7 +274,44 @@ export const useGameStore = defineStore('game', {
       this.autoReleaseSweep().catch(() => {})
       this.loadPlayerEggs().catch(() => {})
       this.loadIncubation().catch(() => {})
+      this.loadDailyReward().catch(() => {})
+      this.loadDriftProgress().catch(() => {})
       this.lastLoadedAt = Date.now()
+    },
+    async loadDailyReward() {
+      const { data, error } = await supabase.rpc('get_daily_reward_status')
+      if (error) return null
+      this.dailyReward = data || null
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      return data
+    },
+    async claimDailyReward() {
+      const { data, error } = await supabase.rpc('claim_daily_reward')
+      if (error) throw error
+      if (data?.coins != null) this.coins = Number(data.coins)
+      if (data?.tickets != null) this.tickets = Number(data.tickets)
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      await this.loadDailyReward()
+      return data
+    },
+    async loadDriftProgress() {
+      const { data, error } = await supabase.rpc('get_drift_progress')
+      if (error) return null
+      if (data) this.driftProgress = data
+      return data
+    },
+    async completeDriftLevel(level, stars) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('complete_drift_level', {
+        p_level: Math.floor(Number(level) || 0),
+        p_stars: Math.max(1, Math.min(3, Math.floor(Number(stars) || 1)))
+      })
+      if (error) throw error
+      if (data?.coins != null) this.coins = Number(data.coins)
+      if (data?.tickets != null) this.tickets = Number(data.tickets)
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      await this.loadDriftProgress()
+      return data
     },
     async loadPlayerEggs() {
       const auth = useAuthStore()
