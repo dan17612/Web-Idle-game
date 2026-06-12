@@ -11,6 +11,7 @@ import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
 import SupportModal from "./components/SupportModal.vue";
 import TutorialBubble from "./components/TutorialBubble.vue";
+import ConnectionBanner from "./components/ConnectionBanner.vue";
 import { t } from "./i18n";
 import { onAppResume } from "./composables/useAppResume";
 
@@ -262,6 +263,8 @@ async function hardReload() {
       <div v-if="auth.loading" class="loader">{{ t('common.loading') }}</div>
       <router-view v-else />
     </main>
+
+    <ConnectionBanner />
 
     <div v-if="tutorialDimActive" class="tutorial-dim"></div>
 

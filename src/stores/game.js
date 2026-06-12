@@ -4,6 +4,7 @@ import { SPECIES, loadCatalog, animalRate, compareAnimalsByRate, isUpgrading, ti
 import { useAuthStore } from './auth'
 import { t } from '../i18n'
 import { groupAnimalsForAutoRelease } from '../autoRelease'
+import { reportSyncSuccess, reportSyncFailure } from '../composables/useConnectionHealth'
 
 const TAP_MAX = 10
 const TAP_MUL_MAX_LEVEL = 300
@@ -214,48 +215,55 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user) return
       this.loading = true
-      await this.ensureCatalog()
-      const [{ data: p }, { data: animals }, tapStatus] = await Promise.all([
-        supabase.from('profiles').select('coins, tickets, last_collected_at, equip_slots, favorite_animal_id, tap_level, tap_cap_level, offline_level').eq('id', auth.user.id).maybeSingle(),
-        supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at'),
-        supabase.rpc('get_tap_status', { p_max: TAP_MAX })
-      ])
-      this.coins = Number(p?.coins ?? 0)
-      this.tickets = Number(p?.tickets ?? 0)
-      this.equipSlots = Number(p?.equip_slots ?? 1)
-      this.favoriteAnimalId = p?.favorite_animal_id || null
-      this.tapLevel = Number(p?.tap_level ?? 1)
-      this.tapCapLevel = Number(p?.tap_cap_level ?? 1)
-      this.offlineLevel = Number(p?.offline_level ?? 1)
-      let localClaimed = false
-      try { localClaimed = localStorage.getItem('newbieGiftClaimed:' + auth.user.id) === '1' } catch {}
       try {
-        const { data: gp } = await supabase.from('profiles')
-          .select('newbie_gift_claimed').eq('id', auth.user.id).maybeSingle()
-        this.newbieGiftClaimed = !!gp?.newbie_gift_claimed || localClaimed
-      } catch { this.newbieGiftClaimed = localClaimed }
-      try {
-        const stored = Number(localStorage.getItem('bonusTaps:' + auth.user.id) || 0)
-        this.bonusTaps = isFinite(stored) && stored > 0 ? stored : 0
-      } catch { this.bonusTaps = 0 }
-      this.lastCollected = p?.last_collected_at ? new Date(p.last_collected_at) : new Date()
-      this.animals = animals || []
-      try {
-        const stored = localStorage.getItem('tutorialStep2:' + auth.user.id)
-        if (stored != null) {
-          this.tutorialStep = Number(stored)
-        } else {
-          this.tutorialStep = (this.newbieGiftClaimed || this.animals.length > 0) ? 5 : 0
-          localStorage.setItem('tutorialStep2:' + auth.user.id, String(this.tutorialStep))
+        await this.ensureCatalog()
+        const [{ data: p }, { data: animals }, tapStatus] = await Promise.all([
+          supabase.from('profiles').select('coins, tickets, last_collected_at, equip_slots, favorite_animal_id, tap_level, tap_cap_level, offline_level').eq('id', auth.user.id).maybeSingle(),
+          supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at'),
+          supabase.rpc('get_tap_status', { p_max: TAP_MAX })
+        ])
+        this.coins = Number(p?.coins ?? 0)
+        this.tickets = Number(p?.tickets ?? 0)
+        this.equipSlots = Number(p?.equip_slots ?? 1)
+        this.favoriteAnimalId = p?.favorite_animal_id || null
+        this.tapLevel = Number(p?.tap_level ?? 1)
+        this.tapCapLevel = Number(p?.tap_cap_level ?? 1)
+        this.offlineLevel = Number(p?.offline_level ?? 1)
+        let localClaimed = false
+        try { localClaimed = localStorage.getItem('newbieGiftClaimed:' + auth.user.id) === '1' } catch {}
+        try {
+          const { data: gp } = await supabase.from('profiles')
+            .select('newbie_gift_claimed').eq('id', auth.user.id).maybeSingle()
+          this.newbieGiftClaimed = !!gp?.newbie_gift_claimed || localClaimed
+        } catch { this.newbieGiftClaimed = localClaimed }
+        try {
+          const stored = Number(localStorage.getItem('bonusTaps:' + auth.user.id) || 0)
+          this.bonusTaps = isFinite(stored) && stored > 0 ? stored : 0
+        } catch { this.bonusTaps = 0 }
+        this.lastCollected = p?.last_collected_at ? new Date(p.last_collected_at) : new Date()
+        this.animals = animals || []
+        try {
+          const stored = localStorage.getItem('tutorialStep2:' + auth.user.id)
+          if (stored != null) {
+            this.tutorialStep = Number(stored)
+          } else {
+            this.tutorialStep = (this.newbieGiftClaimed || this.animals.length > 0) ? 5 : 0
+            localStorage.setItem('tutorialStep2:' + auth.user.id, String(this.tutorialStep))
+          }
+        } catch { this.tutorialStep = 5 }
+        if (!this.favoriteAnimalId && this.animals.length > 0) {
+          const first = this.animals.find(a => a.equipped) || this.animals[0]
+          if (first) this.setFavoriteAnimal(first.id).catch(() => {})
         }
-      } catch { this.tutorialStep = 5 }
-      if (!this.favoriteAnimalId && this.animals.length > 0) {
-        const first = this.animals.find(a => a.equipped) || this.animals[0]
-        if (first) this.setFavoriteAnimal(first.id).catch(() => {})
+        if (tapStatus?.data) this.applyTapStatus(tapStatus.data)
+        this.applyOffline()
+        reportSyncSuccess()
+      } catch (e) {
+        reportSyncFailure(e)
+        throw e
+      } finally {
+        this.loading = false
       }
-      if (tapStatus?.data) this.applyTapStatus(tapStatus.data)
-      this.applyOffline()
-      this.loading = false
       this.claimPendingGifts().catch(() => {})
       this.loadBossPath().catch(() => {})
       this.loadEventSchedule().catch(() => {})
@@ -426,9 +434,11 @@ export const useGameStore = defineStore('game', {
       try {
         const { data, error } = await supabase.rpc('collect_offline', { p_coins: pending })
         if (!error && data?.coins != null) this.coins = Number(data.coins)
-      } catch {
+        if (!error) reportSyncSuccess()
+      } catch (e) {
         // Persist ist Best-Effort (z.B. waehrend JWT-Refresh) und darf nachfolgende
         // Aktionen wie complete_boss_stage nicht blockieren.
+        reportSyncFailure(e)
       }
       this.lastCollected = new Date()
     },
