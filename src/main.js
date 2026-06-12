@@ -20,6 +20,7 @@ import 'primeicons/primeicons.css'
 import { initLocale, t } from './i18n'
 import './composables/useAnimations'
 import { fireAppResume } from './composables/useAppResume'
+import { initConnectionWatch } from './composables/useConnectionHealth'
 // Zoom global deaktivieren (Pinch, Double-Tap, Gesture-Zoom).
 function disableZoomGestures() {
   let lastTouchEnd = 0
@@ -125,6 +126,7 @@ async function registerNativeAppResumeListeners() {
 async function bootstrap() {
   initLocale()
   registerAppResumeListeners()
+  initConnectionWatch()
   registerNativeAppResumeListeners() // fire-and-forget, läuft im Hintergrund weiter
   await consumeAuthRedirect()
   await registerNativeDeepLinkHandler()
