@@ -15,6 +15,7 @@ import { locale, t as tGlobal } from "../i18n";
 
 import TutorialBubble from "../components/TutorialBubble.vue";
 import EggMachine from "../components/EggMachine.vue";
+import DailyRewardModal from "../components/DailyRewardModal.vue";
 import { supabase } from "../supabase";
 import { useAppToast } from "../composables/useAppToast";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
@@ -85,6 +86,8 @@ const I18N = {
       animalsFood: "Tiere & Futter",
       tickets: "Tickets",
       memory: "Memory",
+      drift: "Drift",
+      curves: "Kurven & Ziel",
       release: "Tier freilassen"
     },
     equipped: {
@@ -155,6 +158,16 @@ const I18N = {
       title: "🧠 Memory",
       sub: "Tier-Paare finden, Level schaffen & Truhen verdienen"
     },
+    driftLink: {
+      title: "🏎️ Drift-Rennen",
+      sub: "Drifte durch enge Kurven bis ins Ziel - 12 Strecken"
+    },
+    daily: {
+      title: "Tägliche Belohnung",
+      ready: "Bereit zum Abholen!",
+      next: "Wieder in {time}",
+      streak: "🔥 {n}"
+    },
     eventStatus: {
       endsIn: "Verschwindet in {time}",
       ended: "Ereignis beendet"
@@ -220,6 +233,8 @@ const I18N = {
       animalsFood: "Animals & Food",
       tickets: "Tickets",
       memory: "Memory",
+      drift: "Drift",
+      curves: "Curves & finish",
       release: "Release pet"
     },
     equipped: {
@@ -290,6 +305,16 @@ const I18N = {
       title: "🧠 Memory",
       sub: "Find animal pairs, clear levels & earn chests"
     },
+    driftLink: {
+      title: "🏎️ Drift Race",
+      sub: "Drift through tight curves to the finish - 12 tracks"
+    },
+    daily: {
+      title: "Daily Reward",
+      ready: "Ready to claim!",
+      next: "Back in {time}",
+      streak: "🔥 {n}"
+    },
     eventStatus: {
       endsIn: "Disappears in {time}",
       ended: "Event ended"
@@ -355,6 +380,8 @@ const I18N = {
       animalsFood: "Животные и еда",
       tickets: "Тикеты",
       memory: "Memory",
+      drift: "Дрифт",
+      curves: "Повороты и финиш",
       release: "Отпустить питомца"
     },
     equipped: {
@@ -424,6 +451,16 @@ const I18N = {
     memoryLink: {
       title: "🧠 Memory",
       sub: "Находи пары животных, проходи уровни и получай сундуки"
+    },
+    driftLink: {
+      title: "🏎️ Дрифт-гонка",
+      sub: "Дрифтуй через крутые повороты до финиша - 12 трасс"
+    },
+    daily: {
+      title: "Ежедневная награда",
+      ready: "Можно забрать!",
+      next: "Снова через {time}",
+      streak: "🔥 {n}"
     },
     eventStatus: {
       endsIn: "Исчезнет через {time}",
@@ -636,6 +673,29 @@ const memoryRemaining = computed(() => {
   return Math.max(0, game.memoryEndsAt - Date.now());
 });
 const memoryEnded = computed(() => game.memoryShowCountdown && (memoryRemaining.value <= 0 || !game.memoryActive));
+
+const dailyOpen = ref(false);
+const dailyRemaining = computed(() => {
+  void now.value;
+  const at = game.dailyReward?.next_claim_at
+    ? new Date(game.dailyReward.next_claim_at).getTime()
+    : 0;
+  return Math.max(0, at - (Date.now() + game.serverOffset));
+});
+watch(
+  () => game.dailyRewardAvailable,
+  (available) => {
+    if (!available || shouldShowGiftDialog.value) return;
+    const key = "dailyAutoOpened";
+    const today = new Date().toISOString().slice(0, 10);
+    let seen = false;
+    try { seen = sessionStorage.getItem(key) === today; } catch {}
+    if (seen) return;
+    dailyOpen.value = true;
+    try { sessionStorage.setItem(key, today); } catch {}
+  },
+  { immediate: true },
+);
 
 const tapLimitReached = computed(
   () => game.tapsUsed >= game.tapsMax && game.bonusTaps <= 0,
@@ -1031,6 +1091,24 @@ async function doSplit(animalId) {
       </div>
     </div>
 
+    <button
+      class="daily-banner"
+      :class="{ ready: game.dailyRewardAvailable }"
+      @click="dailyOpen = true"
+    >
+      <span class="db-icon">🎁</span>
+      <span class="db-body">
+        <span class="db-title">{{ tx("daily.title") }}</span>
+        <span v-if="game.dailyRewardAvailable" class="db-status ready">{{ tx("daily.ready") }}</span>
+        <span v-else-if="game.dailyReward" class="db-status">{{ tx("daily.next", { time: fmtCountdown(dailyRemaining) }) }}</span>
+      </span>
+      <span
+        v-if="Number(game.dailyReward?.streak || 0) > 0"
+        class="db-streak"
+      >{{ tx("daily.streak", { n: game.dailyReward.streak }) }}</span>
+      <span class="db-arrow">›</span>
+    </button>
+
     <div class="scene-wrap" ref="sceneWrap">
       <TutorialBubble
         v-if="game.tutorialStep === 0 && !shouldShowGiftDialog"
@@ -1251,6 +1329,11 @@ async function doSplit(animalId) {
         <span class="qa-icon">🧠</span>
         <span class="qa-label">{{ tx("quick.memory") }}</span>
         <span class="qa-sub">1-20</span>
+      </router-link>
+      <router-link to="/drift" class="qa-btn">
+        <span class="qa-icon">🏎️</span>
+        <span class="qa-label">{{ tx("quick.drift") }}</span>
+        <span class="qa-sub">{{ tx("quick.curves") }}</span>
       </router-link>
     </div>
 
@@ -1761,6 +1844,17 @@ async function doSplit(animalId) {
       </div>
       <div class="bpl-arrow">{{ memoryEnded ? '🔒' : '›' }}</div>
     </component>
+
+    <router-link to="/drift" class="card drift-link">
+      <div class="dl-icon">🏎️</div>
+      <div class="bpl-body">
+        <div class="dl-title">{{ tx("driftLink.title") }}</div>
+        <div class="bpl-sub">{{ tx("driftLink.sub") }}</div>
+      </div>
+      <div class="bpl-arrow">›</div>
+    </router-link>
+
+    <DailyRewardModal :open="dailyOpen" @close="dailyOpen = false" />
   </div>
 </template>
 
@@ -2995,6 +3089,122 @@ async function doSplit(animalId) {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+.drift-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(126, 205, 240, 0.28), transparent 55%),
+    var(--card);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.drift-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--sky);
+  box-shadow: 0 12px 28px rgba(126, 205, 240, 0.3);
+}
+.dl-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
+  flex-shrink: 0;
+  animation: dlDrift 3.2s ease-in-out infinite;
+}
+@keyframes dlDrift {
+  0%, 100% { transform: translateX(0) rotate(-4deg); }
+  50% { transform: translateX(4px) rotate(6deg); }
+}
+.dl-title {
+  font-weight: 800;
+  font-size: 16px;
+  background: linear-gradient(90deg, #0e8cc8, #e8447a, #d98c00);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Tägliche Belohnung ─────────────────────────────────────────── */
+.daily-banner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.daily-banner:active {
+  transform: scale(0.98);
+}
+.daily-banner.ready {
+  border-color: var(--accent);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(251, 211, 92, 0.45), transparent 55%),
+    var(--card);
+  animation: dailyGlow 2.2s ease-in-out infinite;
+}
+@keyframes dailyGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244, 169, 18, 0.35), var(--shadow-card); }
+  50% { box-shadow: 0 0 0 6px rgba(244, 169, 18, 0.08), var(--shadow-card); }
+}
+.db-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+.daily-banner.ready .db-icon {
+  animation: dbWiggle 1.4s ease-in-out infinite;
+}
+@keyframes dbWiggle {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(8deg) scale(1.08); }
+}
+.db-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.db-title {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--heading);
+}
+.db-status {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.db-status.ready {
+  color: var(--accent-deep);
+  font-weight: 900;
+}
+.db-streak {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--accent-deep);
+  background: var(--card-2);
+  border: 2px solid var(--accent-soft);
+}
+.db-arrow {
+  font-size: 24px;
+  color: var(--accent-deep);
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 /* ── Geschenk-Dialog ────────────────────────────────────────────── */

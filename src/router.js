@@ -15,6 +15,7 @@ const routes = [
   { path: '/boss-path', redirect: { name: 'bossFight', query: { mode: 'path' } } },
   { path: '/boss-endless', redirect: { name: 'bossFight', query: { mode: 'endless' } } },
   { path: '/memory', name: 'memory', component: () => import('./views/MemoryGameView.vue'), meta: { auth: true } },
+  { path: '/drift', name: 'drift', component: () => import('./views/DriftGameView.vue'), meta: { auth: true } },
   { path: '/memory-online', name: 'memory-online', component: () => import('./views/MemoryOnlineView.vue'), meta: { auth: true } },
   { path: '/profile', name: 'profile', component: () => import('./views/ProfileView.vue'), meta: { auth: true } },
   { path: '/index', name: 'index', component: () => import('./views/IndexView.vue'), meta: { auth: true } },

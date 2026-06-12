@@ -27,7 +27,14 @@ const SPECIES_NAMES = {
   tiger: { de: 'Tiger', en: 'Tiger', ru: 'Тигр' },
   lion: { de: 'Löwe', en: 'Lion', ru: 'Лев' },
   peacock: { de: 'Pfau', en: 'Peacock', ru: 'Павлин' },
-  dragon: { de: 'Drache', en: 'Dragon', ru: 'Дракон' }
+  dragon: { de: 'Drache', en: 'Dragon', ru: 'Дракон' },
+  fox: { de: 'Fuchs', en: 'Fox', ru: 'Лиса' },
+  wolf: { de: 'Wolf', en: 'Wolf', ru: 'Волк' },
+  shark: { de: 'Hai', en: 'Shark', ru: 'Акула' },
+  mammoth: { de: 'Mammut', en: 'Mammoth', ru: 'Мамонт' },
+  flamingo: { de: 'Flamingo', en: 'Flamingo', ru: 'Фламинго' },
+  owl: { de: 'Eule', en: 'Owl', ru: 'Сова' },
+  worldturtle: { de: 'Weltenschildkröte', en: 'World Turtle', ru: 'Мировая черепаха' }
 }
 
 function humanizeSpeciesKey(key) {
