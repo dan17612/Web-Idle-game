@@ -69,10 +69,10 @@ async function applyTokensFromUrl(rawUrl) {
       await supabase.auth.setSession({ access_token, refresh_token })
       return true
     } else if (errorDesc) {
-      console.warn('Supabase auth redirect error:', errorDesc)
+      if (import.meta.env?.DEV) console.warn('Supabase auth redirect error:', errorDesc)
     }
   } catch (e) {
-    console.error('setSession failed', e)
+    if (import.meta.env?.DEV) console.error('setSession failed', e)
   }
   return false
 }
@@ -119,7 +119,7 @@ async function registerNativeAppResumeListeners() {
     })
     CapacitorApp.addListener('resume', () => fireAppResume('resume'))
   } catch (e) {
-    console.warn('Native app resume listener failed', e)
+    if (import.meta.env?.DEV) console.warn('Native app resume listener failed', e)
   }
 }
 
