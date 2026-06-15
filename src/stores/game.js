@@ -334,7 +334,10 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user) return
       const { data, error } = await supabase.rpc('get_incubation_status')
-      if (error) return
+      if (error) {
+        if (import.meta.env?.DEV) console.warn('[game] loadIncubation failed', error)
+        return
+      }
       this.incubation = data || { active: false }
     },
     async buyEgg(eggType, qty = 1) {
@@ -366,7 +369,10 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user) return null
       const { data, error } = await supabase.rpc('claim_pending_gifts')
-      if (error) return null
+      if (error) {
+        if (import.meta.env?.DEV) console.warn('[game] claimPendingGifts failed', error)
+        return null
+      }
       const gifts = Array.isArray(data?.gifts) ? data.gifts : []
       if (gifts.length === 0) return data
       if (Number(data?.coins) > 0) this.coins += Number(data.coins)
@@ -752,7 +758,10 @@ export const useGameStore = defineStore('game', {
     },
     async loadCraftStatus() {
       const { data, error } = await supabase.rpc('get_craft_status')
-      if (error) return null
+      if (error) {
+        if (import.meta.env?.DEV) console.warn('[game] loadCraftStatus failed', error)
+        return null
+      }
       this.craftJob = data && data.active ? data : null
       if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
       return data
