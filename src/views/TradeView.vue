@@ -290,7 +290,7 @@ const confirmPublicAnimals = ref([])
 
 function fmtExpiry(t) {
   if (!t.expires_at) return ''
-  const ms = new Date(t.expires_at).getTime() - Date.now()
+  const ms = new Date(t.expires_at).getTime() - (Date.now() + game.serverOffset)
   if (ms <= 0) return tx('time.expired')
   const d = Math.floor(ms / 86400000)
   const h = Math.floor((ms % 86400000) / 3600000)
@@ -739,7 +739,10 @@ onMounted(async () => {
     })
     .subscribe()
 })
-onUnmounted(() => { if (channel) supabase.removeChannel(channel) })
+onUnmounted(() => {
+  if (channel) supabase.removeChannel(channel)
+  if (partnerTimer) clearTimeout(partnerTimer)
+})
 
 function summarize(t) {
   const reqChips = (t.requester_animal_details || []).map(a => speciesInfo(a.species).emoji).join('')
