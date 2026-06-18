@@ -796,7 +796,7 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user || this._autoReleasing) return
       if (!this.autoReleaseMap || Object.keys(this.autoReleaseMap).length === 0) return
-      const groups = groupAnimalsForAutoRelease(this.animals, this.autoReleaseMap, Date.now())
+      const groups = groupAnimalsForAutoRelease(this.animals, this.autoReleaseMap, Date.now(), this.favoriteAnimalId)
       if (groups.length === 0) return
       this._autoReleasing = true
       try {
