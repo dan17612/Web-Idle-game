@@ -685,18 +685,25 @@ export const useGameStore = defineStore('game', {
       const toUnequip = this.animals.filter(a => a.equipped && !bestSet.has(a.id)).map(a => a.id)
       const toEquip = bestIds.filter(id => !this.animals.find(a => a.id === id)?.equipped)
 
-      await Promise.all(toUnequip.map(async id => {
+      // Promise.allSettled: ein einzelner RPC-Fehler darf den Rest nicht abbrechen
+      // und den lokalen State nicht teilweise mutiert lassen. Bei Fehlern reladen.
+      const unequipResults = await Promise.allSettled(toUnequip.map(async id => {
         const { error } = await supabase.rpc('unequip_animal', { p_animal_id: id })
         if (error) throw error
         const a = this.animals.find(x => x.id === id)
         if (a) a.equipped = false
       }))
-      await Promise.all(toEquip.map(async id => {
+      const equipResults = await Promise.allSettled(toEquip.map(async id => {
         const { error } = await supabase.rpc('equip_animal', { p_animal_id: id })
         if (error) throw error
         const a = this.animals.find(x => x.id === id)
         if (a) a.equipped = true
       }))
+      const failures = [...unequipResults, ...equipResults].filter(r => r.status === 'rejected')
+      if (failures.length > 0) {
+        await this.load().catch(() => {})
+        throw failures[0].reason
+      }
     },
     async unequipAnimal(animalId) {
       await this.persist()

@@ -712,6 +712,9 @@ async function tap(e) {
   const id = ++floatId;
   const earnGuess = Math.max(1, Math.floor(game.ratePerSec));
   floats.value.push({ id, x, y, v: "+" + formatCoins(earnGuess) });
+  // Defensive Obergrenze: falls ein Cleanup-Timer mal nicht feuert (Tab im
+  // Hintergrund + Browser-Throttling), darf die Liste nicht unbegrenzt wachsen.
+  if (floats.value.length > 50) floats.value.splice(0, floats.value.length - 50);
   const ft = setTimeout(() => {
     floatTimers.delete(ft);
     floats.value = floats.value.filter((f) => f.id !== id);
