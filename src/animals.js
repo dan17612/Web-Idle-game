@@ -114,9 +114,9 @@ export function compareAnimalsByRate(a, b) {
   return String(a.id || '').localeCompare(String(b.id || ''))
 }
 
-export function isUpgrading(a) {
+export function isUpgrading(a, now = Date.now()) {
   if (!a?.upgrade_ready_at) return false
-  return new Date(a.upgrade_ready_at).getTime() > Date.now()
+  return new Date(a.upgrade_ready_at).getTime() > now
 }
 
 export function formatCoins(n) {

@@ -35,7 +35,8 @@ const I18N = {
     tutStep3: 'Decke alle Paare auf, bevor dein Zuglimit erreicht ist. Sonst wird das Brett neu gemischt.',
     tutStep4: 'Jedes geschaffte Level bringt Truhen, alle 5 Level ein garantiertes Tier. Höhere Level sind größer.',
     tutGot: 'Verstanden, los geht\'s!',
-    online: '🌐 Online spielen'
+    online: '🌐 Online spielen',
+    error: 'Fehler'
   },
   en: {
     title: '🧠 Memory Path', sub: 'A journey through {max} levels. Find all animal pairs before you run out of moves.',
@@ -58,7 +59,8 @@ const I18N = {
     tutStep3: 'Reveal all pairs before your move limit runs out. Otherwise the board reshuffles.',
     tutStep4: 'Each cleared level gives chests, every 5 levels a guaranteed animal. Higher levels are bigger.',
     tutGot: 'Got it, let\'s go!',
-    online: '🌐 Play online'
+    online: '🌐 Play online',
+    error: 'Error'
   },
   ru: {
     title: '🧠 Memory-путь', sub: 'Путешествие по {max} уровням. Найди все пары животных, пока не кончились ходы.',
@@ -81,7 +83,8 @@ const I18N = {
     tutStep3: 'Открой все пары до конца лимита ходов. Иначе поле перемешается.',
     tutStep4: 'Каждый пройденный уровень даёт сундуки, каждые 5 уровней - гарантированное животное. Уровни растут.',
     tutGot: 'Понятно, поехали!',
-    online: '🌐 Играть онлайн'
+    online: '🌐 Играть онлайн',
+    error: 'Ошибка'
   }
 }
 
@@ -181,10 +184,15 @@ function tierBadge(tier) {
   return tierInfo(tier)?.badge || ''
 }
 
+let flashTimer = null
 function showFlash(text, kind = 'ok') {
   const id = Date.now()
   flash.value = { text, kind, id }
-  setTimeout(() => { if (flash.value?.id === id) flash.value = null }, 1600)
+  if (flashTimer) clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => {
+    if (flash.value?.id === id) flash.value = null
+    flashTimer = null
+  }, 1600)
 }
 
 function wait(ms) { return new Promise((r) => setTimeout(r, ms)) }
@@ -204,7 +212,7 @@ async function loadGame() {
   try {
     data.value = await callMemory('status')
   } catch (e) {
-    error.value = e?.message || 'Fehler'
+    error.value = e?.message || tx('error')
   } finally {
     loading.value = false
   }
@@ -240,7 +248,7 @@ async function flip(index) {
       await completeLevel()
     }
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
     await loadGame()
   } finally {
     busy.value = false
@@ -261,7 +269,7 @@ async function completeLevel() {
     playOpen.value = false
     chestReveal.value = { phase: 'reveal', items: opened }
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
     await loadGame()
   }
 }
@@ -281,7 +289,7 @@ async function confirmReset() {
     const res = await callMemory('reset')
     data.value = res.state
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
   } finally {
     busy.value = false
   }
@@ -314,7 +322,10 @@ onMounted(() => {
   if (!seen) showTutorial.value = true
   loadGame()
 })
-onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer)
+  if (flashTimer) clearTimeout(flashTimer)
+})
 </script>
 
 <template>
