@@ -64,7 +64,8 @@ function statusEmoji(s) {
 }
 
 function statusLabel(s) {
-  return t('roadmap.status' + s.charAt(0).toUpperCase() + s.slice(1).replace(/_(\w)/g, (_, c) => c.toUpperCase()))
+  const key = String(s || 'idea')
+  return t('roadmap.status' + key.charAt(0).toUpperCase() + key.slice(1).replace(/_(\w)/g, (_, c) => c.toUpperCase()))
 }
 
 function fmtVotes(n) {
