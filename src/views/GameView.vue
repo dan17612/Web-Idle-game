@@ -613,6 +613,8 @@ const floats = ref([]);
 let floatId = 0;
 const floatTimers = new Set();
 const equipBestBusy = ref(false);
+// Cache des letzten tatsächlichen Tap-Verdienstes für genauere Float-Schätzung
+let lastTapEarned = null;
 
 const now = ref(Date.now());
 let clockTimer;
@@ -710,7 +712,9 @@ async function tap(e) {
   const x = (cx != null ? cx : rect.left + rect.width / 2) - rect.left;
   const y = (cy != null ? cy : rect.top + rect.height * 0.45) - rect.top;
   const id = ++floatId;
-  const earnGuess = Math.max(1, Math.floor(game.ratePerSec));
+  // Nutze den letzten bekannten Tap-Verdienst für die sofortige Vorschau.
+  // Beim allerersten Tap fällt der Wert auf tapMultiplier zurück.
+  const earnGuess = lastTapEarned ?? Math.max(1, Math.floor(game.tapMultiplier));
   floats.value.push({ id, x, y, v: "+" + formatCoins(earnGuess) });
   const ft = setTimeout(() => {
     floatTimers.delete(ft);
@@ -719,8 +723,11 @@ async function tap(e) {
   floatTimers.add(ft);
   try {
     const data = await game.tapEarn();
-    const f = floats.value.find((f) => f.id === id);
-    if (f) f.v = "+" + formatCoins(data.earned);
+    if (data?.earned != null) {
+      lastTapEarned = Number(data.earned);
+      const f = floats.value.find((f) => f.id === id);
+      if (f) f.v = "+" + formatCoins(data.earned);
+    }
   } catch (err) {
     floats.value = floats.value.filter((f) => f.id !== id);
     appToast.err(err);

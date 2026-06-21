@@ -83,8 +83,9 @@ export const useGameStore = defineStore('game', {
       return state.tapCapLevel >= TAP_CAP_MAX_LEVEL
     },
     baseRate(state) {
+      const now = Date.now() + state.serverOffset
       return state.animals
-        .filter(a => a.equipped && !isUpgrading(a))
+        .filter(a => a.equipped && !isUpgrading(a, now))
         .reduce((sum, a) => sum + animalRate(a), 0)
     },
     bossPathEndsAt(state) {
@@ -149,13 +150,15 @@ export const useGameStore = defineStore('game', {
     },
     favoriteBoostActive(state) {
       const fav = this.favoriteAnimal
-      return this.boostActive && !!fav && !!fav.equipped && !isUpgrading(fav)
+      const now = Date.now() + state.serverOffset
+      return this.boostActive && !!fav && !!fav.equipped && !isUpgrading(fav, now)
     },
     ratePerSec(state) {
       const fav = this.favoriteAnimal
+      const now = Date.now() + state.serverOffset
       let total = 0
       for (const a of state.animals) {
-        if (!a.equipped || isUpgrading(a)) continue
+        if (!a.equipped || isUpgrading(a, now)) continue
         const r = animalRate(a)
         const isFav = fav && a.id === fav.id
         total += r * (isFav && this.boostActive ? state.petBoostMultiplier : 1)
@@ -163,9 +166,10 @@ export const useGameStore = defineStore('game', {
       return total
     },
     rateForAnimal(state) {
+      const now = Date.now() + state.serverOffset
       return (a) => {
         if (!a) return 0
-        if (isUpgrading(a)) return 0
+        if (isUpgrading(a, now)) return 0
         const r = animalRate(a)
         const isFav = state.favoriteAnimalId === a.id
         return r * (isFav && this.boostActive ? state.petBoostMultiplier : 1)
@@ -675,8 +679,9 @@ export const useGameStore = defineStore('game', {
     },
     async equipBestAnimals() {
       await this.persist()
+      const now = Date.now() + this.serverOffset
       const bestIds = this.animals
-        .filter(a => !isUpgrading(a))
+        .filter(a => !isUpgrading(a, now))
         .slice()
         .sort(compareAnimalsByRate)
         .slice(0, this.equipSlots)
@@ -796,7 +801,9 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user || this._autoReleasing) return
       if (!this.autoReleaseMap || Object.keys(this.autoReleaseMap).length === 0) return
-      const groups = groupAnimalsForAutoRelease(this.animals, this.autoReleaseMap, Date.now())
+      // Persist accumulated tickCoins before modifying server state
+      await this.persist().catch(() => {})
+      const groups = groupAnimalsForAutoRelease(this.animals, this.autoReleaseMap, Date.now() + this.serverOffset)
       if (groups.length === 0) return
       this._autoReleasing = true
       try {
