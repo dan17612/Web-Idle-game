@@ -49,7 +49,8 @@ export const useGameStore = defineStore('game', {
     playerEggs: [],
     incubation: { active: false, egg_type: null, started_at: null, ready_at: null, ready_now: false },
     dailyReward: null,
-    driftProgress: { highest_level: 0, stars: {}, max_level: 12 }
+    driftProgress: { highest_level: 0, stars: {}, max_level: 12 },
+    parkourProgress: { highest_level: 0, stars: {}, max_level: 12 }
   }),
   getters: {
     favoriteAnimal(state) {
@@ -284,6 +285,7 @@ export const useGameStore = defineStore('game', {
       this.loadIncubation().catch(() => {})
       this.loadDailyReward().catch(() => {})
       this.loadDriftProgress().catch(() => {})
+      this.loadParkourProgress().catch(() => {})
       this.lastLoadedAt = Date.now()
     },
     async loadDailyReward() {
@@ -319,6 +321,25 @@ export const useGameStore = defineStore('game', {
       if (data?.tickets != null) this.tickets = Number(data.tickets)
       if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
       await this.loadDriftProgress()
+      return data
+    },
+    async loadParkourProgress() {
+      const { data, error } = await supabase.rpc('get_parkour_progress')
+      if (error) return null
+      if (data) this.parkourProgress = data
+      return data
+    },
+    async completeParkourLevel(level, stars) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('complete_parkour_level', {
+        p_level: Math.floor(Number(level) || 0),
+        p_stars: Math.max(1, Math.min(3, Math.floor(Number(stars) || 1)))
+      })
+      if (error) throw error
+      if (data?.coins != null) this.coins = Number(data.coins)
+      if (data?.tickets != null) this.tickets = Number(data.tickets)
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      await this.loadParkourProgress()
       return data
     },
     async loadPlayerEggs() {

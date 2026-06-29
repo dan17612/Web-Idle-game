@@ -88,6 +88,8 @@ const I18N = {
       memory: "Memory",
       drift: "Drift",
       curves: "Kurven & Ziel",
+      parkour: "Parkour",
+      parkourSub: "3D-Hüpfen",
       release: "Tier freilassen"
     },
     equipped: {
@@ -162,6 +164,10 @@ const I18N = {
       title: "🏎️ Drift-Rennen",
       sub: "Drifte durch enge Kurven bis ins Ziel - 12 Strecken"
     },
+    parkourLink: {
+      title: "🐾 Zoo-Parkour",
+      sub: "Hüpf in 3D über Lücken & Hindernisse - 12 Parcours"
+    },
     daily: {
       title: "Tägliche Belohnung",
       ready: "Bereit zum Abholen!",
@@ -235,6 +241,8 @@ const I18N = {
       memory: "Memory",
       drift: "Drift",
       curves: "Curves & finish",
+      parkour: "Parkour",
+      parkourSub: "3D jump",
       release: "Release pet"
     },
     equipped: {
@@ -309,6 +317,10 @@ const I18N = {
       title: "🏎️ Drift Race",
       sub: "Drift through tight curves to the finish - 12 tracks"
     },
+    parkourLink: {
+      title: "🐾 Zoo Parkour",
+      sub: "Hop in 3D over gaps & obstacles - 12 courses"
+    },
     daily: {
       title: "Daily Reward",
       ready: "Ready to claim!",
@@ -382,6 +394,8 @@ const I18N = {
       memory: "Memory",
       drift: "Дрифт",
       curves: "Повороты и финиш",
+      parkour: "Паркур",
+      parkourSub: "3D-прыжки",
       release: "Отпустить питомца"
     },
     equipped: {
@@ -455,6 +469,10 @@ const I18N = {
     driftLink: {
       title: "🏎️ Дрифт-гонка",
       sub: "Дрифтуй через крутые повороты до финиша - 12 трасс"
+    },
+    parkourLink: {
+      title: "🐾 Зоо-Паркур",
+      sub: "Прыгай в 3D через пропасти и препятствия - 12 трасс"
     },
     daily: {
       title: "Ежедневная награда",
@@ -1335,6 +1353,11 @@ async function doSplit(animalId) {
         <span class="qa-label">{{ tx("quick.drift") }}</span>
         <span class="qa-sub">{{ tx("quick.curves") }}</span>
       </router-link>
+      <router-link to="/parkour" class="qa-btn">
+        <span class="qa-icon">🐾</span>
+        <span class="qa-label">{{ tx("quick.parkour") }}</span>
+        <span class="qa-sub">{{ tx("quick.parkourSub") }}</span>
+      </router-link>
     </div>
 
     <div class="card equip-card">
@@ -1850,6 +1873,15 @@ async function doSplit(animalId) {
       <div class="bpl-body">
         <div class="dl-title">{{ tx("driftLink.title") }}</div>
         <div class="bpl-sub">{{ tx("driftLink.sub") }}</div>
+      </div>
+      <div class="bpl-arrow">›</div>
+    </router-link>
+
+    <router-link to="/parkour" class="card parkour-link">
+      <div class="pl-icon">🐾</div>
+      <div class="bpl-body">
+        <div class="dl-title">{{ tx("parkourLink.title") }}</div>
+        <div class="bpl-sub">{{ tx("parkourLink.sub") }}</div>
       </div>
       <div class="bpl-arrow">›</div>
     </router-link>
@@ -3124,6 +3156,33 @@ async function doSplit(animalId) {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+.parkour-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(108, 199, 120, 0.28), transparent 55%),
+    var(--card);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.parkour-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-2);
+  box-shadow: 0 12px 28px rgba(108, 199, 120, 0.3);
+}
+.pl-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
+  flex-shrink: 0;
+  animation: plHop 1.6s ease-in-out infinite;
+}
+@keyframes plHop {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  40% { transform: translateY(-7px) rotate(4deg); }
 }
 
 /* ── Tägliche Belohnung ─────────────────────────────────────────── */
