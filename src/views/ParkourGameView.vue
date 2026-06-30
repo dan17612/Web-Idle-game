@@ -270,7 +270,7 @@ function onPointerUp(e) {
     return
   }
   if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) {
-    engine?.moveLane(dx > 0 ? 1 : -1)
+    engine?.moveLane(dx > 0 ? -1 : 1)
   } else if (dy < -24 && Math.abs(dy) > Math.abs(dx)) {
     engine?.jump()
   }
@@ -279,8 +279,8 @@ function onPointerUp(e) {
 function onKeyDown(e) {
   if (!playOpen.value || engineLoading.value || runState.value === 'finished') return
   const started = ensureRunning()
-  if (e.key === 'ArrowLeft' || e.key === 'a') engine?.moveLane(-1)
-  else if (e.key === 'ArrowRight' || e.key === 'd') engine?.moveLane(1)
+  if (e.key === 'ArrowLeft' || e.key === 'a') engine?.moveLane(1)
+  else if (e.key === 'ArrowRight' || e.key === 'd') engine?.moveLane(-1)
   else if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') { if (!started) engine?.jump() }
 }
 
