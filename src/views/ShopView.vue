@@ -248,16 +248,18 @@ function rarityOf(key, info) {
 function sortSpecies(list) {
   const arr = list.slice();
   if (sortMode.value === "rate") {
+    // Münzen/Sek aufsteigend: die besten (höchstes Einkommen) unten
     arr.sort(
       (a, b) =>
-        (b.info.rate || 0) - (a.info.rate || 0) ||
-        rarityOf(b.key, b.info) - rarityOf(a.key, a.info),
+        (a.info.rate || 0) - (b.info.rate || 0) ||
+        rarityOf(a.key, a.info) - rarityOf(b.key, b.info),
     );
   } else {
+    // Seltenheit aufsteigend: nicht-seltene (Common) oben, seltene unten
     arr.sort(
       (a, b) =>
-        rarityOf(b.key, b.info) - rarityOf(a.key, a.info) ||
-        (b.info.rate || 0) - (a.info.rate || 0),
+        rarityOf(a.key, a.info) - rarityOf(b.key, b.info) ||
+        (a.info.rate || 0) - (b.info.rate || 0),
     );
   }
   return arr;
