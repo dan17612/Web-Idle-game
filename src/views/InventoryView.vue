@@ -94,9 +94,10 @@ const groupedAnimals = computed(() => {
     if (a.favoriteInGroup !== b.favoriteInGroup) return a.favoriteInGroup ? -1 : 1;
     if ((a.equippedCount > 0) !== (b.equippedCount > 0)) return a.equippedCount > 0 ? -1 : 1;
     if (sortMode.value === "rarity") {
+      // Seltenheit aufsteigend: nicht-seltene (Common) zuerst
       const raA = rarityInfo(a.info?.rarity || "common").order;
       const raB = rarityInfo(b.info?.rarity || "common").order;
-      if (raA !== raB) return raB - raA;
+      if (raA !== raB) return raA - raB;
     }
     if ((b.rate || 0) !== (a.rate || 0)) return b.rate - a.rate;
     const ra = tierRank[a.t] ?? 99;

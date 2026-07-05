@@ -79,7 +79,8 @@ const speciesIndex = computed(() => {
       if (sortMode.value === 'rate') {
         return (b.rate || 0) - (a.rate || 0) || a.cost - b.cost
       }
-      const rDiff = rarityInfo(b.rarity || 'common').order - rarityInfo(a.rarity || 'common').order
+      // Seltenheit aufsteigend: nicht-seltene (Common) zuerst
+      const rDiff = rarityInfo(a.rarity || 'common').order - rarityInfo(b.rarity || 'common').order
       return rDiff || (b.rate || 0) - (a.rate || 0)
     })
     .map(s => {
