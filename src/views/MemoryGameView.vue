@@ -641,7 +641,8 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 
 .play-overlay { position:fixed; inset:0; z-index:1100; display:flex;
   align-items:center; justify-content:center; padding:14px;
-  background:rgba(0,0,0,0.82); backdrop-filter:blur(6px); overflow-y:auto; }
+  background:rgba(0,0,0,0.82); backdrop-filter:blur(6px); overflow-y:auto;
+  user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 .play-panel { width:100%; max-width:460px; margin:auto;
   background:linear-gradient(135deg,var(--card-2),var(--surface-deep)); border:1px solid var(--border);
   border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:12px; }
