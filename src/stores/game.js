@@ -50,7 +50,8 @@ export const useGameStore = defineStore('game', {
     incubation: { active: false, egg_type: null, started_at: null, ready_at: null, ready_now: false },
     dailyReward: null,
     driftProgress: { highest_level: 0, stars: {}, max_level: 12 },
-    parkourProgress: { highest_level: 0, stars: {}, max_level: 12 }
+    parkourProgress: { highest_level: 0, stars: {}, max_level: 12 },
+    wordleState: null
   }),
   getters: {
     favoriteAnimal(state) {
@@ -340,6 +341,22 @@ export const useGameStore = defineStore('game', {
       if (data?.tickets != null) this.tickets = Number(data.tickets)
       if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
       await this.loadParkourProgress()
+      return data
+    },
+    async loadWordleState() {
+      const { data, error } = await supabase.rpc('get_wordle_state')
+      if (error) throw error
+      if (data) this.wordleState = data
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      return data
+    },
+    async submitWordleGuess(guess) {
+      const { data, error } = await supabase.rpc('wordle_guess', { p_guess: String(guess || '') })
+      if (error) throw error
+      if (data) this.wordleState = data
+      if (data?.coins != null) this.coins = Number(data.coins)
+      if (data?.tickets != null) this.tickets = Number(data.tickets)
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
       return data
     },
     async loadPlayerEggs() {
