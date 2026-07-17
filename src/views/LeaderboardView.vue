@@ -53,6 +53,17 @@ async function load() {
         total_pairs: Number(r.total_pairs || 0),
         total_levels_cleared: Number(r.total_levels_cleared || 0)
       }))
+    } else if (mode.value === 'wordle') {
+      const { data, error: e } = await supabase.rpc('get_wordle_leaderboard', { p_limit: 50 })
+      if (e) throw e
+      rows.value = (data || []).map(r => ({
+        username: r.username,
+        avatar_emoji: r.avatar_emoji,
+        current_streak: Number(r.current_streak || 0),
+        best_streak: Number(r.best_streak || 0),
+        wins: Number(r.wins || 0),
+        games: Number(r.games || 0)
+      }))
     } else if (mode.value === 'endless') {
       const { data, error: e } = await supabase.rpc('get_boss_endless_leaderboard', { p_limit: 50 })
       if (e) throw e
@@ -94,6 +105,8 @@ watch(() => route.name, (name) => {
   if (name === 'leaderboard') load()
 })
 onMounted(() => {
+  const tab = String(route.query.tab || '')
+  if (['rate', 'coins', 'boss', 'memory', 'endless', 'wordle'].includes(tab)) mode.value = tab
   load()
   game.loadEventSchedule().catch(() => {})
   clockTimer = setInterval(() => { now.value = Date.now() }, 1000)
@@ -148,6 +161,7 @@ const subtitle = computed(() => {
   if (mode.value === 'boss') return t('leaderboard.subtitleBoss')
   if (mode.value === 'memory') return t('leaderboard.subtitleMemory')
   if (mode.value === 'endless') return t('leaderboard.subtitleEndless')
+  if (mode.value === 'wordle') return t('leaderboard.subtitleWordle')
   return t('leaderboard.subtitle')
 })
 </script>
@@ -177,6 +191,13 @@ const subtitle = computed(() => {
       @click="setMode('memory')"
     >
       🧠 {{ t('leaderboard.byMemory') }}
+    </Button>
+    <Button
+      class="lb-tab"
+      :class="{ active: mode === 'wordle' }"
+      @click="setMode('wordle')"
+    >
+      🟩 {{ t('leaderboard.byWordle') }}
     </Button>
   </div>
 
@@ -234,6 +255,10 @@ const subtitle = computed(() => {
             <template v-if="mode === 'memory'">
               <span class="primary">🧠 {{ t('leaderboard.memoryLevel') }} {{ r.highest_level }}</span>
               <span class="secondary">🔁 {{ r.total_pairs }} {{ t('leaderboard.memoryPairs') }}</span>
+            </template>
+            <template v-else-if="mode === 'wordle'">
+              <span class="primary">🔥 {{ r.current_streak }} {{ t('leaderboard.wordleStreak') }}</span>
+              <span class="secondary">🏅 {{ r.wins }} {{ t('leaderboard.wordleWins') }} · ⭐ {{ r.best_streak }}</span>
             </template>
             <template v-else-if="mode === 'rate'">
               <span class="primary">⚡ {{ formatRate(r.rate_per_sec) }}/s</span>

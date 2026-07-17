@@ -90,6 +90,8 @@ const I18N = {
       curves: "Kurven & Ziel",
       parkour: "Parkour",
       parkourSub: "3D-Hüpfen",
+      wordle: "Wordle",
+      wordleSub: "Wort des Tages",
       release: "Tier freilassen"
     },
     equipped: {
@@ -168,6 +170,10 @@ const I18N = {
       title: "🐾 Zoo-Parkour",
       sub: "Hüpf in 3D über Lücken & Hindernisse - 12 Parcours"
     },
+    wordleLink: {
+      title: "🟩 Zoo-Wordle",
+      sub: "Errate das Wort des Tages in 6 Versuchen - mit Bestenliste"
+    },
     daily: {
       title: "Tägliche Belohnung",
       ready: "Bereit zum Abholen!",
@@ -243,6 +249,8 @@ const I18N = {
       curves: "Curves & finish",
       parkour: "Parkour",
       parkourSub: "3D jump",
+      wordle: "Wordle",
+      wordleSub: "Word of the day",
       release: "Release pet"
     },
     equipped: {
@@ -321,6 +329,10 @@ const I18N = {
       title: "🐾 Zoo Parkour",
       sub: "Hop in 3D over gaps & obstacles - 12 courses"
     },
+    wordleLink: {
+      title: "🟩 Zoo Wordle",
+      sub: "Guess the word of the day in 6 tries - with leaderboard"
+    },
     daily: {
       title: "Daily Reward",
       ready: "Ready to claim!",
@@ -396,6 +408,8 @@ const I18N = {
       curves: "Повороты и финиш",
       parkour: "Паркур",
       parkourSub: "3D-прыжки",
+      wordle: "Wordle",
+      wordleSub: "Слово дня",
       release: "Отпустить питомца"
     },
     equipped: {
@@ -473,6 +487,10 @@ const I18N = {
     parkourLink: {
       title: "🐾 Зоо-Паркур",
       sub: "Прыгай в 3D через пропасти и препятствия - 12 трасс"
+    },
+    wordleLink: {
+      title: "🟩 Зоо-Wordle",
+      sub: "Угадай слово дня за 6 попыток - с рейтингом"
     },
     daily: {
       title: "Ежедневная награда",
@@ -1358,6 +1376,11 @@ async function doSplit(animalId) {
         <span class="qa-label">{{ tx("quick.parkour") }}</span>
         <span class="qa-sub">{{ tx("quick.parkourSub") }}</span>
       </router-link>
+      <router-link to="/wordle" class="qa-btn">
+        <span class="qa-icon">🟩</span>
+        <span class="qa-label">{{ tx("quick.wordle") }}</span>
+        <span class="qa-sub">{{ tx("quick.wordleSub") }}</span>
+      </router-link>
     </div>
 
     <div class="card equip-card">
@@ -1882,6 +1905,15 @@ async function doSplit(animalId) {
       <div class="bpl-body">
         <div class="dl-title">{{ tx("parkourLink.title") }}</div>
         <div class="bpl-sub">{{ tx("parkourLink.sub") }}</div>
+      </div>
+      <div class="bpl-arrow">›</div>
+    </router-link>
+
+    <router-link to="/wordle" class="card wordle-link">
+      <div class="wl-icon">🟩</div>
+      <div class="bpl-body">
+        <div class="dl-title">{{ tx("wordleLink.title") }}</div>
+        <div class="bpl-sub">{{ tx("wordleLink.sub") }}</div>
       </div>
       <div class="bpl-arrow">›</div>
     </router-link>
@@ -3183,6 +3215,33 @@ async function doSplit(animalId) {
 @keyframes plHop {
   0%, 100% { transform: translateY(0) rotate(-3deg); }
   40% { transform: translateY(-7px) rotate(4deg); }
+}
+.wordle-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(88, 163, 91, 0.28), transparent 55%),
+    var(--card);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.wordle-link:hover {
+  transform: translateY(-2px);
+  border-color: #58a35b;
+  box-shadow: 0 12px 28px rgba(88, 163, 91, 0.3);
+}
+.wl-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
+  flex-shrink: 0;
+  animation: wlFlip 2.4s ease-in-out infinite;
+}
+@keyframes wlFlip {
+  0%, 100% { transform: rotateX(0); }
+  50% { transform: rotateX(180deg); }
 }
 
 /* ── Tägliche Belohnung ─────────────────────────────────────────── */
