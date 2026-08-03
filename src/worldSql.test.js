@@ -25,6 +25,10 @@ test('bauplatz kommt aus einer sequenz und ist eindeutig', () => {
   assert.match(sql, /plot int not null unique default nextval\('public\.world_plot_seq'\)/)
 })
 
+test('world_enter verbrennt keine plot-nummern bei bestandsspielern', () => {
+  assert.match(sql, /update public\.world_state set last_seen = now\(\) where user_id = uid;\s*if not found then\s*insert into public\.world_state/)
+})
+
 test('tabellen sind nur lesbar, schreiben laeuft ueber RPCs', () => {
   const revokes = sql.match(/revoke all on table public\.world_\w+ from anon, authenticated/g) || []
   assert.equal(revokes.length, 3)

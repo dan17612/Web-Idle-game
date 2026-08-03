@@ -382,6 +382,7 @@ export class WorldEngine {
     const driving = this.me.driving
     const carVis = this.selfObj.carVisual
     const leash = this.selfObj.leashEmoji
+    this._applyLeash(this.selfObj, null) // Pet + Leine hängen an der Szene, nicht an der Gruppe
     this.scene.remove(this.selfObj.group)
     this._disposeObject(this.selfObj.group)
     this.selfObj = this._buildPlayerObj({ outfit: visual, avatar, username })
@@ -426,6 +427,7 @@ export class WorldEngine {
   removeRemote(uid) {
     const r = this.remotes.get(uid)
     if (!r) return
+    this._applyLeash(r, null)
     this.scene.remove(r.group)
     this._disposeObject(r.group)
     this.remotes.delete(uid)
@@ -638,6 +640,9 @@ export class WorldEngine {
       new THREE.Vector3(), new THREE.Vector3(),
     ])
     const line = new THREE.Line(geo, this._track(new THREE.LineBasicMaterial({ color: 0x5c4a32 })))
+    // Die Punkte liegen in Weltkoordinaten und wandern mit dem Spieler —
+    // die einmal berechnete BoundingSphere würde die Linie sonst wegculling.
+    line.frustumCulled = false
     this.scene.add(line)
     obj.leashLine = line
   }
@@ -717,6 +722,7 @@ export class WorldEngine {
       if (e.t >= EMOTE_SECONDS) {
         e.parent.remove(e.sprite)
         e.sprite.material.dispose()
+        this._disposables.delete(e.sprite.material)
         this.emotes.splice(i, 1)
       }
     }
@@ -733,6 +739,7 @@ export class WorldEngine {
       if (p.t > 1.4 || p.sprite.position.y < 0) {
         this.scene.remove(p.sprite)
         p.sprite.material.dispose()
+        this._disposables.delete(p.sprite.material)
         this.particles.splice(i, 1)
       }
     }
@@ -907,14 +914,34 @@ export class WorldEngine {
     return resource
   }
 
+  // Gibt GPU-Ressourcen frei UND entfernt sie aus dem Tracking-Set, damit
+  // der Heap bei Rebuilds (setFarms, Outfit-Wechsel) nicht monoton wächst.
+  // Geteilte Emoji-Texturen aus dem Cache bleiben unangetastet.
   _disposeObject(obj) {
     obj.traverse?.((o) => {
-      if (o.geometry) o.geometry.dispose()
+      if (o.geometry) {
+        o.geometry.dispose()
+        this._disposables.delete(o.geometry)
+      }
       if (o.material) {
         const mats = Array.isArray(o.material) ? o.material : [o.material]
-        for (const mt of mats) { mt.map?.dispose?.(); mt.dispose?.() }
+        for (const mt of mats) {
+          if (mt.map && !this._isCachedEmojiTexture(mt.map)) {
+            mt.map.dispose()
+            this._disposables.delete(mt.map)
+          }
+          mt.dispose?.()
+          this._disposables.delete(mt)
+        }
       }
     })
+  }
+
+  _isCachedEmojiTexture(tex) {
+    for (const mat of this._emojiMats.values()) {
+      if (mat.map === tex) return true
+    }
+    return false
   }
 
   dispose() {

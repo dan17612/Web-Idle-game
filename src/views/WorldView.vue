@@ -269,7 +269,8 @@ function subscribeChannel() {
       lastAppearances.set(key, sig)
       const existing = engine.remotes.get(key)?.interp
       engine.upsertRemote(key, remoteDataFor({
-        ...p, x: existing?.x ?? p.x, z: existing?.z ?? p.z, driving: p.d,
+        username: p.n, avatar: p.a, outfit: p.o, car: p.c, leash: p.l, driving: p.d,
+        x: existing?.x ?? p.x, z: existing?.z ?? p.z,
       }))
     }
   })

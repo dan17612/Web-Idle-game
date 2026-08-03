@@ -95,8 +95,14 @@ declare
   v_owned jsonb;
 begin
   if uid is null then raise exception 'not authenticated'; end if;
-  insert into public.world_state (user_id) values (uid)
-  on conflict (user_id) do update set last_seen = now();
+  -- Erst updaten, nur bei wirklich neuem Spieler einfügen: der nextval-Default
+  -- würde sonst bei jedem Betreten eine Plot-Nummer verbrennen (Postgres
+  -- wertet Defaults auch bei on-conflict-Upserts aus).
+  update public.world_state set last_seen = now() where user_id = uid;
+  if not found then
+    insert into public.world_state (user_id) values (uid)
+    on conflict (user_id) do update set last_seen = now();
+  end if;
   select * into v_row from public.world_state where user_id = uid;
   select coalesce(jsonb_agg(item_id), '[]'::jsonb) into v_owned
     from public.world_purchases where user_id = uid;
