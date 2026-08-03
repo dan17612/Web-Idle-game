@@ -18,6 +18,7 @@ const routes = [
   { path: '/drift', name: 'drift', component: () => import('./views/DriftGameView.vue'), meta: { auth: true } },
   { path: '/parkour', name: 'parkour', component: () => import('./views/ParkourGameView.vue'), meta: { auth: true } },
   { path: '/wordle', name: 'wordle', component: () => import('./views/WordleGameView.vue'), meta: { auth: true } },
+  { path: '/world', name: 'world', component: () => import('./views/WorldView.vue'), meta: { auth: true } },
   { path: '/memory-online', name: 'memory-online', component: () => import('./views/MemoryOnlineView.vue'), meta: { auth: true } },
   { path: '/profile', name: 'profile', component: () => import('./views/ProfileView.vue'), meta: { auth: true } },
   { path: '/index', name: 'index', component: () => import('./views/IndexView.vue'), meta: { auth: true } },
