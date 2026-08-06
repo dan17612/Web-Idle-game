@@ -264,12 +264,17 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
           type="button"
           class="settings-link refresh-btn"
           :title="t('app.refreshData')"
+          :aria-label="t('app.refreshData')"
           :disabled="reloading"
           @click="softRefresh"
         >
           <i :class="['pi', 'pi-refresh', { 'pi-spin': reloading }]" />
         </Button>
-        <router-link to="/settings" class="settings-link" :title="t('app.settings')"
+        <router-link
+          to="/settings"
+          class="settings-link"
+          :title="t('app.settings')"
+          :aria-label="t('app.settings')"
           >⚙️</router-link
         >
       </div>
