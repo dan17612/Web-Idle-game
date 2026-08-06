@@ -729,7 +729,8 @@ onUnmounted(() => {
 .dn-locked { font-size:12px; color:var(--muted); font-weight:800; padding:8px 0 2px; }
 
 .drift-overlay { position:fixed; inset:0; z-index:1100; display:flex; flex-direction:column;
-  background:#5fb44d; touch-action:none; overscroll-behavior:none; }
+  background:#5fb44d; touch-action:none; overscroll-behavior:none;
+  user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 .drift-hud { display:flex; align-items:center; gap:10px;
   padding:calc(8px + var(--safe-top)) 12px 8px; background:rgba(255,255,255,0.92);
   border-bottom:2px solid var(--border); }
