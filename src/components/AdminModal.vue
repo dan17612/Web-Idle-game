@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { supabase } from '../supabase'
 import { speciesInfo } from '../animals'
 import { locale } from '../i18n'
@@ -434,6 +434,7 @@ const giftSpeciesOptions = computed(() => {
   return [{ label: tx('gift.noneSpecies'), value: '' }, ...species]
 })
 
+const flashTimers = new Set()
 function flash(msg, isError = false) {
   if (isError) {
     error.value = msg
@@ -442,11 +443,18 @@ function flash(msg, isError = false) {
     info.value = msg
     error.value = ''
   }
-  setTimeout(() => {
+  const id = setTimeout(() => {
     if (isError) error.value = ''
     else info.value = ''
+    flashTimers.delete(id)
   }, 3000)
+  flashTimers.add(id)
 }
+
+onUnmounted(() => {
+  for (const id of flashTimers) clearTimeout(id)
+  flashTimers.clear()
+})
 
 const craftOnlyDraft = ref({})
 const disappearsDaysDraft = ref({})
