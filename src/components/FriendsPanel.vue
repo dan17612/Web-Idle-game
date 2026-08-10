@@ -119,10 +119,12 @@ async function confirmSend() {
   sendModal.busy = true
   try {
     await game.sendCoins(sendModal.to, amt)
+    const f = friends.value.find(x => x.friend_username === sendModal.to && x.status === 'accepted')
+    if (f) f.friend_coins = (Number(f.friend_coins) || 0) + amt
     appToast.ok(t('friends.sentCoins', { amount: formatCoins(amt), username: sendModal.to }))
     sendModal.open = false
   } catch (e) {
-    sendModal.err = e.message
+    sendModal.err = e?.message || String(e)
     appToast.err(e)
   } finally {
     sendModal.busy = false

@@ -54,7 +54,7 @@ const progress = computed(() => {
   return Math.max(0, Math.min(1, 1 - (remainingMs.value / total)))
 })
 
-const currentEggName = computed(() => EGG_TYPES[incubation.value?.egg_type]?.name || 'Ei')
+const currentEggName = computed(() => EGG_TYPES[incubation.value?.egg_type]?.name || '🥚')
 
 const subtitleText = computed(() => {
   if (readyNow.value) return t('eggs.ready')

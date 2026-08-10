@@ -40,7 +40,7 @@ async function send() {
     form.username = ''
     await loadHistory()
   } catch (e) {
-    error.value = e.message
+    error.value = e?.message || String(e)
   } finally {
     busy.value = false
     setTimeout(() => { msg.value = '' }, 3000)

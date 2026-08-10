@@ -16,6 +16,7 @@ const expanded = ref(new Set())
 const submitOpen = ref(false)
 const submitForm = reactive({ title: '', description: '', busy: false })
 const adminBusy = ref('')
+const voteBusy = ref(new Set())
 
 const isAdmin = computed(() => !!(auth.profile?.is_admin || auth.profile?.is_subadmin))
 const adminStatuses = ['idea', 'planned', 'in_progress', 'done', 'rejected']
@@ -79,12 +80,26 @@ function toggleExpand(id) {
 }
 
 async function vote(idea) {
+  if (voteBusy.value.has(idea.id)) return
+  voteBusy.value.add(idea.id)
+  voteBusy.value = new Set(voteBusy.value)
+  const prevVoted = !!idea.my_vote
+  const prevCount = Number(idea.vote_count) || 0
+  idea.my_vote = !prevVoted
+  idea.vote_count = prevCount + (prevVoted ? -1 : 1)
   try {
     const { data, error } = await supabase.rpc('vote_idea', { p_idea_id: idea.id })
     if (error) throw error
     idea.vote_count = data.count
     idea.my_vote = data.voted
-  } catch (e) { toast.err(e) }
+  } catch (e) {
+    idea.my_vote = prevVoted
+    idea.vote_count = prevCount
+    toast.err(e)
+  } finally {
+    voteBusy.value.delete(idea.id)
+    voteBusy.value = new Set(voteBusy.value)
+  }
 }
 
 async function adminSetStatus(idea, status) {
@@ -185,7 +200,7 @@ async function submitIdea() {
       @click="toggleExpand(idea.id)"
     >
       <div class="idea-row">
-        <div class="vote-col" @click.stop="vote(idea)">
+        <div class="vote-col" :class="{ 'is-busy': voteBusy.has(idea.id) }" @click.stop="vote(idea)">
           <span class="vote-arrow" :class="{ active: idea.my_vote }">▲</span>
           <span class="vote-count">{{ fmtVotes(idea.vote_count) }}</span>
         </div>
@@ -303,6 +318,7 @@ async function submitIdea() {
   transition: border-color 0.15s ease;
 }
 .vote-col:hover { border-color: var(--accent); }
+.vote-col.is-busy { opacity: 0.7; pointer-events: none; }
 .vote-arrow { font-size: 16px; color: var(--muted); line-height: 1; }
 .vote-arrow.active { color: var(--accent); }
 .vote-count { font-size: 12px; font-weight: 800; margin-top: 2px; }
