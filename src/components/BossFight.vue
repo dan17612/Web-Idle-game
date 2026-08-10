@@ -140,19 +140,24 @@ const defeatVisible = ref(false);
 let bossCellId = 0;
 let bossMessageTimer = null;
 let clockTimer = null;
+let autoStartTimer = null;
 
 onMounted(() => {
   clockTimer = setInterval(() => {
     now.value = Date.now();
   }, 250);
   if (props.autoStart && (isStageMode.value || isEndless.value)) {
-    setTimeout(() => startBossFight(), 50);
+    autoStartTimer = setTimeout(() => {
+      autoStartTimer = null;
+      startBossFight();
+    }, 50);
   }
 });
 
 onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer);
   if (bossMessageTimer) clearTimeout(bossMessageTimer);
+  if (autoStartTimer) clearTimeout(autoStartTimer);
 });
 
 watch(
@@ -175,7 +180,7 @@ const stageBossInfo = computed(() => {
 
 const fightDurationMs = computed(() => {
   if (isEndless.value && props.endlessEndsAt) {
-    return Math.max(0, Number(props.endlessEndsAt) - Date.now());
+    return Math.max(0, Number(props.endlessEndsAt) - (Date.now() + game.serverOffset));
   }
   if (props.stageConfig?.time_seconds)
     return Number(props.stageConfig.time_seconds) * 1000;
