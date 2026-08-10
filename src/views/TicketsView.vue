@@ -326,13 +326,23 @@ async function doRelease(useAll = false) {
       releaseTier.value = "";
     }
     releaseQty.value = 1;
-    setTimeout(() => (releaseSuccess.value = ""), 3000);
+    scheduleReleaseToastClear();
   } catch (e) {
     releaseError.value = e.message;
-    setTimeout(() => (releaseError.value = ""), 3000);
+    scheduleReleaseToastClear();
   } finally {
     releaseBusy.value = false;
   }
+}
+
+let releaseToastTimer = null;
+function scheduleReleaseToastClear() {
+  if (releaseToastTimer) clearTimeout(releaseToastTimer);
+  releaseToastTimer = setTimeout(() => {
+    releaseSuccess.value = "";
+    releaseError.value = "";
+    releaseToastTimer = null;
+  }, 3000);
 }
 
 // ===== Ticket Shop =====
@@ -405,13 +415,23 @@ async function buyFromShop(key) {
     const info = speciesInfo(key);
     shopSuccess.value = tx("bought", { emoji: info.emoji, name: info.name });
     await loadShop();
-    setTimeout(() => (shopSuccess.value = ""), 3000);
+    scheduleShopToastClear();
   } catch (e) {
     shopError.value = e.message;
-    setTimeout(() => (shopError.value = ""), 3000);
+    scheduleShopToastClear();
   } finally {
     shopBusy.value = "";
   }
+}
+
+let shopToastTimer = null;
+function scheduleShopToastClear() {
+  if (shopToastTimer) clearTimeout(shopToastTimer);
+  shopToastTimer = setTimeout(() => {
+    shopSuccess.value = "";
+    shopError.value = "";
+    shopToastTimer = null;
+  }, 3000);
 }
 
 // ===== Ticket Chest =====
@@ -440,7 +460,7 @@ async function openChest() {
   } catch (e) {
     shopError.value = e.message;
     chestAnim.value = null;
-    setTimeout(() => (shopError.value = ""), 3000);
+    scheduleShopToastClear();
   } finally {
     shopBusy.value = "";
   }
@@ -466,6 +486,8 @@ onMounted(async () => {
 });
 onUnmounted(() => {
   if (timer) clearInterval(timer);
+  if (releaseToastTimer) clearTimeout(releaseToastTimer);
+  if (shopToastTimer) clearTimeout(shopToastTimer);
 });
 </script>
 

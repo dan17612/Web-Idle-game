@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { locale } from '../i18n'
 
@@ -73,21 +73,30 @@ onMounted(async () => {
   }
 })
 
+let sendErrorTimer = null
 async function sendReply(ticket) {
   const text = (replyText.value[ticket.id] || '').trim()
   if (!text || sending.value) return
   sending.value = ticket.id
   sendError.value = ''
+  if (sendErrorTimer) { clearTimeout(sendErrorTimer); sendErrorTimer = null }
   try {
     await auth.replyToTicket(ticket.id, text)
     replyText.value[ticket.id] = ''
   } catch (e) {
     sendError.value = e.message
-    setTimeout(() => (sendError.value = ''), 4000)
+    sendErrorTimer = setTimeout(() => {
+      sendError.value = ''
+      sendErrorTimer = null
+    }, 4000)
   } finally {
     sending.value = ''
   }
 }
+
+onUnmounted(() => {
+  if (sendErrorTimer) clearTimeout(sendErrorTimer)
+})
 </script>
 
 <template>
