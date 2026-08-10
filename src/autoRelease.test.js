@@ -74,3 +74,39 @@ test('species not present in map are never released', () => {
   const groups = groupAnimalsForAutoRelease(animals, { chicken: 'rainbow' }, NOW)
   assert.deepEqual(groups, [{ species: 'chicken', tier: 'normal', ids: ['a'] }])
 })
+
+test('never releases equipped animals', () => {
+  const animals = [
+    { id: 'a', species: 'chicken', tier: 'normal', equipped: true },
+    { id: 'b', species: 'chicken', tier: 'normal' },
+    { id: 'c', species: 'chicken', tier: 'gold', equipped: true }
+  ]
+  // only 'b' (non-equipped, tier <= gold) should be included
+  const groups = groupAnimalsForAutoRelease(animals, { chicken: 'rainbow' }, NOW)
+  assert.deepEqual(groups, [{ species: 'chicken', tier: 'normal', ids: ['b'] }])
+})
+
+test('never releases the favorite animal', () => {
+  const animals = [
+    { id: 'a', species: 'chicken', tier: 'normal' },
+    { id: 'b', species: 'chicken', tier: 'normal' },
+    { id: 'c', species: 'cow', tier: 'normal' }
+  ]
+  // 'a' is the favorite → must be excluded; 'b' and 'c' are fair game
+  const groups = groupAnimalsForAutoRelease(animals, { chicken: 'rainbow', cow: 'rainbow' }, NOW, 'a')
+  const byKey = Object.fromEntries(groups.map(g => [`${g.species}|${g.tier}`, g.ids]))
+  assert.deepEqual(byKey, {
+    'chicken|normal': ['b'],
+    'cow|normal': ['c']
+  })
+})
+
+test('excludes both equipped and favorite when both are present', () => {
+  const animals = [
+    { id: 'fav',  species: 'chicken', tier: 'normal' },               // favorite
+    { id: 'eq',   species: 'chicken', tier: 'normal', equipped: true }, // equipped
+    { id: 'free', species: 'chicken', tier: 'normal' }                 // eligible
+  ]
+  const groups = groupAnimalsForAutoRelease(animals, { chicken: 'rainbow' }, NOW, 'fav')
+  assert.deepEqual(groups, [{ species: 'chicken', tier: 'normal', ids: ['free'] }])
+})
