@@ -35,7 +35,7 @@ const groupedEggs = computed(() => {
 
 const remainingMs = computed(() => {
   if (!incubation.value?.active || !incubation.value.ready_at) return 0
-  return Math.max(0, new Date(incubation.value.ready_at).getTime() - now.value)
+  return Math.max(0, new Date(incubation.value.ready_at).getTime() - (now.value + game.serverOffset))
 })
 
 const readyNow = computed(() => incubation.value?.active && remainingMs.value === 0)
