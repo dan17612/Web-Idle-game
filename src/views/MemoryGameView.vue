@@ -19,7 +19,7 @@ const I18N = {
     back: 'Zurück', level: 'Level', moves: 'Züge', best: 'Höchstes Level', progress: 'Fortschritt', pairsWord: 'Paare',
     play: 'Spielen', replay: 'Nochmal', locked: 'Gesperrt', cleared: 'Geschafft', current: 'Aktuell',
     finalLocked: '🏆 Finale geschafft - kein erneutes Spielen',
-    reset: 'Brett neu', loading: 'Lade Memory...', retry: 'Erneut versuchen', close: 'Schließen',
+    reset: 'Brett neu', loading: 'Lade Memory...', retry: 'Erneut versuchen', close: 'Schließen', error: 'Fehler',
     eventEndsIn: 'Verschwindet in {time}', eventEnded: 'Ereignis beendet',
     eventEndedSub: 'Das Memory-Ereignis ist vorbei. Es können keine Züge mehr gemacht werden.',
     matched: 'Paar gefunden!', failed: 'Zuglimit erreicht - Brett neu',
@@ -42,7 +42,7 @@ const I18N = {
     back: 'Back', level: 'Level', moves: 'Moves', best: 'Highest level', progress: 'Progress', pairsWord: 'pairs',
     play: 'Play', replay: 'Replay', locked: 'Locked', cleared: 'Cleared', current: 'Current',
     finalLocked: '🏆 Finale cleared - no replay',
-    reset: 'New board', loading: 'Loading Memory...', retry: 'Try again', close: 'Close',
+    reset: 'New board', loading: 'Loading Memory...', retry: 'Try again', close: 'Close', error: 'Error',
     eventEndsIn: 'Disappears in {time}', eventEnded: 'Event ended',
     eventEndedSub: 'The Memory event is over. No more moves can be made.',
     matched: 'Pair found!', failed: 'Move limit reached - new board',
@@ -65,7 +65,7 @@ const I18N = {
     back: 'Назад', level: 'Уровень', moves: 'Ходы', best: 'Лучший уровень', progress: 'Прогресс', pairsWord: 'пар',
     play: 'Играть', replay: 'Снова', locked: 'Закрыто', cleared: 'Пройдено', current: 'Текущий',
     finalLocked: '🏆 Финал пройден - без повтора',
-    reset: 'Новое поле', loading: 'Загрузка Memory...', retry: 'Повторить', close: 'Закрыть',
+    reset: 'Новое поле', loading: 'Загрузка Memory...', retry: 'Повторить', close: 'Закрыть', error: 'Ошибка',
     eventEndsIn: 'Исчезнет через {time}', eventEnded: 'Событие завершено',
     eventEndedSub: 'Событие Memory завершено. Ходы больше недоступны.',
     matched: 'Пара найдена!', failed: 'Лимит ходов - новое поле',
@@ -99,6 +99,7 @@ const error = ref('')
 const flash = ref(null)
 const now = ref(Date.now())
 let clockTimer = null
+const flashTimers = new Set()
 const showResetConfirm = ref(false)
 const chestReveal = ref(null)
 const playOpen = ref(false)
@@ -158,7 +159,7 @@ const eventShowCountdown = computed(() => game.memoryShowCountdown)
 const eventRemaining = computed(() => {
   void now.value
   if (!eventShowCountdown.value) return 0
-  return Math.max(0, game.memoryEndsAt - Date.now())
+  return Math.max(0, game.memoryEndsAt - (Date.now() + game.serverOffset))
 })
 
 function formatCountdown(ms) {
@@ -184,7 +185,11 @@ function tierBadge(tier) {
 function showFlash(text, kind = 'ok') {
   const id = Date.now()
   flash.value = { text, kind, id }
-  setTimeout(() => { if (flash.value?.id === id) flash.value = null }, 1600)
+  const t = setTimeout(() => {
+    flashTimers.delete(t)
+    if (flash.value?.id === id) flash.value = null
+  }, 1600)
+  flashTimers.add(t)
 }
 
 function wait(ms) { return new Promise((r) => setTimeout(r, ms)) }
@@ -204,7 +209,7 @@ async function loadGame() {
   try {
     data.value = await callMemory('status')
   } catch (e) {
-    error.value = e?.message || 'Fehler'
+    error.value = e?.message || tx('error')
   } finally {
     loading.value = false
   }
@@ -240,7 +245,7 @@ async function flip(index) {
       await completeLevel()
     }
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
     await loadGame()
   } finally {
     busy.value = false
@@ -261,7 +266,7 @@ async function completeLevel() {
     playOpen.value = false
     chestReveal.value = { phase: 'reveal', items: opened }
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
     await loadGame()
   }
 }
@@ -281,7 +286,7 @@ async function confirmReset() {
     const res = await callMemory('reset')
     data.value = res.state
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
   } finally {
     busy.value = false
   }
@@ -314,7 +319,11 @@ onMounted(() => {
   if (!seen) showTutorial.value = true
   loadGame()
 })
-onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer)
+  for (const t of flashTimers) clearTimeout(t)
+  flashTimers.clear()
+})
 </script>
 
 <template>
