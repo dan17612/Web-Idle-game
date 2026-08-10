@@ -59,14 +59,14 @@ export const useAuthStore = defineStore('auth', {
       const { data } = await supabase.auth.getSession()
       this.session = data.session
       if (this.session) {
-        try { await this.loadProfile() } catch (e) { console.error(e) }
+        try { await this.loadProfile() } catch (e) { if (import.meta.env?.DEV) console.error(e) }
         await this.loadIdentities()
       }
       this.loading = false
       supabase.auth.onAuthStateChange(async (_e, sess) => {
         this.session = sess
         if (sess) {
-          try { await this.loadProfile() } catch (e) { console.error(e) }
+          try { await this.loadProfile() } catch (e) { if (import.meta.env?.DEV) console.error(e) }
           await this.loadIdentities()
         } else {
           this.profile = null
@@ -81,7 +81,7 @@ export const useAuthStore = defineStore('auth', {
         .select('*')
         .eq('id', this.session.user.id)
         .maybeSingle()
-      if (error) console.error(error)
+      if (error && import.meta.env?.DEV) console.error(error)
       this.profile = data
       if (this.profile?.is_banned) {
         await supabase.auth.signOut()
@@ -95,7 +95,7 @@ export const useAuthStore = defineStore('auth', {
       if (!this.session) return
       const { data, error } = await supabase.auth.getUserIdentities()
       if (error) {
-        console.error(error)
+        if (import.meta.env?.DEV) console.error(error)
         return
       }
       this.identities = data?.identities || []
@@ -226,7 +226,7 @@ export const useAuthStore = defineStore('auth', {
         .from('support_tickets')
         .select('id, ticket_number, subject, message, status, admin_reply, created_at, replied_at, closed_at')
         .order('created_at', { ascending: false })
-      if (error) { console.error(error); return }
+      if (error) { if (import.meta.env?.DEV) console.error(error); return }
       this.mySupportTickets = data || []
     },
     markSupportRepliesSeen() {
@@ -238,7 +238,7 @@ export const useAuthStore = defineStore('auth', {
         .select('id, sender, body, created_at')
         .eq('ticket_id', ticketId)
         .order('created_at', { ascending: true })
-      if (error) { console.error(error); return }
+      if (error) { if (import.meta.env?.DEV) console.error(error); return }
       this.ticketThreads = { ...this.ticketThreads, [ticketId]: data || [] }
     },
     async replyToTicket(ticketId, body) {
@@ -257,7 +257,7 @@ export const useAuthStore = defineStore('auth', {
       const { data, error } = await supabase.rpc('admin_list_support_tickets', {
         p_status: null, p_limit: 100, p_offset: 0
       })
-      if (error) { console.error(error); return }
+      if (error) { if (import.meta.env?.DEV) console.error(error); return }
       this.adminSupportTickets = data || []
     },
     markAdminMessagesSeen() {
