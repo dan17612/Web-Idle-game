@@ -7,6 +7,7 @@ import { t } from "../i18n";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
 import { EGG_TYPES, loadEggCatalog, rarityInfo } from "../eggs";
+import SortControl from "../components/SortControl.vue";
 
 const game = useGameStore();
 const appToast = useAppToast();
@@ -14,6 +15,7 @@ const error = ref("");
 const busy = ref("");
 const slotInfo = ref({ current_slots: 1, next_slot: 2, next_cost: null });
 const filter = ref("all");
+const sortMode = ref("rarity"); // "rarity" | "rate"
 
 async function loadSlot() {
   const { data } = await supabase.rpc("get_next_slot_cost");
@@ -91,6 +93,12 @@ const groupedAnimals = computed(() => {
   groups.sort((a, b) => {
     if (a.favoriteInGroup !== b.favoriteInGroup) return a.favoriteInGroup ? -1 : 1;
     if ((a.equippedCount > 0) !== (b.equippedCount > 0)) return a.equippedCount > 0 ? -1 : 1;
+    if (sortMode.value === "rarity") {
+      // Seltenheit aufsteigend: nicht-seltene (Common) zuerst
+      const raA = rarityInfo(a.info?.rarity || "common").order;
+      const raB = rarityInfo(b.info?.rarity || "common").order;
+      if (raA !== raB) return raA - raB;
+    }
     if ((b.rate || 0) !== (a.rate || 0)) return b.rate - a.rate;
     const ra = tierRank[a.t] ?? 99;
     const rb = tierRank[b.t] ?? 99;
@@ -263,6 +271,9 @@ const filters = computed(() => [
         <span class="filter-count">{{ counts[f.k] || 0 }}</span>
       </Button>
     </div>
+    <div class="sort-row">
+      <SortControl v-model="sortMode" />
+    </div>
   </div>
 
   <div v-if="!enriched.length" class="card subtitle">
@@ -418,6 +429,11 @@ const filters = computed(() => [
 
 /* Filter */
 .filter-card { padding: 8px; }
+.sort-row {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
 .filter-bar {
   display: flex;
   gap: 6px;

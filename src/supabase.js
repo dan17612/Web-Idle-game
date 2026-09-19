@@ -8,11 +8,20 @@ if (!url || !key) {
   console.warn('Supabase env vars fehlen. Kopiere .env.example nach .env und trage deine Keys ein.')
 }
 
+// iOS (WKWebView/Safari) cached GET-Requests von Supabase aggressiv im
+// URL-Cache. Dadurch liefert der „Aktualisieren"-Knopf oben rechts nach
+// einem erneuten load() veraltete Daten aus dem Cache – erst ein kompletter
+// App-Neustart leert diesen. cache: 'no-store' erzwingt bei jedem Request
+// einen echten Netzabruf, damit Daten immer aktuell sind.
+const noStoreFetch = (input, init = {}) =>
+  fetch(input, { ...init, cache: 'no-store' })
+
 // detectSessionInUrl: false — wir parsen den Hash selbst in main.js,
 // weil wir createWebHashHistory nutzen (URL: /#/…) und Supabase-Tokens
 // im gleichen Hash landen (/#access_token=… bzw. /#/access_token=…).
 export const supabase = createClient(url || 'http://localhost', key || 'anon', {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit' }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'implicit' },
+  global: { fetch: noStoreFetch }
 })
 
 // Native (Android/iOS) nutzt Custom-URL-Scheme als Deep Link.

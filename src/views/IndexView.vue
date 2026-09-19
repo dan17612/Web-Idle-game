@@ -7,6 +7,7 @@ import { SPECIES, loadCatalog, tierInfo } from '../animals'
 import { EGG_DROP_SPECIES, loadEggCatalog, rarityInfo } from '../eggs'
 import { t } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
+import SortControl from '../components/SortControl.vue'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -16,6 +17,7 @@ const profile = ref(null)
 const loading = ref(false)
 const error = ref('')
 const filter = ref('all')
+const sortMode = ref('rarity') // 'rarity' | 'rate'
 
 const tierRank = { normal: 0, gold: 1, diamond: 2, epic: 3, rainbow: 4 }
 
@@ -73,7 +75,14 @@ const speciesIndex = computed(() => {
   // Deaktivierte Spezies (z. B. Einhorn, Phoenix) werden angezeigt, wenn der Spieler sie besitzt.
   return Object.values(SPECIES)
     .filter(s => s.enabled !== false || EGG_DROP_SPECIES.has(s.key) || !!map[s.key])
-    .sort((a, b) => a.cost - b.cost)
+    .sort((a, b) => {
+      if (sortMode.value === 'rate') {
+        return (b.rate || 0) - (a.rate || 0) || a.cost - b.cost
+      }
+      // Seltenheit aufsteigend: nicht-seltene (Common) zuerst
+      const rDiff = rarityInfo(a.rarity || 'common').order - rarityInfo(b.rarity || 'common').order
+      return rDiff || (b.rate || 0) - (a.rate || 0)
+    })
     .map(s => {
       const d = map[s.key]
       return {
@@ -131,6 +140,9 @@ const filters = computed(() => [
           <span class="filter-count">{{ tierCounts[f.k] || 0 }}</span>
         </Button>
       </div>
+      <div class="sort-row">
+        <SortControl v-model="sortMode" />
+      </div>
     </div>
 
     <div class="card">
@@ -182,6 +194,11 @@ const filters = computed(() => [
 .hint { font-size: 10px; color: var(--muted); max-width: 140px; text-align: right; }
 
 .filter-card { padding: 8px; }
+.sort-row {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
 .filter-bar {
   display: flex; gap: 6px; overflow-x: auto; padding: 2px;
   scrollbar-width: thin;

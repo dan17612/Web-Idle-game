@@ -277,6 +277,11 @@ const messages = {
       sent: "Gesendet",
       received: "Empfangen",
     },
+    sort: {
+      label: "Sortieren",
+      rarity: "Seltenheit",
+      rate: "Münzen/Sek",
+    },
     index: {
       title: "Spezies-Index",
       playerNotFound: "Spieler nicht gefunden",
@@ -343,6 +348,8 @@ const messages = {
       nextRotation: "Nächste Rotation in",
       inStock: "Im Bestand",
       stockCount: "{count} Tiere",
+      showAll: "Alle anzeigen",
+      showBuyable: "Nur kaufbare",
       weightMustBePositive: "Gewicht muss > 0 sein",
       boughtAnimal: "{animal} gekauft!",
       chestTitle: "Truhe",
@@ -716,6 +723,11 @@ const messages = {
       sent: "Sent",
       received: "Received",
     },
+    sort: {
+      label: "Sort",
+      rarity: "Rarity",
+      rate: "Coins/sec",
+    },
     index: {
       title: "Species Index",
       playerNotFound: "Player not found",
@@ -782,6 +794,8 @@ const messages = {
       nextRotation: "Next rotation in",
       inStock: "In stock",
       stockCount: "{count} animals",
+      showAll: "Show all",
+      showBuyable: "Buyable only",
       weightMustBePositive: "Weight must be > 0",
       boughtAnimal: "{animal} purchased!",
       chestTitle: "Chest",
@@ -1153,6 +1167,11 @@ const messages = {
       sent: "Отправлено",
       received: "Получено",
     },
+    sort: {
+      label: "Сортировка",
+      rarity: "Редкость",
+      rate: "Монеты/сек",
+    },
     index: {
       title: "Индекс видов",
       playerNotFound: "Игрок не найден",
@@ -1220,6 +1239,8 @@ const messages = {
       nextRotation: "Следующая ротация через",
       inStock: "В наличии",
       stockCount: "Животных: {count}",
+      showAll: "Показать все",
+      showBuyable: "Только доступные",
       weightMustBePositive: "Вес должен быть > 0",
       boughtAnimal: "{animal} куплен!",
       chestTitle: "Сундук",

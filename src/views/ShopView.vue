@@ -7,6 +7,7 @@ import { supabase } from "../supabase";
 import { SPECIES, speciesInfo, formatCoins } from "../animals";
 import { t } from "../i18n";
 import TutorialBubble from "../components/TutorialBubble.vue";
+import SortControl from "../components/SortControl.vue";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
 import { rarityInfo, loadEggCatalog, EGG_TYPES } from "../eggs";
@@ -97,6 +98,8 @@ const weightMap = ref({});
 const weightDraft = ref({});
 const restockQty = ref({});
 const foods = ref([]);
+const sortMode = ref("rarity"); // "rarity" | "rate"
+const showAll = ref(false);
 let timer;
 const ROTATION_RELOAD_KEY = "shopReloadedForRotation";
 
@@ -238,7 +241,31 @@ const boostRemaining = computed(() =>
   Math.max(0, game.petBoostUntil - (now.value + game.serverOffset)),
 );
 
-const speciesList = computed(() => {
+function rarityOf(key, info) {
+  return rarityInfo(speciesMeta.value[key]?.rarity || info.rarity || "common").order;
+}
+
+function sortSpecies(list) {
+  const arr = list.slice();
+  if (sortMode.value === "rate") {
+    // Münzen/Sek aufsteigend: die besten (höchstes Einkommen) unten
+    arr.sort(
+      (a, b) =>
+        (a.info.rate || 0) - (b.info.rate || 0) ||
+        rarityOf(a.key, a.info) - rarityOf(b.key, b.info),
+    );
+  } else {
+    // Seltenheit aufsteigend: nicht-seltene (Common) oben, seltene unten
+    arr.sort(
+      (a, b) =>
+        rarityOf(a.key, a.info) - rarityOf(b.key, b.info) ||
+        (a.info.rate || 0) - (b.info.rate || 0),
+    );
+  }
+  return arr;
+}
+
+const allSpecies = computed(() => {
   void now.value;
   return Object.entries(SPECIES)
     .filter(([key, info]) => {
@@ -275,8 +302,22 @@ const speciesList = computed(() => {
       };
     });
 });
+
+// Standardmäßig nur kaufbare Tiere zeigen (Craft-only & nicht-verfügbare ausblenden).
+// "Alle anzeigen" blendet auch craftbare/deaktivierte Tiere ein.
+const speciesList = computed(() => {
+  const base = showAll.value
+    ? allSpecies.value
+    : allSpecies.value.filter((s) => s.inStock);
+  return sortSpecies(base);
+});
+
+const hiddenCount = computed(
+  () => allSpecies.value.filter((s) => !s.inStock).length,
+);
+
 const stockTotal = computed(() =>
-  speciesList.value.reduce((s, x) => s + x.remaining, 0),
+  allSpecies.value.reduce((s, x) => s + x.remaining, 0),
 );
 
 const eggList = computed(() => {
@@ -655,6 +696,19 @@ function goToTickets() {
       <Button v-if="chestAnim.phase === 'reveal'" class="btn" @click="closeChestAnim">{{ t("shop.continue") }}</Button>
     </div>
 
+    <div class="card sort-card">
+      <SortControl v-model="sortMode" />
+      <Button
+        class="show-all-toggle"
+        :class="{ active: showAll }"
+        @click="showAll = !showAll"
+      >
+        <span>{{ showAll ? "👁️" : "🛒" }}</span>
+        <span>{{ showAll ? t("shop.showBuyable") : t("shop.showAll") }}</span>
+        <span v-if="!showAll && hiddenCount" class="show-all-count">+{{ hiddenCount }}</span>
+      </Button>
+    </div>
+
     <div class="grid">
       <div
         v-for="e in eggList"
@@ -840,6 +894,41 @@ function goToTickets() {
 </template>
 
 <style scoped>
+.sort-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.show-all-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  color: inherit;
+  font: inherit;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.show-all-toggle.active {
+  background: var(--accent);
+  color: #1b1300;
+  border-color: var(--accent);
+}
+.show-all-count {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
 .out-of-stock {
   opacity: 0.45;
   filter: grayscale(0.6);

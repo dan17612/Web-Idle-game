@@ -5,6 +5,7 @@ import { useAuthStore } from "./stores/auth";
 import { useGameStore } from "./stores/game";
 import { useRoute } from "vue-router";
 import { SpeedInsights } from "@vercel/speed-insights/vue";
+import { Analytics } from "@vercel/analytics/vue";
 import { supabase } from "./supabase";
 import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
@@ -13,6 +14,7 @@ import TutorialBubble from "./components/TutorialBubble.vue";
 import ConnectionBanner from "./components/ConnectionBanner.vue";
 import { t } from "./i18n";
 import { onAppResume } from "./composables/useAppResume";
+import { usePullToRefresh } from "./composables/usePullToRefresh";
 
 const adminOpen = ref(false);
 const supportOpen = ref(false);
@@ -224,10 +226,25 @@ async function hardReload() {
     window.location.replace(url.toString());
   });
 }
+
+// Pull-to-Refresh: iPhone (WKWebView/Safari) hat – anders als Android/Chrome –
+// keine native „runterziehen zum Neuladen"-Geste. Wir bauen sie selbst nach
+// und laden die Seite wie auf Android komplett neu.
+const { pullDistance, refreshing: pulling } = usePullToRefresh({
+  enabled: () => showNav.value && !reloading.value,
+  onRefresh: () => hardReload(),
+});
 </script>
 
 <template>
   <div class="app-shell">
+    <div
+      v-if="pullDistance > 0 || pulling"
+      class="pull-refresh"
+      :style="{ transform: `translateY(${pullDistance}px)`, opacity: pulling ? 1 : Math.min(1, pullDistance / 64) }"
+    >
+      <i :class="['pi', 'pi-refresh', { 'pi-spin': pulling }]" :style="{ transform: pulling ? '' : `rotate(${pullDistance * 3}deg)` }" />
+    </div>
     <Toast position="top-center" />
     <header v-if="showNav" class="top-bar">
       <div class="brand">
@@ -377,10 +394,31 @@ async function hardReload() {
     <AdminModal v-if="adminOpen" @close="adminOpen = false" />
     <SupportModal v-if="supportOpen" @close="supportOpen = false" />
     <SpeedInsights />
+    <Analytics />
   </div>
 </template>
 
 <style scoped>
+.pull-refresh {
+  position: fixed;
+  top: calc(var(--safe-top) + 6px);
+  left: 50%;
+  margin-left: -20px;
+  z-index: 40;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  color: var(--accent-deep);
+  font-size: 18px;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
 .broadcast-toast {
   position: fixed;
   top: 50%;
