@@ -48,30 +48,42 @@ test('jede Gewichtszeile summiert auf 100', () => {
 })
 
 test('schwache Eltern erreichen die oberen Stufen nicht', () => {
-  const w = breedWeights(1)
-  assert.equal(w[3], 0, 'Phönix/Kraken bei Zuchtkraft 1')
-  assert.equal(w[4], 0, 'Weltenschildkröte bei Zuchtkraft 1')
+  assert.equal(breedWeights(0)[2], 0, 'Gorilla bei Zuchtkraft 0')
+  assert.equal(breedWeights(4)[3], 0, 'Brachiosaurus unter Zuchtkraft 5')
 })
 
 test('starke Eltern verschieben das Gewicht nach oben', () => {
   const schwach = breedWeights(1)
   const stark = breedWeights(12)
+  assert.ok(stark[2] > schwach[2], 'Stufe 3 steigt nicht')
   assert.ok(stark[3] > schwach[3], 'Stufe 4 steigt nicht')
-  assert.ok(stark[4] > schwach[4], 'Stufe 5 steigt nicht')
   assert.ok(stark[0] < schwach[0], 'Stufe 1 fällt nicht')
 })
 
-test('die Weltenschildkröte bleibt auch bei perfekten Eltern selten', () => {
-  assert.equal(breedWeights(12)[4], 3)
-  assert.ok(breedWeights(12)[4] <= 5, 'stärkstes Tier zu häufig')
+test('der Brachiosaurus bleibt auch bei perfekten Eltern selten', () => {
+  assert.equal(breedWeights(12)[3], 10)
+  assert.ok(breedWeights(12)[3] <= 15, 'stärkstes Tier zu häufig')
 })
 
-test('Gewichte verschieben sich monoton über die Zuchtkraft', () => {
-  let vorherOben = -1
-  for (const p of [0, 3, 6, 9, 11]) {
-    const oben = breedWeights(p)[3] + breedWeights(p)[4]
-    assert.ok(oben > vorherOben, `Zuchtkraft ${p}: obere Stufen fallen`)
-    vorherOben = oben
+// Der Kern der Nachbesserung: vorher lagen Zuchtkraft 0 und 2 im selben
+// Bereich, kosteten aber 50 Mio. gegen 450 Mio. Jeder Punkt muss zahlen.
+test('jeder Punkt Zuchtkraft verbessert die Chancen', () => {
+  for (let p = 0; p < 12; p++) {
+    const hier = breedWeights(p)
+    const naechst = breedWeights(p + 1)
+    assert.ok(naechst[0] < hier[0], `Stufe 1 fällt nicht von ${p} auf ${p + 1}`)
+    const obenHier = hier[2] + hier[3]
+    const obenNaechst = naechst[2] + naechst[3]
+    assert.ok(obenNaechst > obenHier, `obere Stufen steigen nicht von ${p} auf ${p + 1}`)
+  }
+})
+
+test('das stärkste Tier steigt monoton und nie sprunghaft', () => {
+  let vorher = -1
+  for (let p = 0; p <= 12; p++) {
+    const top = breedWeights(p)[3]
+    assert.ok(top >= vorher, `Stufe 4 fällt bei ${p}`)
+    vorher = top
   }
 })
 
@@ -86,27 +98,47 @@ test('Kosten und Brutzeit wachsen mit der Zuchtkraft', () => {
   }
 })
 
-test('breedChances verteilt das Stufengewicht auf die Arten', () => {
+test('breedChances gibt je Stufe genau das Stufengewicht aus', () => {
   const c = breedChances(12)
-  assert.equal(c.length, 8)
+  assert.equal(c.length, 4)
   const summe = c.reduce((a, x) => a + x.percent, 0)
   assert.ok(Math.abs(summe - 100) < 1e-9, `Summe ${summe}`)
 
-  const flamingo = c.find(x => x.species === 'flamingo')
-  const scorpion = c.find(x => x.species === 'scorpion')
-  assert.equal(flamingo.percent, scorpion.percent, 'Stufe ungleich verteilt')
-  assert.equal(flamingo.percent, breedWeights(12)[0] / 2)
-
-  const turtle = c.find(x => x.species === 'worldturtle')
-  assert.equal(turtle.percent, breedWeights(12)[4], 'einzige Art der Stufe')
+  const w = breedWeights(12)
+  BREED_TIERS.forEach((arten, i) => {
+    const treffer = c.find(x => x.species === arten[0])
+    assert.equal(treffer.percent, w[i], `${arten[0]} weicht ab`)
+  })
 })
 
-test('die acht Exklusiven stehen genau einmal in der Tabelle', () => {
+test('die vier Exklusiven stehen genau einmal in der Tabelle', () => {
   const alle = BREED_TIERS.flat()
-  assert.equal(alle.length, 8)
-  assert.equal(new Set(alle).size, 8)
-  for (const s of ['flamingo', 'scorpion', 'owl', 'bear',
-                   'unicorn', 'phoenix', 'kraken', 'worldturtle']) {
+  assert.equal(alle.length, 4)
+  assert.equal(new Set(alle).size, 4)
+  for (const s of ['hedgehog', 'leopard', 'gorilla', 'brachiosaurus']) {
     assert.ok(alle.includes(s), `${s} fehlt`)
+  }
+})
+
+// Diese vier dürfen aus keiner anderen Quelle kommen, sonst ist das
+// Versprechen der Zucht wieder hinfällig.
+test('keine Zucht-Art taucht in einem Craft-Rezept oder Merge-Pool auf', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs')
+  const path = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const dir = path.join(root, 'supabase', 'migrations')
+  const quellen = readdirSync(dir)
+    .map(f => readFileSync(path.join(dir, f), 'utf8'))
+    .join('\n')
+  const merge = readFileSync(
+    path.join(root, 'supabase', 'functions', 'merge-game', 'index.ts'), 'utf8')
+
+  for (const art of BREED_TIERS.flat()) {
+    assert.doesNotMatch(quellen, new RegExp(`output_species[^\\n]*'${art}'`),
+      `${art} hat ein Craft-Rezept`)
+    assert.doesNotMatch(quellen, new RegExp(`"species":"${art}"`),
+      `${art} ist Craft-Zutat oder Belohnung`)
+    assert.doesNotMatch(merge, new RegExp(`'${art}'`), `${art} steckt im Merge-Spiel`)
   }
 })

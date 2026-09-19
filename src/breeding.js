@@ -1,31 +1,42 @@
 // Zucht-Ereignis: zwei Tiere ergeben ein Ei mit vorbestimmtem Ergebnis.
 //
 // Achtung Reward-Spiegel: Jede Formel hier lebt doppelt, als SQL-Helfer in
-// supabase/migrations/20260919_zucht.sql. src/breedingSql.test.js vergleicht
-// beide Seiten — bei Balance-Änderungen immer beide anfassen.
+// supabase/migrations/20260919_zucht.sql und 20260920_zucht_arten.sql.
+// src/breedingSql.test.js vergleicht beide Seiten und liest dabei immer die
+// jüngste Definition — bei Balance-Änderungen immer beide anfassen.
 
 export const RARITY_SCORE = { common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4 }
 export const TIER_BONUS = { normal: 0, gold: 0.5, diamond: 1, epic: 1.5, rainbow: 2 }
 
 export const MAX_POWER = 12
 
-// Die acht Arten, die es aus keiner anderen Quelle gibt, nach Stufe gruppiert.
+// Die vier Arten, die es wirklich nur aus der Zucht gibt, nach Stufe.
+// Bewusst je eine pro Stufe: die Chancen-Vorschau bleibt lesbar.
 export const BREED_TIERS = [
-  ['flamingo', 'scorpion'],
-  ['owl'],
-  ['bear', 'unicorn'],
-  ['phoenix', 'kraken'],
-  ['worldturtle']
+  ['hedgehog'],
+  ['leopard'],
+  ['gorilla'],
+  ['brachiosaurus']
 ]
 
-// Gewichte je Zuchtkraft-Bereich. Jede Zeile summiert auf 100, ist also
-// direkt in Prozent lesbar.
+// Gewichte je ganzer Zuchtkraft. Jede Zeile summiert auf 100, ist also direkt
+// in Prozent lesbar. Feinstufig statt in Bereichen, damit jeder Punkt
+// Zuchtkraft die Chancen verbessert — die Kosten steigen schließlich auch
+// mit jedem Punkt.
 const WEIGHTS = [
-  { upTo: 2,  w: [82, 16,  2,  0, 0] },
-  { upTo: 5,  w: [56, 30, 12,  2, 0] },
-  { upTo: 8,  w: [32, 33, 26,  8, 1] },
-  { upTo: 10, w: [14, 26, 36, 22, 2] },
-  { upTo: 12, w: [ 5, 15, 33, 44, 3] }
+  [88, 12,  0,  0],
+  [82, 17,  1,  0],
+  [75, 22,  3,  0],
+  [67, 28,  5,  0],
+  [58, 34,  8,  0],
+  [49, 39, 11,  1],
+  [40, 43, 16,  1],
+  [32, 45, 21,  2],
+  [25, 45, 27,  3],
+  [19, 43, 34,  4],
+  [14, 39, 42,  5],
+  [10, 33, 50,  7],
+  [ 6, 26, 58, 10]
 ]
 
 export function animalPower(species, tier, rarityOf) {
@@ -42,10 +53,7 @@ export function breedPower(a, b) {
 
 export function breedWeights(power) {
   const p = Math.floor(breedPower(power, 0))
-  for (const row of WEIGHTS) {
-    if (p <= row.upTo) return [...row.w]
-  }
-  return [...WEIGHTS[WEIGHTS.length - 1].w]
+  return [...(WEIGHTS[p] || WEIGHTS[WEIGHTS.length - 1])]
 }
 
 export function breedCost(power) {

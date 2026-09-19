@@ -24,6 +24,9 @@ const I18N = {
     eventEndedSub: 'Das Zucht-Ereignis ist vorbei. Es können keine Tiere mehr verpaart werden.',
     empty: 'Du hast noch keine Tiere zum Verpaaren.',
     loading: 'Lade...', minutes: 'Min', hours: 'Std',
+    search: 'Tier suchen...', all: 'Alle', free: 'frei', pickHint: 'Tippe Tiere an, um sie zu verpaaren. Gleiche Tiere sind gestapelt.',
+    noMatch: 'Keine passenden Tiere.', clear: 'Auswahl leeren',
+    tiers: { normal: 'Normal', gold: 'Gold', diamond: 'Diamant', epic: 'Episch', rainbow: 'Rainbow' },
     hint: 'Je seltener und höher aufgewertet die Eltern, desto besser die Chancen. Beide Eltern bleiben dir erhalten, sind aber während der Brutzeit besetzt.'
   },
   en: {
@@ -37,6 +40,9 @@ const I18N = {
     eventEndedSub: 'The breeding event is over. No more pairings can be started.',
     empty: 'You have no animals to breed yet.',
     loading: 'Loading...', minutes: 'min', hours: 'h',
+    search: 'Search animal...', all: 'All', free: 'free', pickHint: 'Tap animals to pair them. Identical animals are stacked.',
+    noMatch: 'No matching animals.', clear: 'Clear selection',
+    tiers: { normal: 'Normal', gold: 'Gold', diamond: 'Diamond', epic: 'Epic', rainbow: 'Rainbow' },
     hint: 'The rarer and more upgraded the parents, the better the odds. Both parents stay yours but are busy during incubation.'
   },
   ru: {
@@ -50,6 +56,9 @@ const I18N = {
     eventEndedSub: 'Событие разведения завершено. Новые скрещивания недоступны.',
     empty: 'Пока нет животных для скрещивания.',
     loading: 'Загрузка...', minutes: 'мин', hours: 'ч',
+    search: 'Поиск животного...', all: 'Все', free: 'своб.', pickHint: 'Нажимай на животных, чтобы скрестить их. Одинаковые сложены в стопку.',
+    noMatch: 'Нет подходящих животных.', clear: 'Сбросить выбор',
+    tiers: { normal: 'Обычный', gold: 'Золотой', diamond: 'Алмазный', epic: 'Эпический', rainbow: 'Радужный' },
     hint: 'Чем реже и выше уровень родителей, тем лучше шансы. Оба родителя остаются у тебя, но заняты на время инкубации.'
   }
 }
@@ -92,6 +101,74 @@ function fmtDuration(minutes) {
   return m ? `${h} ${tx('hours')} ${m} ${tx('minutes')}` : `${h} ${tx('hours')}`
 }
 
+const TIER_FILTERS = ['all', 'rainbow', 'epic', 'diamond', 'gold', 'normal']
+const tierFilter = ref('all')
+const query = ref('')
+
+const animalById = computed(() => new Map(animals.value.map(a => [a.id, a])))
+
+// Gleiche Art + gleiche Stufe werden zu einem Stapel zusammengefasst.
+const groups = computed(() => {
+  void now.value
+  const q = query.value.trim().toLowerCase()
+  const map = new Map()
+  for (const a of animals.value) {
+    if (tierFilter.value !== 'all' && (a.tier || 'normal') !== tierFilter.value) continue
+    if (q && !speciesInfo(a.species).name.toLowerCase().includes(q)) continue
+    const key = `${a.species}|${a.tier || 'normal'}`
+    let g = map.get(key)
+    if (!g) {
+      g = { key, species: a.species, tier: a.tier || 'normal', power: Number(a.power || 0), ids: [] }
+      map.set(key, g)
+    }
+    g.ids.push(a.id)
+  }
+  return [...map.values()].map(g => {
+    const picked = [pickA.value, pickB.value].filter(id => g.ids.includes(id)).length
+    const busyAnimals = g.ids.map(id => animalById.value.get(id)).filter(isBusy)
+    const free = g.ids.length - busyAnimals.length - picked
+    const nextBusy = busyAnimals.length && free <= 0
+      ? busyAnimals.reduce((m, a) => (new Date(a.breeding_until) < new Date(m.breeding_until) ? a : m))
+      : null
+    return { ...g, picked, free, total: g.ids.length, nextBusy }
+  })
+})
+
+const tierCounts = computed(() => {
+  const c = { all: animals.value.length }
+  for (const a of animals.value) c[a.tier || 'normal'] = (c[a.tier || 'normal'] || 0) + 1
+  return c
+})
+
+function toggleGroup(g) {
+  if (!eventActive.value) return
+  const freeId = g.ids.find(id =>
+    id !== pickA.value && id !== pickB.value && !isBusy(animalById.value.get(id)))
+  const slotOpen = !pickA.value || !pickB.value
+  if (freeId && slotOpen) {
+    if (!pickA.value) pickA.value = freeId
+    else pickB.value = freeId
+  } else if (g.picked) {
+    if (g.ids.includes(pickB.value)) pickB.value = null
+    else pickA.value = null
+  } else if (freeId) {
+    pickB.value = freeId
+  }
+}
+
+const gridCard = ref(null)
+
+function onSlotClick(k) {
+  if (k === 'a') pickA.value = null
+  else pickB.value = null
+  gridCard.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function clearPicks() {
+  pickA.value = null
+  pickB.value = null
+}
+
 const selectedA = computed(() => animals.value.find(a => a.id === pickA.value) || null)
 const selectedB = computed(() => animals.value.find(a => a.id === pickB.value) || null)
 
@@ -111,17 +188,6 @@ const ready = computed(() =>
   pickA.value !== pickB.value && !isBusy(selectedA.value) && !isBusy(selectedB.value))
 
 const affordable = computed(() => game.coins >= cost.value)
-
-function pick(a, slot) {
-  if (isBusy(a)) return
-  if (slot === 'a') {
-    if (pickB.value === a.id) pickB.value = null
-    pickA.value = pickA.value === a.id ? null : a.id
-  } else {
-    if (pickA.value === a.id) pickA.value = null
-    pickB.value = pickB.value === a.id ? null : a.id
-  }
-}
 
 async function load() {
   loading.value = true
@@ -198,29 +264,30 @@ useReturnRefresh(load)
 
     <template v-else>
       <section class="card bv-pair">
-        <div class="bv-slot">
-          <div class="bv-slot-title">{{ tx('parentA') }}</div>
-          <div class="bv-slot-body" :class="{ filled: selectedA }">
-            <template v-if="selectedA">
-              <span class="bv-slot-emoji">{{ speciesInfo(selectedA.species).emoji }}</span>
-              <span class="bv-slot-name">{{ speciesInfo(selectedA.species).name }}</span>
+        <button
+          v-for="slot in [{ k: 'a', sel: selectedA, title: tx('parentA') }, { k: 'b', sel: selectedB, title: tx('parentB') }]"
+          :key="slot.k"
+          type="button"
+          class="bv-slot"
+          @click="onSlotClick(slot.k)"
+        >
+          <div class="bv-slot-title">{{ slot.title }}</div>
+          <div
+            class="bv-slot-body"
+            :class="[{ filled: slot.sel }, slot.sel ? 'tier-' + (slot.sel.tier || 'normal') : '']"
+            :style="slot.sel ? { '--tier-color': tierInfo(slot.sel.tier).color } : {}"
+          >
+            <template v-if="slot.sel">
+              <span class="bv-slot-emoji">{{ speciesInfo(slot.sel.species).emoji }}</span>
+              <span class="bv-slot-name">{{ speciesInfo(slot.sel.species).name }}</span>
+              <span v-if="slot.sel.tier && slot.sel.tier !== 'normal'" class="bv-tier-chip">
+                {{ tierInfo(slot.sel.tier).badge }} {{ tx('tiers')[slot.sel.tier] }}
+              </span>
             </template>
             <span v-else class="bv-slot-empty">{{ tx('choose') }}</span>
           </div>
-        </div>
-
+        </button>
         <div class="bv-heart">💞</div>
-
-        <div class="bv-slot">
-          <div class="bv-slot-title">{{ tx('parentB') }}</div>
-          <div class="bv-slot-body" :class="{ filled: selectedB }">
-            <template v-if="selectedB">
-              <span class="bv-slot-emoji">{{ speciesInfo(selectedB.species).emoji }}</span>
-              <span class="bv-slot-name">{{ speciesInfo(selectedB.species).name }}</span>
-            </template>
-            <span v-else class="bv-slot-empty">{{ tx('choose') }}</span>
-          </div>
-        </div>
       </section>
 
       <section class="card bv-stats">
@@ -238,24 +305,15 @@ useReturnRefresh(load)
 
       <section class="card bv-chances">
         <div class="bv-chances-title">{{ tx('chances') }}</div>
-        <div v-for="c in chances" :key="c.species" class="bv-chance">
-          <span class="bv-chance-emoji">{{ speciesInfo(c.species).emoji }}</span>
-          <span class="bv-chance-name">{{ speciesInfo(c.species).name }}</span>
-          <span class="bv-chance-bar">
-            <span :style="{ width: Math.max(2, c.percent) + '%' }"></span>
+        <div class="bv-chance-row">
+          <span v-for="c in chances" :key="c.species" class="bv-chance-chip">
+            <span class="bv-chance-emoji">{{ speciesInfo(c.species).emoji }}</span>
+            <span class="bv-chance-name">{{ speciesInfo(c.species).name }}</span>
+            <strong>{{ c.percent % 1 === 0 ? c.percent : c.percent.toFixed(1) }}%</strong>
           </span>
-          <span class="bv-chance-pct">{{ c.percent % 1 === 0 ? c.percent : c.percent.toFixed(1) }}%</span>
         </div>
         <p class="bv-hint">{{ tx('hint') }}</p>
       </section>
-
-      <Button
-        class="btn full bv-breed"
-        :disabled="!ready || !affordable || busyKey === 'breed'"
-        @click="doBreed"
-      >
-        {{ busyKey === 'breed' ? tx('breeding') : tx('breed') }}
-      </Button>
 
       <section v-if="result" class="card bv-result">
         <span class="bv-result-icon">🐣</span>
@@ -265,47 +323,70 @@ useReturnRefresh(load)
         </div>
       </section>
 
-      <section class="card bv-grid-card">
-        <div class="bv-grid-title">{{ tx('parentA') }}</div>
-        <div class="bv-grid">
-          <Button
-            v-for="a in animals"
-            :key="'a-' + a.id"
-            class="bv-cell"
-            :class="{ active: pickA === a.id, busy: isBusy(a) }"
-            :disabled="isBusy(a) || !eventActive"
-            :style="{ '--tier-color': tierInfo(a.tier).color }"
-            @click="pick(a, 'a')"
-          >
-            <span class="bv-cell-emoji">{{ speciesInfo(a.species).emoji }}</span>
-            <span class="bv-cell-power">{{ a.power }}</span>
-            <span v-if="isBusy(a)" class="bv-cell-busy">{{ tx('busy', { time: busyLeft(a) }) }}</span>
-          </Button>
+      <section ref="gridCard" class="card bv-grid-card">
+        <div class="bv-filters">
+          <InputText v-model="query" class="bv-search" :placeholder="tx('search')" />
+          <div class="bv-tier-filters">
+            <button
+              v-for="f in TIER_FILTERS"
+              :key="f"
+              type="button"
+              class="bv-filter"
+              :class="[{ on: tierFilter === f }, 'tier-' + f]"
+              @click="tierFilter = f"
+            >
+              <span v-if="f !== 'all' && f !== 'normal'">{{ tierInfo(f).badge }}</span>
+              {{ f === 'all' ? tx('all') : tx('tiers')[f] }}
+              <em>{{ tierCounts[f] || 0 }}</em>
+            </button>
+          </div>
         </div>
+        <p class="bv-pick-hint">
+          {{ tx('pickHint') }}
+          <button v-if="pickA || pickB" type="button" class="bv-clear" @click="clearPicks">{{ tx('clear') }}</button>
+        </p>
 
-        <div class="bv-grid-title">{{ tx('parentB') }}</div>
-        <div class="bv-grid">
-          <Button
-            v-for="a in animals"
-            :key="'b-' + a.id"
+        <div v-if="!groups.length" class="bv-nomatch">{{ tx('noMatch') }}</div>
+        <div v-else class="bv-grid">
+          <button
+            v-for="g in groups"
+            :key="g.key"
+            type="button"
             class="bv-cell"
-            :class="{ active: pickB === a.id, busy: isBusy(a) }"
-            :disabled="isBusy(a) || !eventActive"
-            :style="{ '--tier-color': tierInfo(a.tier).color }"
-            @click="pick(a, 'b')"
+            :class="['tier-' + g.tier, { active: g.picked > 0, busy: g.free <= 0 && !g.picked }]"
+            :disabled="!eventActive || (g.free <= 0 && !g.picked)"
+            :style="{ '--tier-color': tierInfo(g.tier).color }"
+            :title="speciesInfo(g.species).name + ' · ' + tx('tiers')[g.tier]"
+            @click="toggleGroup(g)"
           >
-            <span class="bv-cell-emoji">{{ speciesInfo(a.species).emoji }}</span>
-            <span class="bv-cell-power">{{ a.power }}</span>
-            <span v-if="isBusy(a)" class="bv-cell-busy">{{ tx('busy', { time: busyLeft(a) }) }}</span>
-          </Button>
+            <span v-if="g.tier !== 'normal'" class="bv-cell-tier">{{ tierInfo(g.tier).badge }}</span>
+            <span v-if="g.total > 1" class="bv-cell-count">
+              {{ g.picked ? g.picked + '/' : '' }}{{ g.total }}×
+            </span>
+            <span class="bv-cell-emoji">{{ speciesInfo(g.species).emoji }}</span>
+            <span class="bv-cell-name">{{ speciesInfo(g.species).name }}</span>
+            <span class="bv-cell-power">⚡{{ g.power }}</span>
+            <span v-if="g.nextBusy" class="bv-cell-busy">{{ tx('busy', { time: busyLeft(g.nextBusy) }) }}</span>
+          </button>
         </div>
       </section>
+
+      <div class="bv-breed-bar">
+        <Button
+          class="btn full bv-breed"
+          :disabled="!ready || !affordable || busyKey === 'breed'"
+          @click="doBreed"
+        >
+          {{ busyKey === 'breed' ? tx('breeding') : tx('breed') }}
+        </Button>
+      </div>
     </template>
   </div>
 </template>
 
 <style scoped>
 .breeding-view {
+  --rainbow-gradient: linear-gradient(135deg, #ff6b6b, #ffd166, #63f2ff, #a855f7, #ff6bd6);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -323,22 +404,32 @@ useReturnRefresh(load)
   gap: 10px; padding: 24px 12px; color: var(--muted);
 }
 
-.bv-pair { display: flex; align-items: center; gap: 10px; }
-.bv-slot { flex: 1; min-width: 0; }
+.bv-pair { position: relative; display: flex; align-items: stretch; gap: 10px; }
+.bv-slot {
+  flex: 1; min-width: 0; padding: 0; background: none; border: 0;
+  color: inherit; font: inherit; text-align: inherit; cursor: pointer;
+}
 .bv-slot-title {
   font-size: 10px; font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.07em; color: var(--muted); margin-bottom: 6px;
 }
 .bv-slot-body {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 4px; min-height: 84px; padding: 8px;
+  gap: 3px; min-height: 92px; padding: 8px;
   border: 2px dashed var(--border); border-radius: 16px;
 }
-.bv-slot-body.filled { border-style: solid; border-color: var(--accent-soft, var(--accent)); }
+.bv-slot-body.filled { border-style: solid; border-color: var(--tier-color, var(--accent)); }
 .bv-slot-emoji { font-size: 34px; line-height: 1; }
 .bv-slot-name { font-size: 12px; font-weight: 700; text-align: center; }
 .bv-slot-empty { font-size: 12px; color: var(--muted); text-align: center; }
-.bv-heart { font-size: 26px; flex-shrink: 0; }
+.bv-tier-chip {
+  font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: 999px;
+  background: var(--card-2, rgba(0, 0, 0, 0.05)); color: var(--tier-color, inherit);
+}
+.bv-heart {
+  position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%);
+  font-size: 22px; pointer-events: none;
+}
 
 .bv-stats { display: flex; justify-content: space-around; gap: 8px; text-align: center; }
 .bv-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -350,23 +441,17 @@ useReturnRefresh(load)
 }
 
 .bv-chances { display: flex; flex-direction: column; gap: 6px; }
-.bv-chances-title { font-weight: 900; font-size: 15px; margin-bottom: 2px; }
-.bv-chance { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.bv-chance-emoji { font-size: 20px; flex-shrink: 0; }
-.bv-chance-name { flex: 1; min-width: 0; font-weight: 700; }
-.bv-chance-bar {
-  width: 70px; height: 7px; flex-shrink: 0;
-  background: var(--border); border-radius: 999px; overflow: hidden;
+.bv-chances-title { font-weight: 900; font-size: 15px; }
+.bv-chance-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.bv-chance-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 6px;
+  background: var(--card-2, rgba(0, 0, 0, 0.04)); border: 1px solid var(--border);
+  border-radius: 999px; font-size: 12px;
 }
-.bv-chance-bar > span {
-  display: block; height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2, var(--accent)));
-}
-.bv-chance-pct {
-  width: 44px; text-align: right; flex-shrink: 0;
-  font-weight: 800; font-variant-numeric: tabular-nums;
-}
-.bv-hint { margin: 6px 0 0; font-size: 11px; color: var(--muted); line-height: 1.45; }
+.bv-chance-emoji { font-size: 16px; }
+.bv-chance-name { font-weight: 700; }
+.bv-chance-chip strong { font-variant-numeric: tabular-nums; font-weight: 900; }
+.bv-hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); line-height: 1.45; }
 
 .bv-result { display: flex; align-items: center; gap: 12px; }
 .bv-result-icon { font-size: 30px; flex-shrink: 0; }
@@ -378,27 +463,67 @@ useReturnRefresh(load)
 }
 
 .bv-grid-card { display: flex; flex-direction: column; gap: 8px; }
-.bv-grid-title {
-  font-size: 10px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.07em; color: var(--muted);
+.bv-filters { display: flex; flex-direction: column; gap: 8px; }
+.bv-search { width: 100%; }
+.bv-tier-filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.bv-tier-filters::-webkit-scrollbar { display: none; }
+.bv-filter {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 10px; border-radius: 999px; cursor: pointer;
+  border: 2px solid var(--border); background: transparent;
+  color: inherit; font: inherit; font-size: 12px; font-weight: 800;
 }
+.bv-filter em { font-style: normal; font-size: 10px; color: var(--muted); }
+.bv-filter.on { border-color: var(--accent); background: rgba(244, 169, 18, 0.14); }
+.bv-filter.tier-rainbow.on {
+  border-color: transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--rainbow-gradient) border-box;
+}
+.bv-pick-hint { margin: 0; font-size: 11px; color: var(--muted); }
+.bv-clear {
+  margin-left: 6px; padding: 0; background: none; border: 0; cursor: pointer;
+  color: var(--accent-deep, var(--accent)); font: inherit; font-weight: 800;
+}
+.bv-nomatch { padding: 14px 0; text-align: center; color: var(--muted); font-size: 13px; }
 .bv-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px;
 }
 .bv-cell {
-  display: flex; flex-direction: column; align-items: center; gap: 1px;
-  padding: 6px 2px; background: var(--card-2, transparent);
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 14px 2px 6px; background: var(--card-2, transparent);
   border: 2px solid var(--border); border-radius: 14px;
   cursor: pointer; color: inherit; font: inherit;
 }
 .bv-cell:hover:not(:disabled) { border-color: var(--tier-color, var(--accent)); }
-.bv-cell.active {
-  border-color: var(--accent); background: rgba(244, 169, 18, 0.14);
+.bv-cell.tier-gold, .bv-cell.tier-diamond, .bv-cell.tier-epic { border-color: var(--tier-color); }
+.bv-cell.tier-rainbow, .bv-slot-body.filled.tier-rainbow {
+  border: 2px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--rainbow-gradient) border-box;
+  box-shadow: 0 0 10px rgba(255, 107, 214, 0.35);
+}
+.bv-cell.active { background: rgba(244, 169, 18, 0.18); outline: 3px solid var(--accent); outline-offset: -1px; }
+.bv-cell.tier-rainbow.active {
+  background: linear-gradient(rgba(244, 169, 18, 0.14), rgba(244, 169, 18, 0.14)) padding-box, var(--rainbow-gradient) border-box;
 }
 .bv-cell.busy, .bv-cell:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.7); }
-.bv-cell-emoji { font-size: 24px; line-height: 1; }
-.bv-cell-power { font-size: 11px; font-weight: 800; color: var(--muted); }
+.bv-cell-tier { position: absolute; top: 2px; left: 4px; font-size: 12px; line-height: 1; }
+.bv-cell-count {
+  position: absolute; top: 2px; right: 4px; padding: 0 5px; border-radius: 999px;
+  background: var(--accent); color: #fff; font-size: 10px; font-weight: 900; line-height: 16px;
+}
+.bv-cell-emoji { font-size: 26px; line-height: 1; }
+.bv-cell-name {
+  max-width: 100%; padding: 0 2px; font-size: 10px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bv-cell-power { font-size: 10px; font-weight: 800; color: var(--muted); }
 .bv-cell-busy { font-size: 8px; font-weight: 700; color: var(--danger); }
+
+.bv-breed-bar {
+  position: sticky; bottom: calc(10px + var(--safe-bot));
+  z-index: 5; padding-top: 4px;
+}
+.bv-breed-bar .bv-breed { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2); }
 
 .event-over {
   display: flex; align-items: center; gap: 12px;
