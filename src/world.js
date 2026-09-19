@@ -26,7 +26,7 @@ export const FARM = { w: 13, d: 9 }
 // Gespiegelt von public.world_fountain_claim — synchron halten!
 export const FOUNTAIN_REWARD = { coins: 25000, tickets: 1 }
 
-export const EMOTES = ['👋', '❤️', '😂', '🎉', '😮', '💪']
+export const EMOTES = ['👋', '💖', '😂', '🎉', '😮', '💪']
 export const HONK_EMOTE = '📢'
 
 // Bauplätze liegen in 4 Ringen um den Platz (Radius 42..84, Kapazität aus dem

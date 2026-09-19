@@ -7,6 +7,7 @@ import {
   WORLD, POI, COLLIDERS, FARM,
   plotPosition, resolveCollision, nearestZone, advanceRemote,
 } from './world.js'
+import { emojiFontSpec } from './emojiFont.js'
 
 const CAM_BACK = 11
 const CAM_HEIGHT = 7.5
@@ -163,7 +164,7 @@ export class WorldEngine {
     )
     door.position.set(2.2, 1.3, 3.02)
     s.add(door)
-    const sign = this._textSprite('🛍️ Shop', 42)
+    const sign = this._textSprite('🛒 Shop', 42)
     sign.position.set(0, 7.2, 0)
     s.add(sign)
     parent.add(s)
@@ -839,7 +840,7 @@ export class WorldEngine {
     c.width = px
     c.height = px
     const ctx = c.getContext('2d')
-    ctx.font = `${Math.round(px * 0.82)}px serif`
+    ctx.font = emojiFontSpec(px * 0.82)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(emoji, px / 2, px / 2 + px * 0.04)
@@ -868,7 +869,7 @@ export class WorldEngine {
     const pad = 14
     const c = document.createElement('canvas')
     const ctx = c.getContext('2d')
-    const font = `700 ${fontPx}px "Baloo 2", "Nunito", sans-serif`
+    const font = emojiFontSpec(fontPx, { weight: 700, family: '"Baloo 2", "Nunito"' })
     ctx.font = font
     const w = Math.ceil(ctx.measureText(text).width) + pad * 2
     const h = fontPx + pad * 2

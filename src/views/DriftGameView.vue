@@ -6,6 +6,7 @@ import { formatCoins } from '../animals'
 import { useGameStore } from '../stores/game'
 import { useAppToast } from '../composables/useAppToast'
 import { MAX_LEVEL, buildTrack, nearestIndex, starsForCrashes } from '../driftTrack'
+import { emojiFontSpec } from '../emojiFont'
 
 const router = useRouter()
 const game = useGameStore()
@@ -376,7 +377,7 @@ function draw() {
       }
     }
     if (isFinish) {
-      ctx.font = '26px sans-serif'
+      ctx.font = emojiFontSpec(26)
       ctx.textAlign = 'center'
       ctx.fillText('🏁', half + 22, 8)
     }
@@ -385,7 +386,7 @@ function draw() {
 
   for (const d of g.decos) {
     if (d.x < g.car.x - w || d.x > g.car.x + w || d.y < g.car.y - h || d.y > g.car.y + h) continue
-    ctx.font = `${d.s}px sans-serif`
+    ctx.font = emojiFontSpec(d.s)
     ctx.textAlign = 'center'
     ctx.fillText(d.e, d.x, d.y)
   }
@@ -438,7 +439,7 @@ function draw() {
   ctx.restore()
 
   if (g.boom && now < g.boom.until) {
-    ctx.font = '38px sans-serif'
+    ctx.font = emojiFontSpec(38)
     ctx.textAlign = 'center'
     ctx.fillText('💥', g.boom.x, g.boom.y + 12)
   }

@@ -21,7 +21,7 @@ const isEndless = computed(() => props.endlessMode);
 
 const I18N = {
   de: {
-    title: "👑 Bosskampf",
+    title: "Bosskampf",
     hint: "Schiebe benachbarte Tiere und bilde Reihen aus 3 oder mehr gleichen Tieren. Jeder Treffer macht Schaden am Boss.",
     start: "Boss starten",
     restart: "Neu starten",
@@ -50,7 +50,7 @@ const I18N = {
     boss: "Boss",
   },
   en: {
-    title: "👑 Boss fight",
+    title: "Boss fight",
     hint: "Slide neighboring animals and build rows of 3 or more matching animals. Every match damages the boss.",
     start: "Start boss",
     restart: "Restart",
@@ -79,7 +79,7 @@ const I18N = {
     boss: "Boss",
   },
   ru: {
-    title: "👑 Бой с боссом",
+    title: "Бой с боссом",
     hint: "Сдвигай соседних животных и собирай ряды из 3 или больше одинаковых животных. Каждый матч наносит урон боссу.",
     start: "Начать босса",
     restart: "Начать заново",
