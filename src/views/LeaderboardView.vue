@@ -2,6 +2,7 @@
 import { onMounted, ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase'
+import { formatCoins } from '../animals'
 import { useAuthStore } from '../stores/auth'
 import { t, locale } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
@@ -56,6 +57,34 @@ const DISC_LABELS = {
 function discLabel(key) {
   const dict = DISC_LABELS[locale.value] || DISC_LABELS.en
   return dict[key] || DISC_LABELS.en[key] || key
+}
+
+// Jede Disziplin misst etwas anderes: Muenzen pro Sekunde, Etappe, Level,
+// Serie. Der Messwert kommt als Zahl vom Server, die Einheit steht hier.
+const DISC_UNITS = {
+  de: { stage: 'Etappe', level: 'Level', rank: 'Rang', streak: 'Serie', damage: 'Schaden' },
+  en: { stage: 'Stage', level: 'Level', rank: 'Rank', streak: 'Streak', damage: 'damage' },
+  ru: { stage: 'Этап', level: 'Уровень', rank: 'Ранг', streak: 'Серия', damage: 'урона' }
+}
+
+function unit(key) {
+  return (DISC_UNITS[locale.value] || DISC_UNITS.en)[key]
+}
+
+function discValue(d) {
+  const v = Number(d?.value ?? 0)
+  switch (d?.key) {
+    case 'rate': return `${formatCoins(v)}/s`
+    case 'coins': return `🪙 ${formatCoins(v)}`
+    case 'boss_endless': return `${formatCoins(v)} ${unit('damage')}`
+    case 'boss_path': return `${unit('stage')} ${v}`
+    case 'merge': return `${unit('rank')} ${v}`
+    case 'wordle': return `${unit('streak')} ${v}`
+    case 'memory':
+    case 'drift':
+    case 'parkour': return `${unit('level')} ${v}`
+    default: return String(v)
+  }
 }
 
 const detailFor = ref(null)
@@ -144,6 +173,7 @@ const subtitle = computed(() => t('leaderboard.subtitleOverall'))
           class="lb-disc"
         >
           <span class="lb-disc-name">{{ discLabel(d.key) }}</span>
+          <span class="lb-disc-value">{{ discValue(d) }}</span>
           <span class="lb-disc-rank">{{ t('leaderboard.place') }} {{ d.rank }}</span>
           <span class="lb-disc-pts">+{{ d.points }}</span>
         </div>
@@ -252,6 +282,10 @@ const subtitle = computed(() => t('leaderboard.subtitleOverall'))
   padding: 3px 0; font-size: 13px;
 }
 .lb-disc-name { flex: 1; min-width: 0; font-weight: 700; }
+.lb-disc-value {
+  color: var(--text); font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 .lb-disc-rank { color: var(--muted); font-size: 12px; }
 .lb-disc-pts {
   font-weight: 800; color: var(--accent-deep, var(--accent));

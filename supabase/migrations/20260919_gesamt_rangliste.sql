@@ -70,8 +70,9 @@ returns table (
   limit greatest(1, least(p_limit, 100));
 $$;
 
--- 4) Die Gesamtwertung. Liefert die Aufschlüsselung gleich mit, damit das
---    ⓘ in der Oberfläche ohne zweiten Server-Aufruf auskommt.
+-- 4) Die Gesamtwertung. Liefert die Aufschlüsselung samt Messwert je Disziplin
+--    gleich mit, damit das ⓘ in der Oberfläche ohne zweiten Server-Aufruf
+--    auskommt und dort nicht nur der Platz, sondern auch der Wert steht.
 create or replace function public.get_overall_leaderboard(p_limit int default 50)
 returns table (
   username text,
@@ -96,27 +97,31 @@ returns table (
   ),
   placements as (
     select 'rate' as disc, p.id as user_id,
-           row_number() over (order by r.rate desc, p.coins desc) as rnk
+           row_number() over (order by r.rate desc, p.coins desc) as rnk,
+           r.rate as val
       from active p
       join rates r on r.owner_id = p.id
      where r.rate > 0
 
     union all
     select 'coins', p.id,
-           row_number() over (order by p.coins desc)
+           row_number() over (order by p.coins desc),
+           p.coins::numeric
       from active p
      where p.coins > 0
 
     union all
     select 'boss_path', b.user_id,
-           row_number() over (order by b.highest_stage desc, b.total_victories desc)
+           row_number() over (order by b.highest_stage desc, b.total_victories desc),
+           b.highest_stage::numeric
       from public.boss_path_progress b
       join active p on p.id = b.user_id
      where b.highest_stage > 0
 
     union all
     select 'boss_endless', t.user_id,
-           row_number() over (order by t.damage desc)
+           row_number() over (order by t.damage desc),
+           t.damage::numeric
       from (select user_id, max(damage) as damage
               from public.boss_endless_runs
              where status = 'finished'
@@ -126,14 +131,16 @@ returns table (
 
     union all
     select 'memory', m.user_id,
-           row_number() over (order by m.highest_level desc, m.total_pairs desc)
+           row_number() over (order by m.highest_level desc, m.total_pairs desc),
+           m.highest_level::numeric
       from public.memory_player_states m
       join active p on p.id = m.user_id
      where m.highest_level > 0 or m.total_pairs > 0
 
     union all
     select 'merge', g.user_id,
-           row_number() over (order by g.highest_rank desc, g.score desc, g.total_fusions desc)
+           row_number() over (order by g.highest_rank desc, g.score desc, g.total_fusions desc),
+           g.highest_rank::numeric
       from public.merge_player_states g
       join active p on p.id = g.user_id
      where g.highest_rank > 0 or g.score > 0 or g.total_fusions > 0
@@ -142,34 +149,38 @@ returns table (
     -- ausgelassenen Tag auf null und wäre hier Tagesrauschen.
     union all
     select 'wordle', w.user_id,
-           row_number() over (order by w.best_streak desc, w.wins desc)
+           row_number() over (order by w.best_streak desc, w.wins desc),
+           w.best_streak::numeric
       from public.wordle_stats w
       join active p on p.id = w.user_id
      where w.wins > 0
 
     union all
     select 'drift', d.user_id,
-           row_number() over (order by d.highest_level desc, public._stars_total(d.stars) desc)
+           row_number() over (order by d.highest_level desc, public._stars_total(d.stars) desc),
+           d.highest_level::numeric
       from public.drift_progress d
       join active p on p.id = d.user_id
      where d.highest_level > 0
 
     union all
     select 'parkour', k.user_id,
-           row_number() over (order by k.highest_level desc, public._stars_total(k.stars) desc)
+           row_number() over (order by k.highest_level desc, public._stars_total(k.stars) desc),
+           k.highest_level::numeric
       from public.parkour_progress k
       join active p on p.id = k.user_id
      where k.highest_level > 0
   ),
   scored as (
-    select user_id, disc, rnk::int as rnk, public._rank_points(rnk::int) as pts
+    select user_id, disc, rnk::int as rnk, val,
+           public._rank_points(rnk::int) as pts
       from placements
      where rnk <= 100
   ),
   totals as (
     select user_id,
            sum(pts)::int as total_points,
-           jsonb_agg(jsonb_build_object('key', disc, 'rank', rnk, 'points', pts)
+           jsonb_agg(jsonb_build_object('key', disc, 'rank', rnk, 'points', pts, 'value', val)
                      order by pts desc, disc) as disciplines
       from scored
      where pts > 0
