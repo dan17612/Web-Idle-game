@@ -7,6 +7,7 @@ import { useAuthStore } from '../stores/auth'
 import { useGameStore } from '../stores/game'
 import { t, locale } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
+import { rankPoints } from '../rankPoints'
 
 const router = useRouter()
 const route = useRoute()
@@ -15,7 +16,7 @@ const game = useGameStore()
 const rows = ref([])
 const loading = ref(true)
 const error = ref('')
-const mode = ref('rate')
+const mode = ref('overall')
 const now = ref(Date.now())
 let clockTimer = null
 
@@ -25,7 +26,16 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    if (mode.value === 'rate') {
+    if (mode.value === 'overall') {
+      const { data, error: e } = await supabase.rpc('get_overall_leaderboard', { p_limit: 50 })
+      if (e) throw e
+      rows.value = (data || []).map(r => ({
+        username: r.username,
+        avatar_emoji: r.avatar_emoji,
+        total_points: Number(r.total_points || 0),
+        disciplines: Array.isArray(r.disciplines) ? r.disciplines : []
+      }))
+    } else if (mode.value === 'rate') {
       const { data, error: e } = await supabase.rpc('get_rate_leaderboard', { p_limit: 50 })
       if (e) throw e
       rows.value = (data || []).map(r => ({
@@ -98,6 +108,7 @@ async function load() {
 function setMode(m) {
   if (mode.value === m) return
   mode.value = m
+  detailFor.value = null
   load()
 }
 
@@ -106,7 +117,7 @@ watch(() => route.name, (name) => {
 })
 onMounted(() => {
   const tab = String(route.query.tab || '')
-  if (['rate', 'coins', 'boss', 'memory', 'endless', 'wordle'].includes(tab)) mode.value = tab
+  if (['overall', 'rate', 'coins', 'boss', 'memory', 'endless', 'wordle'].includes(tab)) mode.value = tab
   load()
   game.loadEventSchedule().catch(() => {})
   clockTimer = setInterval(() => { now.value = Date.now() }, 1000)
@@ -115,6 +126,27 @@ onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer)
 })
 useReturnRefresh(load)
+
+// Disziplin-Namen fuer die Aufschluesselung hinter dem Info-Knopf.
+const DISC_LABELS = {
+  de: { rate: 'Pro Sekunde', coins: 'Münzen', boss_path: 'Bosspfad', boss_endless: 'Endlessboss',
+        memory: 'Memory', merge: 'Fusion', wordle: 'Wordle', drift: 'Drift-Rennen', parkour: 'Zoo-Parkour' },
+  en: { rate: 'Per second', coins: 'Coins', boss_path: 'Boss path', boss_endless: 'Endless boss',
+        memory: 'Memory', merge: 'Merge', wordle: 'Wordle', drift: 'Drift race', parkour: 'Zoo parkour' },
+  ru: { rate: 'В секунду', coins: 'Монеты', boss_path: 'Путь босса', boss_endless: 'Эндлесс-босс',
+        memory: 'Memory', merge: 'Слияние', wordle: 'Wordle', drift: 'Дрифт', parkour: 'Паркур' }
+}
+
+function discLabel(key) {
+  const dict = DISC_LABELS[locale.value] || DISC_LABELS.en
+  return dict[key] || DISC_LABELS.en[key] || key
+}
+
+const detailFor = ref(null)
+
+function toggleDetail(username) {
+  detailFor.value = detailFor.value === username ? null : username
+}
 
 function openProfile(username) {
   router.push({ name: 'profile', query: { u: username } })
@@ -157,6 +189,7 @@ const eventStatus = computed(() => {
 })
 
 const subtitle = computed(() => {
+  if (mode.value === 'overall') return t('leaderboard.subtitleOverall')
   if (mode.value === 'rate') return t('leaderboard.subtitleRate')
   if (mode.value === 'boss') return t('leaderboard.subtitleBoss')
   if (mode.value === 'memory') return t('leaderboard.subtitleMemory')
@@ -171,6 +204,13 @@ const subtitle = computed(() => {
   <p class="subtitle">{{ subtitle }}</p>
 
   <div class="lb-tabs">
+    <Button
+      class="lb-tab"
+      :class="{ active: mode === 'overall' }"
+      @click="setMode('overall')"
+    >
+      🏅 {{ t('leaderboard.byOverall') }}
+    </Button>
     <Button
       class="lb-tab"
       :class="{ active: mode === 'rate' }"
@@ -232,11 +272,14 @@ const subtitle = computed(() => {
     </div>
 
     <template v-else>
-      <Button
+      <div
         v-for="(r, i) in rows"
         :key="r.username"
-        class="lb-row"
-        :class="{ me: r.username === myUsername }"
+        class="lb-item"
+      >
+      <div class="lb-row" :class="{ me: r.username === myUsername }">
+      <Button
+        class="lb-main"
         @click="openProfile(r.username)"
       >
         <div class="lb-rank">
@@ -252,7 +295,11 @@ const subtitle = computed(() => {
             <span v-if="r.username === myUsername" class="me-tag">{{ t('leaderboard.you') }}</span>
           </div>
           <div class="sub">
-            <template v-if="mode === 'memory'">
+            <template v-if="mode === 'overall'">
+              <span class="primary">🏅 {{ r.total_points }} {{ t('leaderboard.points') }}</span>
+              <span class="secondary">{{ r.disciplines.length }}×</span>
+            </template>
+            <template v-else-if="mode === 'memory'">
               <span class="primary">🧠 {{ t('leaderboard.memoryLevel') }} {{ r.highest_level }}</span>
               <span class="secondary">🔁 {{ r.total_pairs }} {{ t('leaderboard.memoryPairs') }}</span>
             </template>
@@ -270,6 +317,34 @@ const subtitle = computed(() => {
           </div>
         </div>
       </Button>
+
+      <Button
+        v-if="mode === 'overall'"
+        class="lb-info"
+        :aria-label="t('leaderboard.breakdown')"
+        :aria-expanded="detailFor === r.username"
+        @click="toggleDetail(r.username)"
+      >
+        <i class="pi" :class="detailFor === r.username ? 'pi-chevron-up' : 'pi-info-circle'"></i>
+      </Button>
+      </div>
+
+      <div v-if="mode === 'overall' && detailFor === r.username" class="lb-detail">
+        <div class="lb-detail-head">{{ t('leaderboard.breakdown') }}</div>
+        <div v-if="!r.disciplines.length" class="lb-detail-empty">
+          {{ t('leaderboard.noPlacement') }}
+        </div>
+        <div
+          v-for="d in r.disciplines"
+          :key="d.key"
+          class="lb-disc"
+        >
+          <span class="lb-disc-name">{{ discLabel(d.key) }}</span>
+          <span class="lb-disc-rank">{{ t('leaderboard.place') }} {{ d.rank }}</span>
+          <span class="lb-disc-pts">+{{ d.points }}</span>
+        </div>
+      </div>
+      </div>
     </template>
   </div>
 </template>
@@ -327,21 +402,57 @@ const subtitle = computed(() => {
 }
 .lb-event-icon { font-size: 18px; flex-shrink: 0; }
 .lb-event-text { min-width: 0; }
+/* Die Zeile ist ein Container: der Info-Knopf darf nicht im Profil-Button
+   stecken, sonst ist es ein button im button und klickt beides. */
+.lb-item:last-child .lb-row { border-bottom: none; }
 .lb-row {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 8px;
-  background: transparent; border: none;
+  display: flex; align-items: center;
   border-bottom: 1px solid var(--border);
-  color: inherit; font: inherit; text-align: left;
-  cursor: pointer;
 }
-.lb-row:last-child { border-bottom: none; }
-.lb-row:hover { background: rgba(140, 105, 35, 0.03); }
 .lb-row.me {
   background: rgba(244, 169, 18, 0.08);
   border-left: 3px solid var(--gold, var(--accent));
 }
-.lb-row.me:hover { background: rgba(244, 169, 18, 0.14); }
+.lb-main {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 0; padding: 8px;
+  background: transparent; border: none;
+  color: inherit; font: inherit; text-align: left;
+  cursor: pointer;
+}
+.lb-main:hover { background: rgba(140, 105, 35, 0.03); }
+.lb-row.me .lb-main:hover { background: rgba(244, 169, 18, 0.14); }
+.lb-info {
+  flex-shrink: 0;
+  width: 38px; height: 38px;
+  margin-right: 6px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted); cursor: pointer;
+}
+.lb-info:hover { color: var(--accent); border-color: var(--accent-soft); }
+.lb-info .pi { font-size: 15px; }
+.lb-detail {
+  padding: 10px 12px 12px;
+  background: rgba(140, 105, 35, 0.04);
+  border-bottom: 1px solid var(--border);
+}
+.lb-detail-head {
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--muted); margin-bottom: 6px;
+}
+.lb-detail-empty { font-size: 13px; color: var(--muted); }
+.lb-disc {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 0; font-size: 13px;
+}
+.lb-disc-name { flex: 1; min-width: 0; font-weight: 700; }
+.lb-disc-rank { color: var(--muted); font-size: 12px; }
+.lb-disc-pts {
+  font-weight: 800; color: var(--accent-deep, var(--accent));
+  font-variant-numeric: tabular-nums; min-width: 38px; text-align: right;
+}
 .lb-rank {
   width: 28px; text-align: center; font-weight: 700;
 }
