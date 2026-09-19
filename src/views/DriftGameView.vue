@@ -16,6 +16,7 @@ const TUT_KEY = 'drift_tutorial_v1'
 
 const I18N = {
   de: {
+    eventEnded: 'Ereignis beendet', eventEndedSub: 'Das Drift-Ereignis ist vorbei. Es können keine Rennen mehr gestartet werden.',
     title: '🏎️ Drift-Rennen', sub: '12 Strecken voller Kurven. Halte links oder rechts, um zu driften.',
     back: 'Zurück', level: 'Level', best: 'Beste Strecke', stars: 'Sterne', curvesWord: 'Kurven',
     play: 'Fahren', replay: 'Nochmal', locked: 'Gesperrt', cleared: 'Geschafft',
@@ -36,6 +37,7 @@ const I18N = {
     tutGot: 'Verstanden, los geht\'s!'
   },
   en: {
+    eventEnded: 'Event ended', eventEndedSub: 'The Drift event is over. No more races can be started.',
     title: '🏎️ Drift Race', sub: '12 tracks full of curves. Hold left or right to drift.',
     back: 'Back', level: 'Level', best: 'Best track', stars: 'Stars', curvesWord: 'curves',
     play: 'Drive', replay: 'Replay', locked: 'Locked', cleared: 'Cleared',
@@ -56,6 +58,7 @@ const I18N = {
     tutGot: 'Got it, let\'s go!'
   },
   ru: {
+    eventEnded: 'Событие завершено', eventEndedSub: 'Событие «Дрифт» завершено. Новые заезды недоступны.',
     title: '🏎️ Дрифт-гонка', sub: '12 трасс с крутыми поворотами. Держи влево или вправо, чтобы дрифтовать.',
     back: 'Назад', level: 'Уровень', best: 'Лучшая трасса', stars: 'Звёзды', curvesWord: 'поворотов',
     play: 'Поехали', replay: 'Снова', locked: 'Закрыто', cleared: 'Пройдено',
@@ -187,7 +190,10 @@ function resetCar(idx = 0) {
   g.idx = i
 }
 
+const eventActive = computed(() => game.driftActive)
+
 function startRun(level) {
+  if (!eventActive.value) { appToast.err(tx('eventEnded')); return }
   playLevel.value = level
   playOpen.value = true
   runState.value = 'ready'
@@ -514,6 +520,7 @@ function dismissTutorial() {
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
+  game.loadEventSchedule?.().catch(() => {})
   window.addEventListener('resize', sizeCanvas)
   let seen = false
   try { seen = localStorage.getItem(TUT_KEY) === '1' } catch { seen = false }
@@ -562,6 +569,14 @@ onUnmounted(() => {
         </div>
       </section>
 
+      <section v-if="!eventActive" class="card event-over">
+        <span class="eo-icon">⏰</span>
+        <div class="eo-body">
+          <div class="eo-title">{{ tx('eventEnded') }}</div>
+          <div class="eo-sub">{{ tx('eventEndedSub') }}</div>
+        </div>
+      </section>
+
       <section class="drift-grid">
         <div
           v-for="node in levels"
@@ -582,6 +597,7 @@ onUnmounted(() => {
             v-if="node.status !== 'locked'"
             class="btn dn-play"
             :class="{ secondary: node.status === 'cleared' }"
+            :disabled="!eventActive"
             @click="startRun(node.level)"
           >
             {{ node.status === 'cleared' ? '↻ ' + tx('replay') : '▶ ' + tx('play') }}
@@ -811,4 +827,18 @@ onUnmounted(() => {
 @media (max-width:420px) {
   .drift-grid { grid-template-columns:repeat(2,1fr); gap:8px; }
 }
+.dn-play:disabled, .pn-play:disabled {
+  filter: grayscale(0.8);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.event-over {
+  display: flex; align-items: center; gap: 12px;
+  border-color: rgba(239, 71, 111, 0.45);
+  margin-bottom: var(--space-3);
+}
+.eo-icon { font-size: 26px; flex-shrink: 0; }
+.eo-body { min-width: 0; }
+.eo-title { font-weight: 900; color: var(--danger); }
+.eo-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 </style>

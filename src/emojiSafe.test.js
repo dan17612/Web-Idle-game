@@ -36,7 +36,7 @@ test('Emoji auf Canvas-Sprites bestehen aus genau einem Codepoint', () => {
     const found = findEmojiSequences(read(file))
     assert.deepEqual(
       found, [],
-      `${file} enthaelt Emoji-Sequenzen, die im Canvas zerfallen: ${found.join(' ')}`
+      `${file} enthält Emoji-Sequenzen, die im Canvas zerfallen: ${found.join(' ')}`
     )
   }
 
@@ -55,7 +55,7 @@ test('Emoji auf Canvas-Sprites bestehen aus genau einem Codepoint', () => {
   }
 })
 
-test('jedes ctx.font in Canvas-Dateien geht ueber emojiFontSpec', () => {
+test('jedes ctx.font in Canvas-Dateien geht über emojiFontSpec', () => {
   for (const file of ALL_FILES) {
     const src = read(file)
     const assignments = src.match(/\bctx2?\.font\s*=\s*[^\n]+/g) || []
