@@ -12,7 +12,8 @@ export const EVENT_KEYS = {
   drift: 'drift_game',
   parkour: 'parkour_game',
   wordle: 'wordle_game',
-  world: 'world_lobby'
+  world: 'world_lobby',
+  breeding: 'breeding_game'
 }
 
 export function eventInfo(schedule, key, now = Date.now()) {

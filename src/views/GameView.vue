@@ -173,6 +173,10 @@ const I18N = {
       title: "🐾 Zoo-Parkour",
       sub: "Hüpf in 3D über Lücken & Hindernisse - 12 Parcours"
     },
+    breedingLink: {
+      title: "💞 Zucht",
+      sub: "Verpaare zwei Tiere und erhalte ein Ei mit einer seltenen Art"
+    },
     wordleLink: {
       title: "🟩 Zoo-Wordle",
       sub: "Errate das Wort des Tages in 6 Versuchen - mit Bestenliste"
@@ -342,6 +346,10 @@ const I18N = {
       title: "🐾 Zoo Parkour",
       sub: "Hop in 3D over gaps & obstacles - 12 courses"
     },
+    breedingLink: {
+      title: "💞 Breeding",
+      sub: "Pair two animals and get an egg with a rare species"
+    },
     wordleLink: {
       title: "🟩 Zoo Wordle",
       sub: "Guess the word of the day in 6 tries - with leaderboard"
@@ -510,6 +518,10 @@ const I18N = {
     parkourLink: {
       title: "🐾 Зоо-Паркур",
       sub: "Прыгай в 3D через пропасти и препятствия - 12 трасс"
+    },
+    breedingLink: {
+      title: "💞 Разведение",
+      sub: "Скрести двух животных и получи яйцо с редким видом"
     },
     wordleLink: {
       title: "🟩 Зоо-Wordle",
@@ -745,7 +757,8 @@ const EVENT_CARDS = [
   { id: "drift",   to: "/drift",      icon: "🏎️", cls: "drift-link",     iconCls: "dl-icon",  title: "driftLink.title",   sub: "driftLink.sub",   schedule: EVENT_KEYS.drift },
   { id: "parkour", to: "/parkour",    icon: "🐾",  cls: "parkour-link",   iconCls: "pl-icon",  title: "parkourLink.title", sub: "parkourLink.sub", schedule: EVENT_KEYS.parkour },
   { id: "wordle",  to: "/wordle",     icon: "🟩",  cls: "wordle-link",    iconCls: "wl-icon",  title: "wordleLink.title",  sub: "wordleLink.sub",  schedule: EVENT_KEYS.wordle },
-  { id: "world",   to: "/world",      icon: "🌍",  cls: "world-link",     iconCls: "wo-icon",  title: "worldLink.title",   sub: "worldLink.sub",   schedule: EVENT_KEYS.world }
+  { id: "world",   to: "/world",      icon: "🌍",  cls: "world-link",     iconCls: "wo-icon",  title: "worldLink.title",   sub: "worldLink.sub",   schedule: EVENT_KEYS.world },
+  { id: "breeding", to: "/breeding",  icon: "💞",  cls: "breeding-link",  iconCls: "bl-icon",  title: "breedingLink.title", sub: "breedingLink.sub", schedule: EVENT_KEYS.breeding }
 ];
 
 const eventCards = computed(() => {
@@ -3169,6 +3182,27 @@ async function doSplit(animalId) {
   font-size: 19px;
   font-weight: 900;
   color: var(--heading);
+}
+.breeding-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 123, 161, 0.26), transparent 55%),
+    linear-gradient(135deg, var(--card), var(--card-2, var(--card)));
+}
+.breeding-link:hover {
+  transform: translateY(-2px);
+  border-color: #ff7ba1;
+  box-shadow: 0 12px 28px rgba(255, 123, 161, 0.22);
+}
+.bl-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
+  flex-shrink: 0;
 }
 .events-toggle {
   display: flex;

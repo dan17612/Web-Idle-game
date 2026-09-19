@@ -370,6 +370,27 @@ export const useGameStore = defineStore('game', {
       await Promise.all([this.loadPlayerEggs(), this.loadIncubation()])
       return data
     },
+    async loadBreedingStatus() {
+      const { data, error } = await supabase.rpc('get_breeding_status')
+      if (error) throw error
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      return data
+    },
+    async breedAnimals(idA, idB) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('breed_animals', { p_a: idA, p_b: idB })
+      if (error) throw error
+      this.coins = Number(data.coins)
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      const auth = useAuthStore()
+      if (auth.user) {
+        const { data: animals } = await supabase.from('animals')
+          .select('*').eq('owner_id', auth.user.id).order('acquired_at')
+        this.animals = animals || this.animals
+      }
+      await this.loadPlayerEggs()
+      return data
+    },
     async claimHatched() {
       const { data, error } = await supabase.rpc('claim_hatched')
       if (error) throw error

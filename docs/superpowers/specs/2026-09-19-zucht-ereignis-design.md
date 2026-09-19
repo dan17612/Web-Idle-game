@@ -131,7 +131,7 @@ der Startseite, Route `/breeding`.
 - Zwei Auswahlfelder für die Eltern, je ein Raster der eigenen Tiere. Tiere
   mit laufender Abklingzeit sind gesperrt und zeigen die Restzeit.
 - Zwischen den Eltern die Zuchtkraft, darunter Kosten und Brutzeit.
-- Eine Chancen-Vorschau: pro Stufe der Prozentsatz, gespiegelt aus
+- Eine Chancen-Vorschau je Art mit Balken und Prozentwert, gespiegelt aus
   `src/breeding.js` — kein Server-Aufruf beim Auswählen.
 - Der Zucht-Knopf ist gesperrt, solange nicht zwei verschiedene freie Tiere
   gewählt sind oder das Guthaben fehlt.
