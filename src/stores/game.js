@@ -5,6 +5,7 @@ import { useAuthStore } from './auth'
 import { t } from '../i18n'
 import { groupAnimalsForAutoRelease } from '../autoRelease'
 import { reportSyncSuccess, reportSyncFailure } from '../composables/useConnectionHealth'
+import { EVENT_KEYS, eventInfo } from '../eventSchedule'
 
 const TAP_MAX = 10
 const TAP_MUL_MAX_LEVEL = 300
@@ -89,56 +90,37 @@ export const useGameStore = defineStore('game', {
         .filter(a => a.equipped && !isUpgrading(a))
         .reduce((sum, a) => sum + animalRate(a), 0)
     },
+    // Generischer Zugriff auf den Zeitplan. Die benannten Getter darunter sind
+    // dünne Hüllen, damit bestehende Views unverändert weiterlaufen.
+    eventFor(state) {
+      return (key) => eventInfo(state.eventSchedule, key)
+    },
     bossPathEndsAt(state) {
-      const cfg = state.eventSchedule?.boss_path
-      if (!cfg || cfg.show_countdown === false) return 0
-      return cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+      return eventInfo(state.eventSchedule, EVENT_KEYS.bossPath).endsAt
     },
     bossPathActive(state) {
-      const cfg = state.eventSchedule?.boss_path
-      if (!cfg) return true
-      if (cfg.enabled === false) return false
-      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
-      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
-      const now = Date.now()
-      if (starts && starts > now) return false
-      if (ends && ends <= now) return false
-      return true
+      return eventInfo(state.eventSchedule, EVENT_KEYS.bossPath).active
     },
     bossPathShowCountdown(state) {
-      const cfg = state.eventSchedule?.boss_path
-      return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
+      return eventInfo(state.eventSchedule, EVENT_KEYS.bossPath).showCountdown
     },
     memoryEndsAt(state) {
-      const cfg = state.eventSchedule?.memory_game
-      if (!cfg || cfg.show_countdown === false) return 0
-      return cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
+      return eventInfo(state.eventSchedule, EVENT_KEYS.memory).endsAt
     },
     memoryActive(state) {
-      const cfg = state.eventSchedule?.memory_game
-      if (!cfg) return true
-      if (cfg.enabled === false) return false
-      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
-      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
-      const now = Date.now()
-      if (starts && starts > now) return false
-      if (ends && ends <= now) return false
-      return true
+      return eventInfo(state.eventSchedule, EVENT_KEYS.memory).active
     },
     memoryShowCountdown(state) {
-      const cfg = state.eventSchedule?.memory_game
-      return !!(cfg && cfg.show_countdown !== false && cfg.ends_at)
+      return eventInfo(state.eventSchedule, EVENT_KEYS.memory).showCountdown
     },
     bossEndlessActive(state) {
-      const cfg = state.eventSchedule?.boss_endless
-      if (!cfg) return true
-      if (cfg.enabled === false) return false
-      const ends = cfg.ends_at ? new Date(cfg.ends_at).getTime() : 0
-      const starts = cfg.starts_at ? new Date(cfg.starts_at).getTime() : 0
-      const now = Date.now()
-      if (starts && starts > now) return false
-      if (ends && ends <= now) return false
-      return true
+      return eventInfo(state.eventSchedule, EVENT_KEYS.bossEndless).active
+    },
+    driftActive(state) {
+      return eventInfo(state.eventSchedule, EVENT_KEYS.drift).active
+    },
+    parkourActive(state) {
+      return eventInfo(state.eventSchedule, EVENT_KEYS.parkour).active
     },
     boostActive(state) {
       return (Date.now() + state.serverOffset) < state.petBoostUntil
@@ -386,6 +368,27 @@ export const useGameStore = defineStore('game', {
       const { data, error } = await supabase.rpc('start_incubation', { p_egg_id: eggId })
       if (error) throw error
       await Promise.all([this.loadPlayerEggs(), this.loadIncubation()])
+      return data
+    },
+    async loadBreedingStatus() {
+      const { data, error } = await supabase.rpc('get_breeding_status')
+      if (error) throw error
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      return data
+    },
+    async breedAnimals(idA, idB) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('breed_animals', { p_a: idA, p_b: idB })
+      if (error) throw error
+      this.coins = Number(data.coins)
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      const auth = useAuthStore()
+      if (auth.user) {
+        const { data: animals } = await supabase.from('animals')
+          .select('*').eq('owner_id', auth.user.id).order('acquired_at')
+        this.animals = animals || this.animals
+      }
+      await this.loadPlayerEggs()
       return data
     },
     async claimHatched() {

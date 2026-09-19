@@ -7,17 +7,17 @@ const router = useRouter();
 
 const I18N = {
   de: {
-    title: "👑 Boss-Kampf",
+    title: "Boss-Kampf",
     sub: "Sammle 3 Minuten lang Schaden in der Endless-Challenge.",
     backHome: "Zurück"
   },
   en: {
-    title: "👑 Boss Fight",
+    title: "Boss Fight",
     sub: "Deal damage for 3 minutes in the endless challenge.",
     backHome: "Back"
   },
   ru: {
-    title: "👑 Бой с боссами",
+    title: "Бой с боссами",
     sub: "Наноси урон 3 минуты в эндлесс-челлендже.",
     backHome: "Назад"
   }

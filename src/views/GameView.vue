@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useGameStore } from "../stores/game";
+import { EVENT_KEYS } from "../eventSchedule";
 import { useAuthStore } from "../stores/auth";
 import {
   speciesInfo,
@@ -172,6 +173,10 @@ const I18N = {
       title: "🐾 Zoo-Parkour",
       sub: "Hüpf in 3D über Lücken & Hindernisse - 12 Parcours"
     },
+    breedingLink: {
+      title: "💞 Zucht",
+      sub: "Verpaare zwei Tiere und erhalte ein Ei mit einer seltenen Art"
+    },
     wordleLink: {
       title: "🟩 Zoo-Wordle",
       sub: "Errate das Wort des Tages in 6 Versuchen - mit Bestenliste"
@@ -185,6 +190,10 @@ const I18N = {
       ready: "Bereit zum Abholen!",
       next: "Wieder in {time}",
       streak: "🔥 {n}"
+    },
+    events: {
+      title: "Ereignisse",
+      endedSection: "Beendete Ereignisse ({n})"
     },
     eventStatus: {
       endsIn: "Verschwindet in {time}",
@@ -337,6 +346,10 @@ const I18N = {
       title: "🐾 Zoo Parkour",
       sub: "Hop in 3D over gaps & obstacles - 12 courses"
     },
+    breedingLink: {
+      title: "💞 Breeding",
+      sub: "Pair two animals and get an egg with a rare species"
+    },
     wordleLink: {
       title: "🟩 Zoo Wordle",
       sub: "Guess the word of the day in 6 tries - with leaderboard"
@@ -350,6 +363,10 @@ const I18N = {
       ready: "Ready to claim!",
       next: "Back in {time}",
       streak: "🔥 {n}"
+    },
+    events: {
+      title: "Events",
+      endedSection: "Ended events ({n})"
     },
     eventStatus: {
       endsIn: "Disappears in {time}",
@@ -502,6 +519,10 @@ const I18N = {
       title: "🐾 Зоо-Паркур",
       sub: "Прыгай в 3D через пропасти и препятствия - 12 трасс"
     },
+    breedingLink: {
+      title: "💞 Разведение",
+      sub: "Скрести двух животных и получи яйцо с редким видом"
+    },
     wordleLink: {
       title: "🟩 Зоо-Wordle",
       sub: "Угадай слово дня за 6 попыток - с рейтингом"
@@ -515,6 +536,10 @@ const I18N = {
       ready: "Можно забрать!",
       next: "Снова через {time}",
       streak: "🔥 {n}"
+    },
+    events: {
+      title: "События",
+      endedSection: "Завершённые события ({n})"
     },
     eventStatus: {
       endsIn: "Исчезнет через {time}",
@@ -722,11 +747,38 @@ function fmtCountdown(ms) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-const memoryRemaining = computed(() => {
+
+// ── Ereignisse ───────────────────────────────────────────────────────────
+// Jede Feature-Karte am Seitenende. `schedule` verweist auf den Schlüssel in
+// event_schedule; Karten ohne Zeitplan gelten immer als laufend.
+const EVENT_CARDS = [
+  { id: "boss",    to: "/boss-fight", icon: "👑",  cls: "boss-path-link", iconCls: "bpl-icon", title: "bossPath.title",    sub: "bossPath.sub",    schedule: EVENT_KEYS.bossEndless },
+  { id: "memory",  to: "/memory",     icon: "🧠",  cls: "event-link",     iconCls: "ml-icon",  title: "memoryLink.title",  sub: "memoryLink.sub",  schedule: EVENT_KEYS.memory },
+  { id: "drift",   to: "/drift",      icon: "🏎️", cls: "drift-link",     iconCls: "dl-icon",  title: "driftLink.title",   sub: "driftLink.sub",   schedule: EVENT_KEYS.drift },
+  { id: "parkour", to: "/parkour",    icon: "🐾",  cls: "parkour-link",   iconCls: "pl-icon",  title: "parkourLink.title", sub: "parkourLink.sub", schedule: EVENT_KEYS.parkour },
+  { id: "wordle",  to: "/wordle",     icon: "🟩",  cls: "wordle-link",    iconCls: "wl-icon",  title: "wordleLink.title",  sub: "wordleLink.sub",  schedule: EVENT_KEYS.wordle },
+  { id: "world",   to: "/world",      icon: "🌍",  cls: "world-link",     iconCls: "wo-icon",  title: "worldLink.title",   sub: "worldLink.sub",   schedule: EVENT_KEYS.world },
+  { id: "breeding", to: "/breeding",  icon: "💞",  cls: "breeding-link",  iconCls: "bl-icon",  title: "breedingLink.title", sub: "breedingLink.sub", schedule: EVENT_KEYS.breeding }
+];
+
+const eventCards = computed(() => {
   void now.value;
-  return Math.max(0, game.memoryEndsAt - Date.now());
+  return EVENT_CARDS.map((card) => {
+    const info = game.eventFor(card.schedule);
+    const remaining = info.endsAt ? Math.max(0, info.endsAt - Date.now()) : 0;
+    return {
+      ...card,
+      ended: info.ended,
+      showCountdown: info.showCountdown && !info.ended,
+      remaining,
+      subVars: card.id === "boss" ? { total: game.bossPathMaxStage } : {}
+    };
+  });
 });
-const memoryEnded = computed(() => game.memoryShowCountdown && (memoryRemaining.value <= 0 || !game.memoryActive));
+
+const activeEvents = computed(() => eventCards.value.filter((c) => !c.ended));
+const endedEvents = computed(() => eventCards.value.filter((c) => c.ended));
+const endedOpen = ref(false);
 
 const dailyOpen = ref(false);
 const dailyRemaining = computed(() => {
@@ -1406,15 +1458,6 @@ async function doSplit(animalId) {
       </router-link>
     </div>
 
-    <router-link to="/world" class="card world-link">
-      <div class="wo-icon">🌍</div>
-      <div class="bpl-body">
-        <div class="dl-title">{{ tx("worldLink.title") }}</div>
-        <div class="bpl-sub">{{ tx("worldLink.sub") }}</div>
-      </div>
-      <div class="bpl-arrow">›</div>
-    </router-link>
-
     <div class="card equip-card">
       <div class="team-head">
         <h2 class="team-title">
@@ -1890,65 +1933,54 @@ async function doSplit(animalId) {
       </div>
     </div>
 
+    <h2 class="events-title">{{ tx("events.title") }}</h2>
+
     <EggMachine />
 
-    <router-link to="/boss-fight" class="card boss-path-link">
-      <div class="bpl-icon">👑</div>
+    <component
+      v-for="card in activeEvents"
+      :key="card.id"
+      :is="'router-link'"
+      :to="card.to"
+      class="card"
+      :class="card.cls"
+    >
+      <div :class="card.iconCls">{{ card.icon }}</div>
       <div class="bpl-body">
-        <div class="bpl-title">{{ tx("bossPath.title") }}</div>
-        <div class="bpl-sub">{{ tx("bossPath.sub", { total: game.bossPathMaxStage }) }}</div>
+        <div class="dl-title">{{ tx(card.title) }}</div>
+        <div class="bpl-sub">{{ tx(card.sub, card.subVars) }}</div>
+        <div v-if="card.showCountdown" class="bpl-event-status">
+          ⏳ {{ tx("eventStatus.endsIn", { time: fmtCountdown(card.remaining) }) }}
+        </div>
       </div>
       <div class="bpl-arrow">›</div>
-    </router-link>
-
-    <component
-      :is="memoryEnded ? 'div' : 'router-link'"
-      :to="memoryEnded ? undefined : '/memory'"
-      class="card event-link"
-      :class="{ 'event-ended': memoryEnded }"
-    >
-      <div class="ml-icon">🧠</div>
-      <div class="bpl-body">
-        <div class="ml-title">{{ tx("memoryLink.title") }}</div>
-        <div class="bpl-sub">{{ tx("memoryLink.sub") }}</div>
-        <div
-          v-if="memoryEnded"
-          class="bpl-event-status ended"
-        >⏰ {{ tx("eventStatus.ended") }}</div>
-        <div
-          v-else-if="game.memoryEndsAt > 0"
-          class="bpl-event-status"
-        >⏳ {{ tx("eventStatus.endsIn", { time: fmtCountdown(memoryRemaining) }) }}</div>
-      </div>
-      <div class="bpl-arrow">{{ memoryEnded ? '🔒' : '›' }}</div>
     </component>
 
-    <router-link to="/drift" class="card drift-link">
-      <div class="dl-icon">🏎️</div>
-      <div class="bpl-body">
-        <div class="dl-title">{{ tx("driftLink.title") }}</div>
-        <div class="bpl-sub">{{ tx("driftLink.sub") }}</div>
-      </div>
-      <div class="bpl-arrow">›</div>
-    </router-link>
+    <template v-if="endedEvents.length">
+      <Button class="card events-toggle" @click="endedOpen = !endedOpen">
+        <span class="et-icon">⏰</span>
+        <span class="et-label">
+          {{ tx("events.endedSection", { n: endedEvents.length }) }}
+        </span>
+        <i class="pi" :class="endedOpen ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+      </Button>
 
-    <router-link to="/parkour" class="card parkour-link">
-      <div class="pl-icon">🐾</div>
-      <div class="bpl-body">
-        <div class="dl-title">{{ tx("parkourLink.title") }}</div>
-        <div class="bpl-sub">{{ tx("parkourLink.sub") }}</div>
+      <div
+        v-for="card in endedEvents"
+        v-show="endedOpen"
+        :key="card.id"
+        class="card event-ended"
+        :class="card.cls"
+      >
+        <div :class="card.iconCls">{{ card.icon }}</div>
+        <div class="bpl-body">
+          <div class="dl-title">{{ tx(card.title) }}</div>
+          <div class="bpl-sub">{{ tx(card.sub, card.subVars) }}</div>
+          <div class="bpl-event-status ended">⏰ {{ tx("eventStatus.ended") }}</div>
+        </div>
+        <div class="bpl-arrow">🔒</div>
       </div>
-      <div class="bpl-arrow">›</div>
-    </router-link>
-
-    <router-link to="/wordle" class="card wordle-link">
-      <div class="wl-icon">🟩</div>
-      <div class="bpl-body">
-        <div class="dl-title">{{ tx("wordleLink.title") }}</div>
-        <div class="bpl-sub">{{ tx("wordleLink.sub") }}</div>
-      </div>
-      <div class="bpl-arrow">›</div>
-    </router-link>
+    </template>
 
     <DailyRewardModal :open="dailyOpen" @close="dailyOpen = false" />
   </div>
@@ -3132,16 +3164,64 @@ async function doSplit(animalId) {
   border-color: rgba(239, 71, 111, 0.5);
   color: #d92b56;
 }
-.event-link.event-ended {
+/* Beendete Ereignisse gelten für jede Kartenart, nicht nur für Memory. */
+.event-ended {
   cursor: not-allowed;
   filter: grayscale(0.65);
   opacity: 0.7;
   border-color: rgba(239, 71, 111, 0.45);
 }
-.event-link.event-ended:hover {
+.event-ended:hover {
   transform: none;
   box-shadow: none;
 }
+
+/* ── Event-Hub ──────────────────────────────────────────────────── */
+.events-title {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: 19px;
+  font-weight: 900;
+  color: var(--heading);
+}
+.breeding-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 123, 161, 0.26), transparent 55%),
+    linear-gradient(135deg, var(--card), var(--card-2, var(--card)));
+}
+.breeding-link:hover {
+  transform: translateY(-2px);
+  border-color: #ff7ba1;
+  box-shadow: 0 12px 28px rgba(255, 123, 161, 0.22);
+}
+.bl-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
+  flex-shrink: 0;
+}
+.events-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--muted);
+  background: var(--card);
+  cursor: pointer;
+}
+.events-toggle:hover {
+  color: var(--heading);
+  border-color: var(--accent-soft);
+}
+.et-icon { font-size: 20px; flex-shrink: 0; }
+.et-label { flex: 1; min-width: 0; font-weight: 800; font-size: 14px; }
+.events-toggle .pi { font-size: 14px; flex-shrink: 0; }
 .bpl-arrow {
   font-size: 30px;
   color: var(--accent-deep);

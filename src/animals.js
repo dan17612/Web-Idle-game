@@ -34,7 +34,11 @@ const SPECIES_NAMES = {
   mammoth: { de: 'Mammut', en: 'Mammoth', ru: 'Мамонт' },
   flamingo: { de: 'Flamingo', en: 'Flamingo', ru: 'Фламинго' },
   owl: { de: 'Eule', en: 'Owl', ru: 'Сова' },
-  worldturtle: { de: 'Weltenschildkröte', en: 'World Turtle', ru: 'Мировая черепаха' }
+  worldturtle: { de: 'Weltenschildkröte', en: 'World Turtle', ru: 'Мировая черепаха' },
+  hedgehog: { de: 'Igel', en: 'Hedgehog', ru: 'Ёж' },
+  leopard: { de: 'Leopard', en: 'Leopard', ru: 'Леопард' },
+  gorilla: { de: 'Gorilla', en: 'Gorilla', ru: 'Горилла' },
+  brachiosaurus: { de: 'Brachiosaurus', en: 'Brachiosaurus', ru: 'Брахиозавр' }
 }
 
 function humanizeSpeciesKey(key) {

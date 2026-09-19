@@ -13,78 +13,78 @@ const appToast = useAppToast();
 
 const I18N = {
   de: {
-    headline: "⏱️ Endlessboss",
+    headline: "Endlessboss",
     sub: "3 Minuten Schaden sammeln. Dein bester Run zählt für die Bestenliste.",
     rules: "Regeln",
-    rule1: "🕒 3 Minuten pro Versuch",
-    rule2: "💥 Schaden = Treffer im Match-3-Brett",
-    rule3: "⏳ 5 Minuten Cooldown nach jedem Versuch",
-    rule4: "🪙 1% des Schadens als Münzen-Belohnung",
-    rule5: "🎁 1 Truhe pro 1.000 Schaden (max. 50 Tiere)",
+    rule1: "3 Minuten pro Versuch",
+    rule2: "Schaden = Treffer im Match-3-Brett",
+    rule3: "5 Minuten Cooldown nach jedem Versuch",
+    rule4: "1% des Schadens als Münzen-Belohnung",
+    rule5: "1 Truhe pro 1.000 Schaden (max. 50 Tiere)",
     bestRun: "Dein Bestwert",
     none: "Noch kein Versuch",
     cooldownActive: "Cooldown läuft - nächster Versuch in {time}",
     eventEnded: "Endlessboss-Modus ist deaktiviert.",
-    start: "⚔️ Versuch starten",
+    start: "Versuch starten",
     starting: "Starte...",
     runActive: "Versuch läuft - viel Erfolg!",
-    finishedTitle: "🏁 Versuch beendet",
+    finishedTitle: "Versuch beendet",
     yourDamage: "Dein Schaden",
     coinsEarned: "+{coins} 🪙 erhalten",
-    chestEarned: "🎁 Truhe mit {qty} Tier(en) erhalten",
-    newBest: "🏆 Neuer Bestwert!",
+    chestEarned: "Truhe mit {qty} Tier(en) erhalten",
+    newBest: "Neuer Bestwert!",
     close: "Schließen",
     loading: "Lade...",
     leaderboardTitle: "🏆 Top 10",
     leaderboardEmpty: "Noch keine Einträge."
   },
   en: {
-    headline: "⏱️ Endless Boss",
+    headline: "Endless Boss",
     sub: "Deal damage for 3 minutes. Your best run counts for the leaderboard.",
     rules: "Rules",
-    rule1: "🕒 3 minutes per attempt",
-    rule2: "💥 Damage = matches on the match-3 board",
-    rule3: "⏳ 5 minute cooldown after each attempt",
-    rule4: "🪙 1% of damage as coin reward",
-    rule5: "🎁 1 chest per 1,000 damage (max. 50 animals)",
+    rule1: "3 minutes per attempt",
+    rule2: "Damage = matches on the match-3 board",
+    rule3: "5 minute cooldown after each attempt",
+    rule4: "1% of damage as coin reward",
+    rule5: "1 chest per 1,000 damage (max. 50 animals)",
     bestRun: "Your best",
     none: "No attempts yet",
     cooldownActive: "Cooldown active - next attempt in {time}",
     eventEnded: "Endless boss mode is disabled.",
-    start: "⚔️ Start attempt",
+    start: "Start attempt",
     starting: "Starting...",
     runActive: "Run active - good luck!",
-    finishedTitle: "🏁 Run finished",
+    finishedTitle: "Run finished",
     yourDamage: "Your damage",
     coinsEarned: "+{coins} 🪙 earned",
-    chestEarned: "🎁 Chest with {qty} animal(s)",
-    newBest: "🏆 New best!",
+    chestEarned: "Chest with {qty} animal(s)",
+    newBest: "New best!",
     close: "Close",
     loading: "Loading...",
     leaderboardTitle: "🏆 Top 10",
     leaderboardEmpty: "No entries yet."
   },
   ru: {
-    headline: "⏱️ Эндлесс-босс",
+    headline: "Эндлесс-босс",
     sub: "Наноси урон 3 минуты. Лучший результат идёт в таблицу лидеров.",
     rules: "Правила",
-    rule1: "🕒 3 минуты на попытку",
-    rule2: "💥 Урон = совпадения на поле",
-    rule3: "⏳ 5 минут кулдаун после каждой попытки",
-    rule4: "🪙 1% урона как награда монетами",
-    rule5: "🎁 1 сундук за 1 000 урона (макс. 50 животных)",
+    rule1: "3 минуты на попытку",
+    rule2: "Урон = совпадения на поле",
+    rule3: "5 минут кулдаун после каждой попытки",
+    rule4: "1% урона как награда монетами",
+    rule5: "1 сундук за 1 000 урона (макс. 50 животных)",
     bestRun: "Твой рекорд",
     none: "Попыток ещё нет",
     cooldownActive: "Кулдаун - следующая попытка через {time}",
     eventEnded: "Режим эндлесс-босса отключён.",
-    start: "⚔️ Начать попытку",
+    start: "Начать попытку",
     starting: "Запуск...",
     runActive: "Бой идёт - удачи!",
-    finishedTitle: "🏁 Попытка завершена",
+    finishedTitle: "Попытка завершена",
     yourDamage: "Твой урон",
     coinsEarned: "+{coins} 🪙 получено",
-    chestEarned: "🎁 Сундук с {qty} жив.",
-    newBest: "🏆 Новый рекорд!",
+    chestEarned: "Сундук с {qty} жив.",
+    newBest: "Новый рекорд!",
     close: "Закрыть",
     loading: "Загрузка...",
     leaderboardTitle: "🏆 Топ-10",
@@ -292,7 +292,7 @@ onUnmounted(() => {
           @click="startRun"
         >
           <template v-if="starting">{{ tx("starting") }}</template>
-          <template v-else>{{ tx("start") }}</template>
+          <template v-else><i class="pi pi-bolt"></i> {{ tx("start") }}</template>
         </Button>
       </section>
 
@@ -474,6 +474,15 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
+  display: flex;
+  gap: 8px;
+}
+.eb-rules li::before {
+  content: "•";
+  color: var(--accent);
+  font-size: 16px;
+  line-height: 1.1;
+  flex-shrink: 0;
 }
 .eb-warn {
   padding: 10px 12px;

@@ -27,7 +27,7 @@ function toggleExpand(key) {
   expanded.value = expanded.value === key ? '' : key
 }
 
-const AVATAR_CHOICES = ['🐶','🐱','🐼','🦊','🐵','🐯','🦁','🐸','🐷','🐮','🦄','🐲','🦖','🐙','🐳','🦉','🦅','🐝','🐞','🌟','👑','🧙','🧛','🧑‍🚀','🤖','👾','🎮','🍕','🌈','🔥']
+const AVATAR_CHOICES = ['🐶','🐱','🐼','🦊','🐵','🐯','🦁','🐸','🐷','🐮','🦄','🐲','🦖','🐙','🐳','🦉','🦅','🐝','🐞','🌟','👑','🧙','🧛','🚀','🤖','👾','🎮','🍕','🌈','🔥']
 
 const currentEmail = computed(() => auth.user?.email || '')
 const pendingEmail = computed(() => auth.user?.new_email || '')

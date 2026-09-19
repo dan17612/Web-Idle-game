@@ -1,23 +1,18 @@
 <script setup>
-import { onMounted, onUnmounted, ref, watch, computed } from 'vue'
+import { onMounted, ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 import { formatCoins } from '../animals'
 import { useAuthStore } from '../stores/auth'
-import { useGameStore } from '../stores/game'
 import { t, locale } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
-const game = useGameStore()
 const rows = ref([])
 const loading = ref(true)
 const error = ref('')
-const mode = ref('rate')
-const now = ref(Date.now())
-let clockTimer = null
 
 const myUsername = computed(() => auth.profile?.username || null)
 
@@ -25,68 +20,14 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    if (mode.value === 'rate') {
-      const { data, error: e } = await supabase.rpc('get_rate_leaderboard', { p_limit: 50 })
-      if (e) throw e
-      rows.value = (data || []).map(r => ({
-        username: r.username,
-        coins: Number(r.coins || 0),
-        avatar_emoji: r.avatar_emoji,
-        rate_per_sec: Number(r.rate_per_sec || 0)
-      }))
-    } else if (mode.value === 'boss') {
-      const { data, error: e } = await supabase.rpc('get_boss_leaderboard', { p_limit: 50 })
-      if (e) throw e
-      rows.value = (data || []).map(r => ({
-        username: r.username,
-        avatar_emoji: r.avatar_emoji,
-        highest_stage: r.highest_stage,
-        total_victories: r.total_victories
-      }))
-    } else if (mode.value === 'memory') {
-      const { data, error: e } = await supabase.rpc('get_memory_leaderboard', { p_limit: 50 })
-      if (e) throw e
-      rows.value = (data || []).map(r => ({
-        username: r.username,
-        avatar_emoji: r.avatar_emoji,
-        highest_level: Number(r.highest_level || 0),
-        total_pairs: Number(r.total_pairs || 0),
-        total_levels_cleared: Number(r.total_levels_cleared || 0)
-      }))
-    } else if (mode.value === 'wordle') {
-      const { data, error: e } = await supabase.rpc('get_wordle_leaderboard', { p_limit: 50 })
-      if (e) throw e
-      rows.value = (data || []).map(r => ({
-        username: r.username,
-        avatar_emoji: r.avatar_emoji,
-        current_streak: Number(r.current_streak || 0),
-        best_streak: Number(r.best_streak || 0),
-        wins: Number(r.wins || 0),
-        games: Number(r.games || 0)
-      }))
-    } else if (mode.value === 'endless') {
-      const { data, error: e } = await supabase.rpc('get_boss_endless_leaderboard', { p_limit: 50 })
-      if (e) throw e
-      rows.value = (data || []).map(r => ({
-        username: r.username,
-        avatar_emoji: r.avatar_emoji,
-        damage: Number(r.damage || 0),
-        finished_at: r.finished_at
-      }))
-    } else {
-      const { data, error: e } = await supabase
-        .from('profiles')
-        .select('username, coins, avatar_emoji')
-        .order('coins', { ascending: false })
-        .limit(50)
-      if (e) throw e
-      rows.value = (data || []).map(r => ({
-        username: r.username,
-        coins: Number(r.coins || 0),
-        avatar_emoji: r.avatar_emoji,
-        rate_per_sec: null
-      }))
-    }
+    const { data, error: e } = await supabase.rpc('get_overall_leaderboard', { p_limit: 50 })
+    if (e) throw e
+    rows.value = (data || []).map(r => ({
+      username: r.username,
+      avatar_emoji: r.avatar_emoji,
+      total_points: Number(r.total_points || 0),
+      disciplines: Array.isArray(r.disciplines) ? r.disciplines : []
+    }))
   } catch (e) {
     error.value = e?.message || t('leaderboard.loadFailed')
     rows.value = []
@@ -95,123 +36,73 @@ async function load() {
   }
 }
 
-function setMode(m) {
-  if (mode.value === m) return
-  mode.value = m
-  load()
-}
-
 watch(() => route.name, (name) => {
   if (name === 'leaderboard') load()
 })
 onMounted(() => {
-  const tab = String(route.query.tab || '')
-  if (['rate', 'coins', 'boss', 'memory', 'endless', 'wordle'].includes(tab)) mode.value = tab
   load()
-  game.loadEventSchedule().catch(() => {})
-  clockTimer = setInterval(() => { now.value = Date.now() }, 1000)
-})
-onUnmounted(() => {
-  if (clockTimer) clearInterval(clockTimer)
 })
 useReturnRefresh(load)
+
+// Disziplin-Namen fuer die Aufschluesselung hinter dem Info-Knopf.
+const DISC_LABELS = {
+  de: { rate: 'Pro Sekunde', coins: 'Münzen', boss_path: 'Bosspfad', boss_endless: 'Endlessboss',
+        memory: 'Memory', merge: 'Fusion', wordle: 'Wordle', drift: 'Drift-Rennen', parkour: 'Zoo-Parkour' },
+  en: { rate: 'Per second', coins: 'Coins', boss_path: 'Boss path', boss_endless: 'Endless boss',
+        memory: 'Memory', merge: 'Merge', wordle: 'Wordle', drift: 'Drift race', parkour: 'Zoo parkour' },
+  ru: { rate: 'В секунду', coins: 'Монеты', boss_path: 'Путь босса', boss_endless: 'Эндлесс-босс',
+        memory: 'Memory', merge: 'Слияние', wordle: 'Wordle', drift: 'Дрифт', parkour: 'Паркур' }
+}
+
+function discLabel(key) {
+  const dict = DISC_LABELS[locale.value] || DISC_LABELS.en
+  return dict[key] || DISC_LABELS.en[key] || key
+}
+
+// Jede Disziplin misst etwas anderes: Muenzen pro Sekunde, Etappe, Level,
+// Serie. Der Messwert kommt als Zahl vom Server, die Einheit steht hier.
+const DISC_UNITS = {
+  de: { stage: 'Etappe', level: 'Level', rank: 'Rang', streak: 'Serie', damage: 'Schaden' },
+  en: { stage: 'Stage', level: 'Level', rank: 'Rank', streak: 'Streak', damage: 'damage' },
+  ru: { stage: 'Этап', level: 'Уровень', rank: 'Ранг', streak: 'Серия', damage: 'урона' }
+}
+
+function unit(key) {
+  return (DISC_UNITS[locale.value] || DISC_UNITS.en)[key]
+}
+
+function discValue(d) {
+  const v = Number(d?.value ?? 0)
+  switch (d?.key) {
+    case 'rate': return `${formatCoins(v)}/s`
+    case 'coins': return `🪙 ${formatCoins(v)}`
+    case 'boss_endless': return `${formatCoins(v)} ${unit('damage')}`
+    case 'boss_path': return `${unit('stage')} ${v}`
+    case 'merge': return `${unit('rank')} ${v}`
+    case 'wordle': return `${unit('streak')} ${v}`
+    case 'memory':
+    case 'drift':
+    case 'parkour': return `${unit('level')} ${v}`
+    default: return String(v)
+  }
+}
+
+const detailFor = ref(null)
+
+function toggleDetail(username) {
+  detailFor.value = detailFor.value === username ? null : username
+}
 
 function openProfile(username) {
   router.push({ name: 'profile', query: { u: username } })
 }
 
-function formatRate(n) {
-  const v = Number(n || 0)
-  if (v < 10) return v.toFixed(2)
-  if (v < 100) return v.toFixed(1)
-  return formatCoins(v)
-}
-
-function formatCountdown(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const days = Math.floor(total / 86400)
-  const hours = Math.floor((total % 86400) / 3600)
-  const minutes = Math.floor((total % 3600) / 60)
-  const seconds = total % 60
-  const loc = locale.value
-  if (days > 0) {
-    if (loc === 'de') return `${days} ${days === 1 ? 'Tag' : 'Tagen'} ${hours}h`
-    if (loc === 'ru') return `${days} ${days === 1 ? 'день' : 'дн.'} ${hours}ч`
-    return `${days}d ${hours}h`
-  }
-  if (hours > 0) {
-    if (loc === 'ru') return `${hours}ч ${minutes}м`
-    return `${hours}h ${minutes}m`
-  }
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-}
-
-const eventStatus = computed(() => {
-  void now.value
-  if (mode.value === 'memory') {
-    if (!game.memoryShowCountdown) return null
-    const ms = Math.max(0, game.memoryEndsAt - Date.now())
-    return { ended: !game.memoryActive, remainingMs: ms }
-  }
-  return null
-})
-
-const subtitle = computed(() => {
-  if (mode.value === 'rate') return t('leaderboard.subtitleRate')
-  if (mode.value === 'boss') return t('leaderboard.subtitleBoss')
-  if (mode.value === 'memory') return t('leaderboard.subtitleMemory')
-  if (mode.value === 'endless') return t('leaderboard.subtitleEndless')
-  if (mode.value === 'wordle') return t('leaderboard.subtitleWordle')
-  return t('leaderboard.subtitle')
-})
+const subtitle = computed(() => t('leaderboard.subtitleOverall'))
 </script>
 
 <template>
   <h1 class="title">🏆 {{ t('leaderboard.title') }}</h1>
   <p class="subtitle">{{ subtitle }}</p>
-
-  <div class="lb-tabs">
-    <Button
-      class="lb-tab"
-      :class="{ active: mode === 'rate' }"
-      @click="setMode('rate')"
-    >
-      ⚡ {{ t('leaderboard.byRate') }}
-    </Button>
-    <Button
-      class="lb-tab"
-      :class="{ active: mode === 'coins' }"
-      @click="setMode('coins')"
-    >
-      🪙 {{ t('leaderboard.byCoins') }}
-    </Button>
-    <Button
-      class="lb-tab"
-      :class="{ active: mode === 'memory' }"
-      @click="setMode('memory')"
-    >
-      🧠 {{ t('leaderboard.byMemory') }}
-    </Button>
-    <Button
-      class="lb-tab"
-      :class="{ active: mode === 'wordle' }"
-      @click="setMode('wordle')"
-    >
-      🟩 {{ t('leaderboard.byWordle') }}
-    </Button>
-  </div>
-
-  <div
-    v-if="eventStatus"
-    class="lb-event-banner"
-    :class="{ ended: eventStatus.ended }"
-  >
-    <span class="lb-event-icon">{{ eventStatus.ended ? '⏰' : '⏳' }}</span>
-    <span class="lb-event-text">
-      <template v-if="eventStatus.ended">{{ t('leaderboard.eventEnded') }}</template>
-      <template v-else>{{ t('leaderboard.eventEndsIn', { time: formatCountdown(eventStatus.remainingMs) }) }}</template>
-    </span>
-  </div>
 
   <div class="card">
     <div v-if="loading" class="lb-state">
@@ -232,11 +123,14 @@ const subtitle = computed(() => {
     </div>
 
     <template v-else>
-      <Button
+      <div
         v-for="(r, i) in rows"
         :key="r.username"
-        class="lb-row"
-        :class="{ me: r.username === myUsername }"
+        class="lb-item"
+      >
+      <div class="lb-row" :class="{ me: r.username === myUsername }">
+      <Button
+        class="lb-main"
         @click="openProfile(r.username)"
       >
         <div class="lb-rank">
@@ -252,24 +146,39 @@ const subtitle = computed(() => {
             <span v-if="r.username === myUsername" class="me-tag">{{ t('leaderboard.you') }}</span>
           </div>
           <div class="sub">
-            <template v-if="mode === 'memory'">
-              <span class="primary">🧠 {{ t('leaderboard.memoryLevel') }} {{ r.highest_level }}</span>
-              <span class="secondary">🔁 {{ r.total_pairs }} {{ t('leaderboard.memoryPairs') }}</span>
-            </template>
-            <template v-else-if="mode === 'wordle'">
-              <span class="primary">🔥 {{ r.current_streak }} {{ t('leaderboard.wordleStreak') }}</span>
-              <span class="secondary">🏅 {{ r.wins }} {{ t('leaderboard.wordleWins') }} · ⭐ {{ r.best_streak }}</span>
-            </template>
-            <template v-else-if="mode === 'rate'">
-              <span class="primary">⚡ {{ formatRate(r.rate_per_sec) }}/s</span>
-              <span class="secondary">🪙 {{ formatCoins(r.coins) }}</span>
-            </template>
-            <template v-else>
-              <span class="primary">🪙 {{ formatCoins(r.coins) }}</span>
-            </template>
+            <span class="primary">🏅 {{ r.total_points }} {{ t('leaderboard.points') }}</span>
+            <span class="secondary">{{ r.disciplines.length }}×</span>
           </div>
         </div>
       </Button>
+
+      <Button
+        class="lb-info"
+        :aria-label="t('leaderboard.breakdown')"
+        :aria-expanded="detailFor === r.username"
+        @click="toggleDetail(r.username)"
+      >
+        <i class="pi" :class="detailFor === r.username ? 'pi-chevron-up' : 'pi-info-circle'"></i>
+      </Button>
+      </div>
+
+      <div v-if="detailFor === r.username" class="lb-detail">
+        <div class="lb-detail-head">{{ t('leaderboard.breakdown') }}</div>
+        <div v-if="!r.disciplines.length" class="lb-detail-empty">
+          {{ t('leaderboard.noPlacement') }}
+        </div>
+        <div
+          v-for="d in r.disciplines"
+          :key="d.key"
+          class="lb-disc"
+        >
+          <span class="lb-disc-name">{{ discLabel(d.key) }}</span>
+          <span class="lb-disc-value">{{ discValue(d) }}</span>
+          <span class="lb-disc-rank">{{ t('leaderboard.place') }} {{ d.rank }}</span>
+          <span class="lb-disc-pts">+{{ d.points }}</span>
+        </div>
+      </div>
+      </div>
     </template>
   </div>
 </template>
@@ -327,21 +236,61 @@ const subtitle = computed(() => {
 }
 .lb-event-icon { font-size: 18px; flex-shrink: 0; }
 .lb-event-text { min-width: 0; }
+/* Die Zeile ist ein Container: der Info-Knopf darf nicht im Profil-Button
+   stecken, sonst ist es ein button im button und klickt beides. */
+.lb-item:last-child .lb-row { border-bottom: none; }
 .lb-row {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 8px;
-  background: transparent; border: none;
+  display: flex; align-items: center;
   border-bottom: 1px solid var(--border);
-  color: inherit; font: inherit; text-align: left;
-  cursor: pointer;
 }
-.lb-row:last-child { border-bottom: none; }
-.lb-row:hover { background: rgba(140, 105, 35, 0.03); }
 .lb-row.me {
   background: rgba(244, 169, 18, 0.08);
   border-left: 3px solid var(--gold, var(--accent));
 }
-.lb-row.me:hover { background: rgba(244, 169, 18, 0.14); }
+.lb-main {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 0; padding: 8px;
+  background: transparent; border: none;
+  color: inherit; font: inherit; text-align: left;
+  cursor: pointer;
+}
+.lb-main:hover { background: rgba(140, 105, 35, 0.03); }
+.lb-row.me .lb-main:hover { background: rgba(244, 169, 18, 0.14); }
+.lb-info {
+  flex-shrink: 0;
+  width: 38px; height: 38px;
+  margin-right: 6px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted); cursor: pointer;
+}
+.lb-info:hover { color: var(--accent); border-color: var(--accent-soft); }
+.lb-info .pi { font-size: 15px; }
+.lb-detail {
+  padding: 10px 12px 12px;
+  background: rgba(140, 105, 35, 0.04);
+  border-bottom: 1px solid var(--border);
+}
+.lb-detail-head {
+  font-size: 11px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.07em; color: var(--muted); margin-bottom: 6px;
+}
+.lb-detail-empty { font-size: 13px; color: var(--muted); }
+.lb-disc {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 0; font-size: 13px;
+}
+.lb-disc-name { flex: 1; min-width: 0; font-weight: 700; }
+.lb-disc-value {
+  color: var(--text); font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.lb-disc-rank { color: var(--muted); font-size: 12px; }
+.lb-disc-pts {
+  font-weight: 800; color: var(--accent-deep, var(--accent));
+  font-variant-numeric: tabular-nums; min-width: 38px; text-align: right;
+}
 .lb-rank {
   width: 28px; text-align: center; font-weight: 700;
 }

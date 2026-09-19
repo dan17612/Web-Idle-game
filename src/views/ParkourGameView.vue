@@ -16,6 +16,7 @@ const TUT_KEY = 'parkour_tutorial_v1'
 
 const I18N = {
   de: {
+    eventEnded: 'Ereignis beendet', eventEndedSub: 'Das Parkour-Ereignis ist vorbei. Es können keine Parcours mehr gestartet werden.',
     title: '🐾 Zoo-Parkour', sub: '12 Parcours in 3D. Tippen zum Springen, wischen für die Spur.',
     back: 'Zurück', level: 'Level', best: 'Bester Parcours', stars: 'Sterne', obstaclesWord: 'Hindernisse',
     play: 'Springen', replay: 'Nochmal', locked: 'Gesperrt', cleared: 'Geschafft',
@@ -36,6 +37,7 @@ const I18N = {
     tutGot: 'Verstanden, los geht\'s!'
   },
   en: {
+    eventEnded: 'Event ended', eventEndedSub: 'The Parkour event is over. No more courses can be started.',
     title: '🐾 Zoo Parkour', sub: '12 courses in 3D. Tap to jump, swipe to change lane.',
     back: 'Back', level: 'Level', best: 'Best course', stars: 'Stars', obstaclesWord: 'obstacles',
     play: 'Jump', replay: 'Replay', locked: 'Locked', cleared: 'Cleared',
@@ -56,6 +58,7 @@ const I18N = {
     tutGot: 'Got it, let\'s go!'
   },
   ru: {
+    eventEnded: 'Событие завершено', eventEndedSub: 'Событие «Паркур» завершено. Новые забеги недоступны.',
     title: '🐾 Зоо-Паркур', sub: '12 трасс в 3D. Нажми, чтобы прыгнуть, свайп - смена дорожки.',
     back: 'Назад', level: 'Уровень', best: 'Лучшая трасса', stars: 'Звёзды', obstaclesWord: 'препятствий',
     play: 'Прыгать', replay: 'Снова', locked: 'Закрыто', cleared: 'Пройдено',
@@ -169,7 +172,10 @@ let pointer = null // { x, y, t } für Tap/Swipe-Erkennung
 
 const liveStars = computed(() => starsForFalls(falls.value))
 
+const eventActive = computed(() => game.parkourActive)
+
 async function startRun(level) {
+  if (!eventActive.value) { appToast.err(tx('eventEnded')); return }
   playLevel.value = level
   playOpen.value = true
   runState.value = 'ready'
@@ -308,6 +314,7 @@ function dismissTutorial() {
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('resize', sizeCanvas)
+  game.loadEventSchedule?.().catch(() => {})
   let seen = false
   try { seen = localStorage.getItem(TUT_KEY) === '1' } catch { seen = false }
   if (!seen) showTutorial.value = true
@@ -354,6 +361,14 @@ onUnmounted(() => {
         </div>
       </section>
 
+      <section v-if="!eventActive" class="card event-over">
+        <span class="eo-icon">⏰</span>
+        <div class="eo-body">
+          <div class="eo-title">{{ tx('eventEnded') }}</div>
+          <div class="eo-sub">{{ tx('eventEndedSub') }}</div>
+        </div>
+      </section>
+
       <section class="pk-grid">
         <div
           v-for="node in levels"
@@ -374,6 +389,7 @@ onUnmounted(() => {
             v-if="node.status !== 'locked'"
             class="btn pn-play"
             :class="{ secondary: node.status === 'cleared' }"
+            :disabled="!eventActive"
             @click="startRun(node.level)"
           >
             {{ node.status === 'cleared' ? '↻ ' + tx('replay') : '▶ ' + tx('play') }}
@@ -598,4 +614,18 @@ onUnmounted(() => {
 @media (max-width:420px) {
   .pk-grid { grid-template-columns:repeat(2,1fr); gap:8px; }
 }
+.dn-play:disabled, .pn-play:disabled {
+  filter: grayscale(0.8);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.event-over {
+  display: flex; align-items: center; gap: 12px;
+  border-color: rgba(239, 71, 111, 0.45);
+  margin-bottom: var(--space-3);
+}
+.eo-icon { font-size: 26px; flex-shrink: 0; }
+.eo-body { min-width: 0; }
+.eo-title { font-weight: 900; color: var(--danger); }
+.eo-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 </style>
