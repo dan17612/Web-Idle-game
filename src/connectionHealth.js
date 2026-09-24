@@ -88,3 +88,38 @@ export function wakeRealtime(realtime) {
     return false
   }
 }
+
+// Wächter gegen „lädt/speichert unendlich": prüft regelmäßig per `probe`
+// (z. B. supabase.auth.getSession – jede Anfrage braucht sie), ob der Client
+// noch reagiert. Bleibt die Probe `stallMs` lang (nur sichtbare, online
+// verbrachte Zeit zählt, via tick(elapsedMs)) hängen, wird `onStall` gerufen.
+export const STALL_PROBE_INTERVAL_MS = 5_000
+export const STALL_LIMIT_MS = 60_000
+
+export function createStallWatchdog({ probe, onStall, stallMs = STALL_LIMIT_MS }) {
+  let pendingId = 0
+  let nextId = 0
+  let stuckFor = 0
+  return {
+    tick(elapsedMs) {
+      if (pendingId) {
+        stuckFor += Math.max(0, Number(elapsedMs) || 0)
+        if (stuckFor >= stallMs) {
+          pendingId = 0
+          stuckFor = 0
+          onStall()
+        }
+        return
+      }
+      const id = ++nextId
+      pendingId = id
+      stuckFor = 0
+      const done = () => {
+        if (pendingId === id) { pendingId = 0; stuckFor = 0 }
+      }
+      Promise.resolve().then(probe).then(done, done)
+    },
+    get stuckFor() { return stuckFor },
+    get probing() { return pendingId !== 0 }
+  }
+}

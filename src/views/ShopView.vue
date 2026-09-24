@@ -11,6 +11,7 @@ import SortControl from "../components/SortControl.vue";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
 import { rarityInfo, loadEggCatalog, EGG_TYPES } from "../eggs";
+import { foodShopList, isFoodNotAvailableError } from "../foodShop";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -98,6 +99,9 @@ const weightMap = ref({});
 const weightDraft = ref({});
 const restockQty = ref({});
 const foods = ref([]);
+const foodAvailable = ref([]);
+const foodList = computed(() => foodShopList(foods.value, foodAvailable.value));
+const foodAvailableCount = computed(() => foodList.value.filter((f) => f.available).length);
 const sortMode = ref("rarity"); // "rarity" | "rate"
 const showAll = ref(false);
 let timer;
@@ -129,6 +133,7 @@ async function loadShop() {
   speciesMeta.value = data?.species_meta || {};
   eggStock.value = data?.egg_stock || {};
   eggMeta.value = data?.egg_meta || {};
+  foodAvailable.value = Array.isArray(data?.food_available) ? data.food_available : [];
   rotatesAt.value = data?.rotates_at ? new Date(data.rotates_at).getTime() : 0;
   if (data?.server_now)
     serverOffset.value = new Date(data.server_now).getTime() - Date.now();
@@ -377,7 +382,12 @@ async function feed(food) {
     const res = await game.feedPet(food.food);
     appToast.ok(t("shop.foodFedSuccess", { food: food.name, mult: res.boost_multiplier }));
   } catch (e) {
-    appToast.err(e);
+    if (isFoodNotAvailableError(e)) {
+      appToast.err(t("shop.foodNotAvailable"));
+      await loadShop();
+    } else {
+      appToast.err(e);
+    }
   } finally {
     busyKey.value = "";
   }
@@ -798,16 +808,31 @@ function goToTickets() {
         </div>
       </div>
     </div>
+    <div class="card row between" style="margin-bottom: 10px">
+      <div>
+        <div class="subtitle" style="margin: 0">{{ t("shop.nextFoodRotation") }}</div>
+        <div class="food-countdown">{{ countdown }}</div>
+      </div>
+      <div style="text-align: right">
+        <div class="subtitle" style="margin: 0">{{ t("shop.inStock") }}</div>
+        <div style="font-weight: 800">
+          {{ t("shop.foodStockCount", { count: foodAvailableCount, total: foodList.length }) }}
+        </div>
+      </div>
+    </div>
     <p class="subtitle food-note">
-      {{ t("shop.boostHint") }}
+      {{ t("shop.foodRotationHint") }} {{ t("shop.boostHint") }}
     </p>
     <div class="grid">
       <div
-        v-for="f in foods"
+        v-for="f in foodList"
         :key="f.food"
         class="animal-card food-card"
-        :class="{ locked: game.boostActive }"
+        :class="{ locked: game.boostActive, 'out-of-stock': !f.available }"
       >
+        <div class="rarity-stripe" :style="{ background: rarityInfo(f.rarity).color }">
+          {{ rarityInfo(f.rarity).emoji }} {{ t('rarity.' + f.rarity).toUpperCase() }}
+        </div>
         <div class="animal-emoji">{{ f.emoji }}</div>
         <div class="animal-name">{{ f.name }}</div>
         <div class="animal-meta food-meta">
@@ -819,13 +844,20 @@ function goToTickets() {
           class="btn full feed-btn"
           style="margin-top: 8px"
           :disabled="
+            !f.available ||
             busyKey === 'food-' + f.food ||
             game.displayCoins < f.cost ||
             game.boostActive
           "
           @click="feed(f)"
         >
-          {{ busyKey === "food-" + f.food ? t("common.loadingShort") : t("shop.feedAction") }}
+          {{
+            !f.available
+              ? t("shop.foodNotOffered")
+              : busyKey === "food-" + f.food
+                ? t("common.loadingShort")
+                : t("shop.feedAction")
+          }}
         </Button>
       </div>
     </div>
@@ -1254,6 +1286,15 @@ function goToTickets() {
 }
 .food-card.locked {
   opacity: 0.75;
+}
+.food-card.out-of-stock {
+  opacity: 0.45;
+}
+.food-countdown {
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 .food-meta {
   display: flex;

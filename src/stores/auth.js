@@ -63,15 +63,25 @@ export const useAuthStore = defineStore('auth', {
         await this.loadIdentities()
       }
       this.loading = false
-      supabase.auth.onAuthStateChange(async (_e, sess) => {
+      // WICHTIG: Callback synchron halten und keine Supabase-Aufrufe darin
+      // awaiten. supabase-js ruft ihn innerhalb seines Auth-Locks auf (z. B.
+      // beim stündlichen Token-Refresh oder bei der Rückkehr aus dem
+      // Hintergrund). Jede Abfrage braucht diesen Lock → Deadlock, danach
+      // hängt JEDE Anfrage (endloses Laden/Speichern). Folgearbeit daher per
+      // setTimeout nach dem Lock ausführen.
+      supabase.auth.onAuthStateChange((event, sess) => {
         this.session = sess
-        if (sess) {
-          try { await this.loadProfile() } catch (e) { console.error(e) }
-          await this.loadIdentities()
-        } else {
+        if (!sess) {
           this.profile = null
           this.identities = []
+          return
         }
+        // Token-Refresh ändert weder Profil noch verknüpfte Konten.
+        if (event === 'TOKEN_REFRESHED') return
+        setTimeout(async () => {
+          try { await this.loadProfile() } catch (e) { console.error(e) }
+          try { await this.loadIdentities() } catch (e) { console.error(e) }
+        }, 0)
       })
     },
     async loadProfile() {
