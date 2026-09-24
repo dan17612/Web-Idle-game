@@ -31,7 +31,13 @@
   --safe-bot: env(safe-area-inset-bottom, 0px);
 }
 
-* { box-sizing: border-box; }
+/* Kein blaues Tap-Highlight und kein blauer Browser-Fokusrahmen beim
+   Antippen/Anklicken — auf jedem Element, nicht nur geerbt vom body. */
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+*:focus { outline: none; }
 html, body, #app { height: 100%; margin: 0; }
 /* Kein natives Runterziehen-zum-Neuladen (Android/Chrome) — der Browser wertet
    das am Root-Scroller aus, also muss es auch auf html stehen. */
@@ -47,7 +53,19 @@ body {
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
   touch-action: manipulation;
+  /* Spiel, kein Dokument: Emojis/Text sollen beim Tippen nicht blau markiert
+     werden (Auswahl, Tap-Highlight, Long-Press-Menü). */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
+/* Eingabefelder bleiben normal auswähl- und bearbeitbar. */
+input, textarea, [contenteditable]:not([contenteditable="false"]) {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+img { -webkit-user-drag: none; user-drag: none; }
 button { font: inherit; color: inherit; }
 a { color: var(--accent-deep); text-decoration: none; }
 input, button, select, textarea {
