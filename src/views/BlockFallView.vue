@@ -11,6 +11,7 @@ import {
   BlockFallGame, COLS, VISIBLE_ROWS, HIDDEN_ROWS, ROWS, MAX_LEVEL, LEVELS_PER_CHAPTER,
   GARBAGE, PIECE_TYPES, ROTATIONS, CHAPTERS, levelConfig, blockfallReward
 } from '../blockfall'
+import { SwipeTracker } from '../blockfallGestures'
 
 const router = useRouter()
 const game = useGameStore()
@@ -32,7 +33,8 @@ const I18N = {
     reward: 'Belohnung (Erstabschluss)', perfectBonus: '⭐⭐⭐ = +50 % Coins', replayReward: 'Wiederholung: 🪙 {n}',
     play: 'Spielen', replay: 'Nochmal', locked: 'Gesperrt', close: 'Schließen',
     lines: 'Reihen', score: 'Punkte', hold: 'Halten', next: 'Nächste',
-    tapToStart: 'Los geht\'s!', startHint: 'Tippen = drehen · Ziehen = schieben · Wisch ↓ = fallen',
+    tapToStart: 'Los geht\'s!', startHint: 'Tippen = drehen · Ziehen = schieben · Wisch ↓ = fallen · Wisch ↑ = halten',
+    swipeOnly: 'Nur Wischen (Knöpfe aus)',
     paused: 'Pause', resume: 'Weiter',
     clear1: 'Reihe!', clear2: 'Doppel!', clear3: 'Dreifach!', clear4: 'BlockFall!', combo: 'Kombo ×{n}',
     winTitle: '🏁 Level geschafft!', firstClear: 'Level freigeschaltet!', replayBadge: 'Wiederholungs-Bonus',
@@ -45,7 +47,7 @@ const I18N = {
     tut2: 'Tippe aufs Feld oder ⟳ zum Drehen. ⤓ oder ein schneller Wisch nach unten lässt den Stein sofort fallen.',
     tut3: 'Volle Reihen verschwinden. Räume die Ziel-Anzahl ab, bevor das Feld überläuft.',
     tut4: 'Mehrere Reihen auf einmal und Kombos bringen mehr Punkte — und mehr Sterne. 3 Sterne beim Erstabschluss = +50 % Coins.',
-    tut5: 'Tippe auf „Halten", um einen Stein für später zu parken.',
+    tut5: 'Wisch nach oben (oder tippe auf „Halten") parkt einen Stein für später. Mit 👆 oben rechts spielst du nur mit Wischen — ohne Knöpfe, mit größerem Feld.',
     tutGot: 'Verstanden, los geht\'s!'
   },
   en: {
@@ -60,7 +62,8 @@ const I18N = {
     reward: 'Reward (first clear)', perfectBonus: '⭐⭐⭐ = +50% coins', replayReward: 'Replay: 🪙 {n}',
     play: 'Play', replay: 'Replay', locked: 'Locked', close: 'Close',
     lines: 'Lines', score: 'Score', hold: 'Hold', next: 'Next',
-    tapToStart: 'Let\'s go!', startHint: 'Tap = rotate · Drag = move · Swipe ↓ = drop',
+    tapToStart: 'Let\'s go!', startHint: 'Tap = rotate · Drag = move · Swipe ↓ = drop · Swipe ↑ = hold',
+    swipeOnly: 'Swipe only (hide buttons)',
     paused: 'Paused', resume: 'Resume',
     clear1: 'Line!', clear2: 'Double!', clear3: 'Triple!', clear4: 'BlockFall!', combo: 'Combo ×{n}',
     winTitle: '🏁 Level cleared!', firstClear: 'Level unlocked!', replayBadge: 'Replay bonus',
@@ -73,7 +76,7 @@ const I18N = {
     tut2: 'Tap the board or ⟳ to rotate. ⤓ or a quick swipe down drops the piece instantly.',
     tut3: 'Full lines disappear. Clear the goal number of lines before the board overflows.',
     tut4: 'Multiple lines at once and combos score more points — and more stars. 3 stars on first clear = +50% coins.',
-    tut5: 'Tap "Hold" to park a piece for later.',
+    tut5: 'Swipe up (or tap "Hold") to park a piece for later. Tap 👆 at the top right to play with swipes only — no buttons, bigger board.',
     tutGot: 'Got it, let\'s go!'
   },
   ru: {
@@ -88,7 +91,8 @@ const I18N = {
     reward: 'Награда (первое прохождение)', perfectBonus: '⭐⭐⭐ = +50% монет', replayReward: 'Повтор: 🪙 {n}',
     play: 'Играть', replay: 'Снова', locked: 'Закрыто', close: 'Закрыть',
     lines: 'Ряды', score: 'Очки', hold: 'Запас', next: 'Далее',
-    tapToStart: 'Поехали!', startHint: 'Нажатие = поворот · Тянуть = двигать · Свайп ↓ = бросить',
+    tapToStart: 'Поехали!', startHint: 'Нажатие = поворот · Тянуть = двигать · Свайп ↓ = бросить · Свайп ↑ = запас',
+    swipeOnly: 'Только свайпы (без кнопок)',
     paused: 'Пауза', resume: 'Продолжить',
     clear1: 'Ряд!', clear2: 'Двойной!', clear3: 'Тройной!', clear4: 'BlockFall!', combo: 'Комбо ×{n}',
     winTitle: '🏁 Уровень пройден!', firstClear: 'Уровень открыт!', replayBadge: 'Бонус за повтор',
@@ -101,7 +105,7 @@ const I18N = {
     tut2: 'Нажми на поле или ⟳, чтобы повернуть. ⤓ или быстрый свайп вниз сразу бросает блок.',
     tut3: 'Заполненные ряды исчезают. Очисти нужное число рядов, пока поле не переполнилось.',
     tut4: 'Несколько рядов сразу и комбо дают больше очков — и больше звёзд. 3 звезды при первом прохождении = +50% монет.',
-    tut5: 'Нажми «Запас», чтобы отложить блок на потом.',
+    tut5: 'Свайп вверх (или «Запас») откладывает блок на потом. Кнопка 👆 вверху справа — игра только свайпами, без кнопок и с полем побольше.',
     tutGot: 'Понятно, поехали!'
   }
 }
@@ -523,46 +527,70 @@ function stepRepeat(dt) {
   }
 }
 
-// Gesten auf dem Feld: Tippen = drehen, Ziehen = schieben / langsam runter,
-// schneller Wisch nach unten = fallen lassen.
-let drag = null
+// Wischsteuerung (Logik in src/blockfallGestures.js): Tippen = drehen,
+// seitlich ziehen = schieben, runterziehen = schneller fallen, schneller Wisch
+// nach unten = fallen lassen, nach oben = halten. Die Fläche ist der ganze
+// Spielbereich, nicht nur das Feld — so trifft der Daumen immer.
+const swipe = new SwipeTracker()
+let swipeStarting = false
+let swipePieces = 0
+
 function onBoardDown(e) {
+  if (e.button != null && e.button !== 0) return
   const starting = phase.value === 'ready'
   if (!canAct()) return
   e.currentTarget.setPointerCapture?.(e.pointerId)
-  drag = { x: e.clientX, y: e.clientY, t: performance.now(), mx: 0, my: 0, moved: false, starting }
+  swipe.setCell(cell)
+  swipe.start(e.clientX, e.clientY, performance.now())
+  swipeStarting = starting
+  swipePieces = bf.pieces
+}
+
+function applySwipe(actions) {
+  for (const a of actions) {
+    if (a === 'left') bf.move(-1)
+    else if (a === 'right') bf.move(1)
+    else if (a === 'soft') bf.softDrop()
+    else if (a === 'rotate') { if (!swipeStarting) bf.rotate(1) }
+    else if (a === 'drop') { bf.hardDrop(); handleEvents() }
+    else if (a === 'hold') bf.holdPiece()
+  }
 }
 
 function onBoardMove(e) {
-  if (!drag || !bf || phase.value !== 'running') return
-  const dx = e.clientX - drag.x
-  const dy = e.clientY - drag.y
-  const step = Math.max(14, cell * 0.9)
-  const wantX = Math.trunc(dx / step)
-  while (drag.mx < wantX && bf.move(1)) { drag.mx++; drag.moved = true }
-  while (drag.mx > wantX && bf.move(-1)) { drag.mx--; drag.moved = true }
-  if (drag.mx !== wantX) drag.mx = wantX
-  const wantY = Math.max(0, Math.trunc(dy / step))
-  if (Math.abs(dy) > Math.abs(dx) * 1.2) {
-    while (drag.my < wantY && bf.softDrop()) { drag.my++; drag.moved = true }
+  if (!swipe.active || !bf || phase.value !== 'running') return
+  // Stein ist inzwischen gelandet → der nächste startet an der Fingerposition.
+  if (bf.pieces !== swipePieces) {
+    swipePieces = bf.pieces
+    swipe.rebase(e.clientX, e.clientY)
   }
-  if (Math.abs(dx) > 8 || Math.abs(dy) > 8) drag.moved = true
+  applySwipe(swipe.move(e.clientX, e.clientY, performance.now()))
 }
 
 function onBoardUp(e) {
-  if (!drag) return
-  const d = drag
-  drag = null
+  if (!swipe.active) return
+  const actions = swipe.end(e.clientX, e.clientY, performance.now())
   if (!bf || phase.value !== 'running') return
-  const dx = e.clientX - d.x
-  const dy = e.clientY - d.y
-  const dt = Math.max(1, performance.now() - d.t)
-  // Der Tipp, der das Level startet, dreht noch nicht.
-  if (!d.moved && dt < 300) { if (!d.starting) bf.rotate(1); return }
-  if (dy > 50 && dy / dt > 0.8 && Math.abs(dx) < dy) {
-    bf.hardDrop()
-    handleEvents()
+  if (bf.pieces !== swipePieces) {
+    // Nur Tippen/Wisch auswerten, keine Restschritte auf den neuen Stein.
+    applySwipe(actions.filter((a) => a === 'rotate' || a === 'hold'))
+    return
   }
+  applySwipe(actions)
+}
+
+function onBoardCancel() {
+  swipe.cancel()
+}
+
+// "Nur Wischen" blendet die Knöpfe aus; das Feld wird dadurch größer.
+const CONTROLS_KEY = 'blockfall_controls'
+const swipeOnly = ref(false)
+try { swipeOnly.value = localStorage.getItem(CONTROLS_KEY) === 'swipe' } catch {}
+function toggleControls() {
+  swipeOnly.value = !swipeOnly.value
+  try { localStorage.setItem(CONTROLS_KEY, swipeOnly.value ? 'swipe' : 'buttons') } catch {}
+  nextTick(sizeBoard)
 }
 
 function onKeyDown(e) {
@@ -845,6 +873,13 @@ onUnmounted(() => {
           </div>
           <Button
             class="btn small btn-ghost hud-btn"
+            :class="{ 'hud-on': swipeOnly }"
+            :aria-label="tx('swipeOnly')"
+            :title="tx('swipeOnly')"
+            @click="toggleControls"
+          >👆</Button>
+          <Button
+            class="btn small btn-ghost hud-btn"
             :aria-label="tx('paused')"
             :disabled="phase !== 'running' && phase !== 'paused'"
             @click="togglePause"
@@ -853,15 +888,15 @@ onUnmounted(() => {
           </Button>
         </div>
 
-        <div class="bf-main">
-          <div
-            ref="boardWrapRef"
-            class="bf-board-wrap"
-            @pointerdown="onBoardDown"
-            @pointermove="onBoardMove"
-            @pointerup="onBoardUp"
-            @pointercancel="drag = null"
-          >
+        <div
+          class="bf-main"
+          :class="{ 'swipe-only': swipeOnly }"
+          @pointerdown="onBoardDown"
+          @pointermove="onBoardMove"
+          @pointerup="onBoardUp"
+          @pointercancel="onBoardCancel"
+        >
+          <div ref="boardWrapRef" class="bf-board-wrap">
             <canvas ref="canvasRef" class="bf-canvas"></canvas>
             <div class="bf-popups">
               <div v-for="p in popups" :key="p.id" class="bf-popup">
@@ -877,7 +912,7 @@ onUnmounted(() => {
           </div>
 
           <aside class="bf-side">
-            <button type="button" class="side-box hold-box" :class="{ used: holdUsed }" @pointerdown.prevent="press('hold')">
+            <button type="button" class="side-box hold-box" :class="{ used: holdUsed }" @pointerdown.stop.prevent="press('hold')">
               <span class="side-label">{{ tx('hold') }}</span>
               <span class="mini">
                 <span
@@ -906,7 +941,7 @@ onUnmounted(() => {
           </aside>
         </div>
 
-        <div class="bf-controls">
+        <div v-if="!swipeOnly" class="bf-controls">
           <div class="ctrl-group">
             <button
               v-for="a in ['left', 'down', 'right']"
@@ -1125,6 +1160,7 @@ onUnmounted(() => {
   padding: calc(8px + var(--safe-top)) 12px 8px; background: rgba(255, 255, 255, 0.92);
   border-bottom: 2px solid var(--border); }
 .hud-btn { flex-shrink: 0; width: 40px; justify-content: center; }
+.hud-btn.hud-on { background: rgba(244, 169, 18, 0.2); color: var(--accent-deep); box-shadow: inset 0 0 0 2px var(--accent); }
 .hud-center { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .hud-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .hud-row.small { font-size: 11px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -1137,8 +1173,10 @@ onUnmounted(() => {
 
 .bf-main { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 10px 10px 6px;
   max-width: 560px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.bf-main { touch-action: none; }
+.bf-main.swipe-only { padding-bottom: calc(14px + var(--safe-bot)); }
 .bf-board-wrap { position: relative; flex: 1; min-width: 0; min-height: 0;
-  display: flex; align-items: center; justify-content: center; touch-action: none; cursor: pointer; }
+  display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .bf-canvas { display: block; border-radius: 14px; border: 3px solid #fff;
   box-shadow: 0 4px 0 var(--border), 0 14px 30px rgba(110, 80, 20, 0.18); }
 .bf-popups { position: absolute; left: 0; right: 0; top: 30%; display: flex; flex-direction: column;
