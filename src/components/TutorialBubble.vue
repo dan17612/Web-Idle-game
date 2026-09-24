@@ -70,9 +70,13 @@ defineProps({
   transform: rotate(180deg);
 }
 
+/* Eigenständige translate-Eigenschaft statt transform: Die Einbettungen
+   zentrieren die Blase mit transform: translateX(-50%) — eine
+   transform-Animation würde das überschreiben und die Blase um eine halbe
+   Breite nach rechts schieben. */
 @keyframes tb-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -4px; }
 }
 
 @keyframes tb-point {

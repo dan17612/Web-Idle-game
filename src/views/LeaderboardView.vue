@@ -1,57 +1,199 @@
 <script setup>
-import { onMounted, ref, watch, computed } from 'vue'
+import { onMounted, onUnmounted, ref, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../supabase'
 import { formatCoins } from '../animals'
 import { useAuthStore } from '../stores/auth'
+import { useGameStore } from '../stores/game'
 import { t, locale } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const game = useGameStore()
 const rows = ref([])
 const loading = ref(true)
 const error = ref('')
+const now = ref(Date.now())
+let clockTimer = null
+
+// "Gesamt" bleibt die Voreinstellung; die alten Einzel-Listen stehen als
+// weitere Tabs daneben (auf Wunsch der Spieler wieder da).
+const TABS = [
+  { key: 'overall', icon: '🏅', label: 'leaderboard.byOverall' },
+  { key: 'rate', icon: '⚡', label: 'leaderboard.byRate' },
+  { key: 'coins', icon: '🪙', label: 'leaderboard.byCoins' },
+  { key: 'memory', icon: '🧠', label: 'leaderboard.byMemory' },
+  { key: 'wordle', icon: '🟩', label: 'leaderboard.byWordle' },
+  { key: 'blockfall', icon: '🧱', label: 'leaderboard.byBlockFall' }
+]
+const TAB_KEYS = TABS.map(tab => tab.key)
+const mode = ref('overall')
 
 const myUsername = computed(() => auth.profile?.username || null)
 
-async function load() {
-  loading.value = true
-  error.value = ''
-  try {
+// Jede Liste hat ihre eigene RPC und ihr eigenes Zeilenformat.
+async function fetchRows(m) {
+  if (m === 'overall') {
     const { data, error: e } = await supabase.rpc('get_overall_leaderboard', { p_limit: 50 })
     if (e) throw e
-    rows.value = (data || []).map(r => ({
+    return (data || []).map(r => ({
       username: r.username,
       avatar_emoji: r.avatar_emoji,
       total_points: Number(r.total_points || 0),
       disciplines: Array.isArray(r.disciplines) ? r.disciplines : []
     }))
+  }
+  if (m === 'rate') {
+    const { data, error: e } = await supabase.rpc('get_rate_leaderboard', { p_limit: 50 })
+    if (e) throw e
+    return (data || []).map(r => ({
+      username: r.username,
+      avatar_emoji: r.avatar_emoji,
+      coins: Number(r.coins || 0),
+      rate_per_sec: Number(r.rate_per_sec || 0)
+    }))
+  }
+  if (m === 'memory') {
+    const { data, error: e } = await supabase.rpc('get_memory_leaderboard', { p_limit: 50 })
+    if (e) throw e
+    return (data || []).map(r => ({
+      username: r.username,
+      avatar_emoji: r.avatar_emoji,
+      highest_level: Number(r.highest_level || 0),
+      total_pairs: Number(r.total_pairs || 0)
+    }))
+  }
+  if (m === 'wordle') {
+    const { data, error: e } = await supabase.rpc('get_wordle_leaderboard', { p_limit: 50 })
+    if (e) throw e
+    return (data || []).map(r => ({
+      username: r.username,
+      avatar_emoji: r.avatar_emoji,
+      current_streak: Number(r.current_streak || 0),
+      best_streak: Number(r.best_streak || 0),
+      wins: Number(r.wins || 0)
+    }))
+  }
+  if (m === 'blockfall') {
+    const { data, error: e } = await supabase.rpc('get_blockfall_leaderboard', { p_limit: 50 })
+    if (e) throw e
+    return (data || []).map(r => ({
+      username: r.username,
+      avatar_emoji: r.avatar_emoji,
+      highest_level: Number(r.highest_level || 0),
+      stars: Number(r.stars || 0)
+    }))
+  }
+  const { data, error: e } = await supabase
+    .from('profiles')
+    .select('username, coins, avatar_emoji')
+    .order('coins', { ascending: false })
+    .limit(50)
+  if (e) throw e
+  return (data || []).map(r => ({
+    username: r.username,
+    avatar_emoji: r.avatar_emoji,
+    coins: Number(r.coins || 0)
+  }))
+}
+
+let loadSeq = 0
+async function load() {
+  const seq = ++loadSeq
+  const m = mode.value
+  loading.value = true
+  error.value = ''
+  try {
+    const next = await fetchRows(m)
+    if (seq !== loadSeq) return
+    rows.value = next
   } catch (e) {
+    if (seq !== loadSeq) return
     error.value = e?.message || t('leaderboard.loadFailed')
     rows.value = []
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
+}
+
+function setMode(m) {
+  if (mode.value === m) return
+  mode.value = m
+  detailFor.value = null
+  rows.value = []
+  router.replace({ query: m === 'overall' ? {} : { tab: m } }).catch(() => {})
+  load()
 }
 
 watch(() => route.name, (name) => {
   if (name === 'leaderboard') load()
 })
 onMounted(() => {
+  const tab = String(route.query.tab || '')
+  if (TAB_KEYS.includes(tab)) mode.value = tab
   load()
+  game.loadEventSchedule().catch(() => {})
+  clockTimer = setInterval(() => {
+    if (document.visibilityState !== 'visible') return
+    now.value = Date.now()
+  }, 1000)
+})
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer)
 })
 useReturnRefresh(load)
+
+function formatRate(n) {
+  const v = Number(n || 0)
+  if (v < 10) return v.toFixed(2)
+  if (v < 100) return v.toFixed(1)
+  return formatCoins(v)
+}
+
+function formatCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const days = Math.floor(total / 86400)
+  const hours = Math.floor((total % 86400) / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  const loc = locale.value
+  if (days > 0) {
+    if (loc === 'de') return `${days} ${days === 1 ? 'Tag' : 'Tagen'} ${hours}h`
+    if (loc === 'ru') return `${days} ${days === 1 ? 'день' : 'дн.'} ${hours}ч`
+    return `${days}d ${hours}h`
+  }
+  if (hours > 0) {
+    if (loc === 'ru') return `${hours}ч ${minutes}м`
+    return `${hours}h ${minutes}m`
+  }
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+// Countdown-Banner für Listen, die an einem Ereignis hängen.
+const EVENT_TABS = { memory: 'memory_game', blockfall: 'blockfall_game' }
+const eventStatus = computed(() => {
+  void now.value
+  const key = EVENT_TABS[mode.value]
+  if (!key) return null
+  const info = game.eventFor(key)
+  if (!info.showCountdown && !info.ended) return null
+  const serverNow = Date.now() + game.serverOffset
+  return { ended: info.ended, remainingMs: Math.max(0, info.endsAt - serverNow) }
+})
 
 // Disziplin-Namen fuer die Aufschluesselung hinter dem Info-Knopf.
 const DISC_LABELS = {
   de: { rate: 'Pro Sekunde', coins: 'Münzen', boss_path: 'Bosspfad', boss_endless: 'Endlessboss',
-        memory: 'Memory', merge: 'Fusion', wordle: 'Wordle', drift: 'Drift-Rennen', parkour: 'Zoo-Parkour' },
+        memory: 'Memory', merge: 'Fusion', wordle: 'Wordle', drift: 'Drift-Rennen', parkour: 'Zoo-Parkour',
+        blockfall: 'BlockFall' },
   en: { rate: 'Per second', coins: 'Coins', boss_path: 'Boss path', boss_endless: 'Endless boss',
-        memory: 'Memory', merge: 'Merge', wordle: 'Wordle', drift: 'Drift race', parkour: 'Zoo parkour' },
+        memory: 'Memory', merge: 'Merge', wordle: 'Wordle', drift: 'Drift race', parkour: 'Zoo parkour',
+        blockfall: 'BlockFall' },
   ru: { rate: 'В секунду', coins: 'Монеты', boss_path: 'Путь босса', boss_endless: 'Эндлесс-босс',
-        memory: 'Memory', merge: 'Слияние', wordle: 'Wordle', drift: 'Дрифт', parkour: 'Паркур' }
+        memory: 'Memory', merge: 'Слияние', wordle: 'Wordle', drift: 'Дрифт', parkour: 'Паркур',
+        blockfall: 'BlockFall' }
 }
 
 function discLabel(key) {
@@ -81,6 +223,7 @@ function discValue(d) {
     case 'merge': return `${unit('rank')} ${v}`
     case 'wordle': return `${unit('streak')} ${v}`
     case 'memory':
+    case 'blockfall':
     case 'drift':
     case 'parkour': return `${unit('level')} ${v}`
     default: return String(v)
@@ -97,12 +240,46 @@ function openProfile(username) {
   router.push({ name: 'profile', query: { u: username } })
 }
 
-const subtitle = computed(() => t('leaderboard.subtitleOverall'))
+const SUBTITLES = {
+  overall: 'leaderboard.subtitleOverall',
+  rate: 'leaderboard.subtitleRate',
+  coins: 'leaderboard.subtitle',
+  memory: 'leaderboard.subtitleMemory',
+  wordle: 'leaderboard.subtitleWordle',
+  blockfall: 'leaderboard.subtitleBlockFall'
+}
+const subtitle = computed(() => t(SUBTITLES[mode.value] || 'leaderboard.subtitleOverall'))
 </script>
 
 <template>
   <h1 class="title">🏆 {{ t('leaderboard.title') }}</h1>
   <p class="subtitle">{{ subtitle }}</p>
+
+  <div class="lb-tabs" role="tablist">
+    <Button
+      v-for="tab in TABS"
+      :key="tab.key"
+      class="lb-tab"
+      role="tab"
+      :aria-selected="mode === tab.key"
+      :class="{ active: mode === tab.key }"
+      @click="setMode(tab.key)"
+    >
+      {{ tab.icon }} {{ t(tab.label) }}
+    </Button>
+  </div>
+
+  <div
+    v-if="eventStatus"
+    class="lb-event-banner"
+    :class="{ ended: eventStatus.ended }"
+  >
+    <span class="lb-event-icon">{{ eventStatus.ended ? '⏰' : '⏳' }}</span>
+    <span class="lb-event-text">
+      <template v-if="eventStatus.ended">{{ t('leaderboard.eventEnded') }}</template>
+      <template v-else>{{ t('leaderboard.eventEndsIn', { time: formatCountdown(eventStatus.remainingMs) }) }}</template>
+    </span>
+  </div>
 
   <div class="card">
     <div v-if="loading" class="lb-state">
@@ -146,13 +323,35 @@ const subtitle = computed(() => t('leaderboard.subtitleOverall'))
             <span v-if="r.username === myUsername" class="me-tag">{{ t('leaderboard.you') }}</span>
           </div>
           <div class="sub">
-            <span class="primary">🏅 {{ r.total_points }} {{ t('leaderboard.points') }}</span>
-            <span class="secondary">{{ r.disciplines.length }}×</span>
+            <template v-if="mode === 'overall'">
+              <span class="primary">🏅 {{ r.total_points }} {{ t('leaderboard.points') }}</span>
+              <span class="secondary">{{ r.disciplines.length }}×</span>
+            </template>
+            <template v-else-if="mode === 'memory'">
+              <span class="primary">🧠 {{ t('leaderboard.memoryLevel') }} {{ r.highest_level }}</span>
+              <span class="secondary">🔁 {{ r.total_pairs }} {{ t('leaderboard.memoryPairs') }}</span>
+            </template>
+            <template v-else-if="mode === 'wordle'">
+              <span class="primary">🔥 {{ r.current_streak }} {{ t('leaderboard.wordleStreak') }}</span>
+              <span class="secondary">🏅 {{ r.wins }} {{ t('leaderboard.wordleWins') }} · ⭐ {{ r.best_streak }}</span>
+            </template>
+            <template v-else-if="mode === 'blockfall'">
+              <span class="primary">🧱 {{ t('leaderboard.memoryLevel') }} {{ r.highest_level }}</span>
+              <span class="secondary">⭐ {{ r.stars }}</span>
+            </template>
+            <template v-else-if="mode === 'rate'">
+              <span class="primary">⚡ {{ formatRate(r.rate_per_sec) }}/s</span>
+              <span class="secondary">🪙 {{ formatCoins(r.coins) }}</span>
+            </template>
+            <template v-else>
+              <span class="primary">🪙 {{ formatCoins(r.coins) }}</span>
+            </template>
           </div>
         </div>
       </Button>
 
       <Button
+        v-if="mode === 'overall'"
         class="lb-info"
         :aria-label="t('leaderboard.breakdown')"
         :aria-expanded="detailFor === r.username"
@@ -162,7 +361,7 @@ const subtitle = computed(() => t('leaderboard.subtitleOverall'))
       </Button>
       </div>
 
-      <div v-if="detailFor === r.username" class="lb-detail">
+      <div v-if="mode === 'overall' && detailFor === r.username" class="lb-detail">
         <div class="lb-detail-head">{{ t('leaderboard.breakdown') }}</div>
         <div v-if="!r.disciplines.length" class="lb-detail-empty">
           {{ t('leaderboard.noPlacement') }}

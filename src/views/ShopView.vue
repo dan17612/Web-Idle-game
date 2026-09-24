@@ -1153,9 +1153,10 @@ function goToTickets() {
   border-color: var(--accent);
   margin-bottom: 10px;
 }
+/* Über der Karte statt darauf, sonst verdeckt die Blase Titel und Preis. */
 .chest-tutorial {
   position: absolute;
-  top: -30px;
+  bottom: calc(100% - 6px);
   left: 50%;
   transform: translateX(-50%);
 }
