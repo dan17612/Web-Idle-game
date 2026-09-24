@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useGameStore } from "../stores/game";
 import { EVENT_KEYS } from "../eventSchedule";
+import { sortEvents, isNewEvent, EVENT_SORTS } from "../eventSort";
 import { useAuthStore } from "../stores/auth";
 import {
   speciesInfo,
@@ -199,7 +200,11 @@ const I18N = {
     },
     events: {
       title: "Ereignisse",
-      endedSection: "Beendete Ereignisse ({n})"
+      endedSection: "Beendete Ereignisse ({n})",
+      sortNewest: "Neueste",
+      sortEnding: "Endet bald",
+      sortName: "A–Z",
+      newBadge: "NEU"
     },
     eventStatus: {
       endsIn: "Verschwindet in {time}",
@@ -378,7 +383,11 @@ const I18N = {
     },
     events: {
       title: "Events",
-      endedSection: "Ended events ({n})"
+      endedSection: "Ended events ({n})",
+      sortNewest: "Newest",
+      sortEnding: "Ending soon",
+      sortName: "A–Z",
+      newBadge: "NEW"
     },
     eventStatus: {
       endsIn: "Disappears in {time}",
@@ -557,7 +566,11 @@ const I18N = {
     },
     events: {
       title: "События",
-      endedSection: "Завершённые события ({n})"
+      endedSection: "Завершённые события ({n})",
+      sortNewest: "Новые",
+      sortEnding: "Скоро закончатся",
+      sortName: "А–Я",
+      newBadge: "НОВОЕ"
     },
     eventStatus: {
       endsIn: "Исчезнет через {time}",
@@ -770,14 +783,14 @@ function fmtCountdown(ms) {
 // Jede Feature-Karte am Seitenende. `schedule` verweist auf den Schlüssel in
 // event_schedule; Karten ohne Zeitplan gelten immer als laufend.
 const EVENT_CARDS = [
-  { id: "blockfall", to: "/blockfall", icon: "🧱", cls: "blockfall-link", iconCls: "bfl-icon", title: "blockfallLink.title", sub: "blockfallLink.sub", schedule: EVENT_KEYS.blockfall },
-  { id: "boss",    to: "/boss-fight", icon: "👑",  cls: "boss-path-link", iconCls: "bpl-icon", title: "bossPath.title",    sub: "bossPath.sub",    schedule: EVENT_KEYS.bossEndless },
-  { id: "memory",  to: "/memory",     icon: "🧠",  cls: "event-link",     iconCls: "ml-icon",  title: "memoryLink.title",  sub: "memoryLink.sub",  schedule: EVENT_KEYS.memory },
-  { id: "drift",   to: "/drift",      icon: "🏎️", cls: "drift-link",     iconCls: "dl-icon",  title: "driftLink.title",   sub: "driftLink.sub",   schedule: EVENT_KEYS.drift },
-  { id: "parkour", to: "/parkour",    icon: "🐾",  cls: "parkour-link",   iconCls: "pl-icon",  title: "parkourLink.title", sub: "parkourLink.sub", schedule: EVENT_KEYS.parkour },
-  { id: "wordle",  to: "/wordle",     icon: "🟩",  cls: "wordle-link",    iconCls: "wl-icon",  title: "wordleLink.title",  sub: "wordleLink.sub",  schedule: EVENT_KEYS.wordle },
-  { id: "world",   to: "/world",      icon: "🌍",  cls: "world-link",     iconCls: "wo-icon",  title: "worldLink.title",   sub: "worldLink.sub",   schedule: EVENT_KEYS.world },
-  { id: "breeding", to: "/breeding",  icon: "💞",  cls: "breeding-link",  iconCls: "bl-icon",  title: "breedingLink.title", sub: "breedingLink.sub", schedule: EVENT_KEYS.breeding }
+  { id: "blockfall", to: "/blockfall", icon: "🧱", cls: "blockfall-link", iconCls: "bfl-icon", title: "blockfallLink.title", sub: "blockfallLink.sub", schedule: EVENT_KEYS.blockfall, released: "2026-09-24" },
+  { id: "boss",    to: "/boss-fight", icon: "👑",  cls: "boss-path-link", iconCls: "bpl-icon", title: "bossPath.title",    sub: "bossPath.sub",    schedule: EVENT_KEYS.bossEndless, released: "2026-04-26" },
+  { id: "memory",  to: "/memory",     icon: "🧠",  cls: "event-link",     iconCls: "ml-icon",  title: "memoryLink.title",  sub: "memoryLink.sub",  schedule: EVENT_KEYS.memory, released: "2026-05-15" },
+  { id: "drift",   to: "/drift",      icon: "🏎️", cls: "drift-link",     iconCls: "dl-icon",  title: "driftLink.title",   sub: "driftLink.sub",   schedule: EVENT_KEYS.drift, released: "2026-06-12" },
+  { id: "parkour", to: "/parkour",    icon: "🐾",  cls: "parkour-link",   iconCls: "pl-icon",  title: "parkourLink.title", sub: "parkourLink.sub", schedule: EVENT_KEYS.parkour, released: "2026-06-29" },
+  { id: "wordle",  to: "/wordle",     icon: "🟩",  cls: "wordle-link",    iconCls: "wl-icon",  title: "wordleLink.title",  sub: "wordleLink.sub",  schedule: EVENT_KEYS.wordle, released: "2026-07-17" },
+  { id: "world",   to: "/world",      icon: "🌍",  cls: "world-link",     iconCls: "wo-icon",  title: "worldLink.title",   sub: "worldLink.sub",   schedule: EVENT_KEYS.world, released: "2026-08-03" },
+  { id: "breeding", to: "/breeding",  icon: "💞",  cls: "breeding-link",  iconCls: "bl-icon",  title: "breedingLink.title", sub: "breedingLink.sub", schedule: EVENT_KEYS.breeding, released: "2026-09-19" }
 ];
 
 const eventCards = computed(() => {
@@ -795,8 +808,27 @@ const eventCards = computed(() => {
   });
 });
 
-const activeEvents = computed(() => eventCards.value.filter((c) => !c.ended));
-const endedEvents = computed(() => eventCards.value.filter((c) => c.ended));
+// Sortierung der Karten; die Wahl merkt sich das Gerät.
+const EVENT_SORT_KEY = "eventSort";
+const eventSort = ref("newest");
+try {
+  const saved = localStorage.getItem(EVENT_SORT_KEY);
+  if (EVENT_SORTS.includes(saved)) eventSort.value = saved;
+} catch {}
+function setEventSort(mode) {
+  eventSort.value = mode;
+  try { localStorage.setItem(EVENT_SORT_KEY, mode); } catch {}
+}
+const EVENT_SORT_LABELS = { newest: "events.sortNewest", ending: "events.sortEnding", name: "events.sortName" };
+const eventName = (c) => tx(c.title).replace(/^[^\p{L}\p{N}]+/u, "");
+const sortedEvents = computed(() =>
+  sortEvents(eventCards.value, eventSort.value, eventName).map((c) => ({
+    ...c,
+    isNew: !c.ended && isNewEvent(c, Date.now() + game.serverOffset),
+  })),
+);
+const activeEvents = computed(() => sortedEvents.value.filter((c) => !c.ended));
+const endedEvents = computed(() => sortedEvents.value.filter((c) => c.ended));
 const endedOpen = ref(false);
 
 const dailyOpen = ref(false);
@@ -1964,7 +1996,20 @@ async function doSplit(animalId) {
       </div>
     </div>
 
-    <h2 class="events-title">{{ tx("events.title") }}</h2>
+    <div class="events-head">
+      <h2 class="events-title">{{ tx("events.title") }}</h2>
+      <div class="events-sort" role="group">
+        <button
+          v-for="mode in EVENT_SORTS"
+          :key="mode"
+          type="button"
+          class="es-chip"
+          :class="{ active: eventSort === mode }"
+          :aria-pressed="eventSort === mode"
+          @click="setEventSort(mode)"
+        >{{ tx(EVENT_SORT_LABELS[mode]) }}</button>
+      </div>
+    </div>
 
     <EggMachine />
 
@@ -1978,7 +2023,10 @@ async function doSplit(animalId) {
     >
       <div :class="card.iconCls">{{ card.icon }}</div>
       <div class="bpl-body">
-        <div class="dl-title">{{ tx(card.title) }}</div>
+        <div class="dl-title">
+          {{ tx(card.title) }}
+          <span v-if="card.isNew" class="event-new">{{ tx("events.newBadge") }}</span>
+        </div>
         <div class="bpl-sub">{{ tx(card.sub, card.subVars) }}</div>
         <div v-if="card.showCountdown" class="bpl-event-status">
           ⏳ {{ tx("eventStatus.endsIn", { time: fmtCountdown(card.remaining) }) }}
@@ -3216,6 +3264,54 @@ async function doSplit(animalId) {
 }
 
 /* ── Event-Hub ──────────────────────────────────────────────────── */
+.events-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: var(--space-5) 0 var(--space-2);
+}
+.events-head .events-title {
+  margin: 0;
+}
+.events-sort {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.es-chip {
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.es-chip.active {
+  border-color: var(--accent);
+  background: rgba(244, 169, 18, 0.14);
+  color: var(--accent-deep, var(--text));
+}
+.event-new {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #fff;
+  /* Der Titel nutzt Verlaufsschrift (transparente Füllung) — hier wieder deckend. */
+  -webkit-text-fill-color: #fff;
+  background: var(--danger, #ef476f);
+  background-clip: border-box;
+  -webkit-background-clip: border-box;
+  vertical-align: middle;
+}
 .events-title {
   margin: var(--space-5) 0 var(--space-2);
   font-size: 19px;
