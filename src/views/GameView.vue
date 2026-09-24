@@ -98,6 +98,8 @@ const I18N = {
       worldSub: "Lobby & Farmen",
       blockfall: "BlockFall",
       blockfallSub: "30 Level",
+      market: "Börse",
+      marketSub: "Live-Kurse",
       release: "Tier freilassen"
     },
     equipped: {
@@ -192,6 +194,10 @@ const I18N = {
       title: "🌍 Zoo-Welt",
       sub: "Lauf mit anderen Spielern durch die Lobby & besuche ihre Farmen - live!"
     },
+    marketLink: {
+      title: "📈 Zoo-Börse",
+      sub: "Live-Kurse für jedes Tier - biete Tiere an oder kauf Angebote anderer Spieler"
+    },
     daily: {
       title: "Tägliche Belohnung",
       ready: "Bereit zum Abholen!",
@@ -281,6 +287,8 @@ const I18N = {
       worldSub: "Lobby & farms",
       blockfall: "BlockFall",
       blockfallSub: "30 levels",
+      market: "Exchange",
+      marketSub: "Live prices",
       release: "Release pet"
     },
     equipped: {
@@ -375,6 +383,10 @@ const I18N = {
       title: "🌍 Zoo World",
       sub: "Walk the lobby with other players & visit their farms - live!"
     },
+    marketLink: {
+      title: "📈 Zoo Exchange",
+      sub: "Live prices for every animal - list animals or buy other players' offers"
+    },
     daily: {
       title: "Daily Reward",
       ready: "Ready to claim!",
@@ -464,6 +476,8 @@ const I18N = {
       worldSub: "Лобби и фермы",
       blockfall: "BlockFall",
       blockfallSub: "30 уровней",
+      market: "Биржа",
+      marketSub: "Живые курсы",
       release: "Отпустить питомца"
     },
     equipped: {
@@ -557,6 +571,10 @@ const I18N = {
     worldLink: {
       title: "🌍 Зоо-Мир",
       sub: "Гуляй по лобби с другими игроками и посещай их фермы - вживую!"
+    },
+    marketLink: {
+      title: "📈 Зоо-биржа",
+      sub: "Живые курсы всех животных - выставляй животных или покупай у других игроков"
     },
     daily: {
       title: "Ежедневная награда",
@@ -783,6 +801,7 @@ function fmtCountdown(ms) {
 // Jede Feature-Karte am Seitenende. `schedule` verweist auf den Schlüssel in
 // event_schedule; Karten ohne Zeitplan gelten immer als laufend.
 const EVENT_CARDS = [
+  { id: "market",  to: "/market",    icon: "📈",  cls: "market-link",    iconCls: "mkl-icon", title: "marketLink.title", sub: "marketLink.sub", released: "2026-09-24" },
   { id: "blockfall", to: "/blockfall", icon: "🧱", cls: "blockfall-link", iconCls: "bfl-icon", title: "blockfallLink.title", sub: "blockfallLink.sub", schedule: EVENT_KEYS.blockfall, released: "2026-09-24" },
   { id: "boss",    to: "/boss-fight", icon: "👑",  cls: "boss-path-link", iconCls: "bpl-icon", title: "bossPath.title",    sub: "bossPath.sub",    schedule: EVENT_KEYS.bossEndless, released: "2026-04-26" },
   { id: "memory",  to: "/memory",     icon: "🧠",  cls: "event-link",     iconCls: "ml-icon",  title: "memoryLink.title",  sub: "memoryLink.sub",  schedule: EVENT_KEYS.memory, released: "2026-05-15" },
@@ -1518,6 +1537,11 @@ async function doSplit(animalId) {
         <span class="qa-icon">🧱</span>
         <span class="qa-label">{{ tx("quick.blockfall") }}</span>
         <span class="qa-sub">{{ tx("quick.blockfallSub") }}</span>
+      </router-link>
+      <router-link to="/market" class="qa-btn">
+        <span class="qa-icon">📈</span>
+        <span class="qa-label">{{ tx("quick.market") }}</span>
+        <span class="qa-sub">{{ tx("quick.marketSub") }}</span>
       </router-link>
     </div>
 
@@ -3545,6 +3569,35 @@ async function doSplit(animalId) {
 @keyframes woSpin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.market-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(46, 194, 114, 0.22), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(239, 71, 111, 0.16), transparent 55%),
+    var(--card);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.market-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-2);
+  box-shadow: 0 12px 28px rgba(46, 194, 114, 0.28);
+}
+.mkl-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
+  flex-shrink: 0;
+  animation: mklRise 2.2s ease-in-out infinite;
+}
+@keyframes mklRise {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(-6deg); }
 }
 
 /* ── Tägliche Belohnung ─────────────────────────────────────────── */

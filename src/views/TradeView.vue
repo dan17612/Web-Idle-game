@@ -20,6 +20,7 @@ const game = useGameStore()
 const I18N = {
   de: {
     title: 'Trade & Senden',
+    marketLink: '📈 Zoo-Börse: Live-Kurse & Angebote',
     tabs: { new: 'Neu', incoming: 'Eingang', outgoing: 'Ausgang', public: 'Public' },
     mode: { trade: 'Tausch', send: 'Senden' },
     time: { expired: 'abgelaufen' },
@@ -103,6 +104,7 @@ const I18N = {
   },
   en: {
     title: 'Trade & Send',
+    marketLink: '📈 Zoo Exchange: live prices & offers',
     tabs: { new: 'New', incoming: 'Incoming', outgoing: 'Outgoing', public: 'Public' },
     mode: { trade: 'Trade', send: 'Send' },
     time: { expired: 'expired' },
@@ -186,6 +188,7 @@ const I18N = {
   },
   ru: {
     title: 'Обмен и Отправка',
+    marketLink: '📈 Зоо-биржа: живые курсы и предложения',
     tabs: { new: 'Новый', incoming: 'Входящие', outgoing: 'Исходящие', public: 'Публично' },
     mode: { trade: 'Обмен', send: 'Отправка' },
     time: { expired: 'истек' },
@@ -764,6 +767,9 @@ function statusLabel(status) {
 
 <template>
   <h1 class="title">🔄 {{ tx('title') }}</h1>
+  <router-link to="/market" class="market-banner">
+    <span>{{ tx('marketLink') }}</span><b>›</b>
+  </router-link>
 
   <div class="tabs">
     <Button :class="{ active: tab==='new' }" @click="tab='new'">➕ {{ tx('tabs.new') }}</Button>
@@ -1280,4 +1286,14 @@ function statusLabel(status) {
 .e.tiered { filter: drop-shadow(0 0 2px var(--tb, transparent)); }
 .status-accepted .badge { background: rgba(46, 194, 114,0.15); color: var(--accent-2); }
 .status-declined .badge, .status-cancelled .badge { background: rgba(239,71,111,0.15); color: var(--danger); }
+.market-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: -4px 0 12px; padding: 10px 14px; border-radius: 16px;
+  font-weight: 800; color: var(--heading);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-2) 16%, transparent), color-mix(in srgb, var(--danger) 10%, transparent)),
+    var(--card);
+  border: 2px solid color-mix(in srgb, var(--accent-2) 35%, var(--border));
+}
+.market-banner b { font-size: 20px; color: var(--accent-2); }
 </style>
