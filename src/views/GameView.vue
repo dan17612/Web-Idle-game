@@ -95,6 +95,8 @@ const I18N = {
       wordleSub: "Wort des Tages",
       world: "Welt",
       worldSub: "Lobby & Farmen",
+      blockfall: "BlockFall",
+      blockfallSub: "30 Level",
       release: "Tier freilassen"
     },
     equipped: {
@@ -172,6 +174,10 @@ const I18N = {
     parkourLink: {
       title: "🐾 Zoo-Parkour",
       sub: "Hüpf in 3D über Lücken & Hindernisse - 12 Parcours"
+    },
+    blockfallLink: {
+      title: "🧱 BlockFall",
+      sub: "Stapel fallende Blöcke & räum Reihen ab - 30 Level im Pfad"
     },
     breedingLink: {
       title: "💞 Zucht",
@@ -268,6 +274,8 @@ const I18N = {
       wordleSub: "Word of the day",
       world: "World",
       worldSub: "Lobby & farms",
+      blockfall: "BlockFall",
+      blockfallSub: "30 levels",
       release: "Release pet"
     },
     equipped: {
@@ -345,6 +353,10 @@ const I18N = {
     parkourLink: {
       title: "🐾 Zoo Parkour",
       sub: "Hop in 3D over gaps & obstacles - 12 courses"
+    },
+    blockfallLink: {
+      title: "🧱 BlockFall",
+      sub: "Stack falling blocks & clear lines - 30 levels on the path"
     },
     breedingLink: {
       title: "💞 Breeding",
@@ -441,6 +453,8 @@ const I18N = {
       wordleSub: "Слово дня",
       world: "Мир",
       worldSub: "Лобби и фермы",
+      blockfall: "BlockFall",
+      blockfallSub: "30 уровней",
       release: "Отпустить питомца"
     },
     equipped: {
@@ -518,6 +532,10 @@ const I18N = {
     parkourLink: {
       title: "🐾 Зоо-Паркур",
       sub: "Прыгай в 3D через пропасти и препятствия - 12 трасс"
+    },
+    blockfallLink: {
+      title: "🧱 BlockFall",
+      sub: "Складывай падающие блоки и очищай ряды - 30 уровней на пути"
     },
     breedingLink: {
       title: "💞 Разведение",
@@ -752,6 +770,7 @@ function fmtCountdown(ms) {
 // Jede Feature-Karte am Seitenende. `schedule` verweist auf den Schlüssel in
 // event_schedule; Karten ohne Zeitplan gelten immer als laufend.
 const EVENT_CARDS = [
+  { id: "blockfall", to: "/blockfall", icon: "🧱", cls: "blockfall-link", iconCls: "bfl-icon", title: "blockfallLink.title", sub: "blockfallLink.sub", schedule: EVENT_KEYS.blockfall },
   { id: "boss",    to: "/boss-fight", icon: "👑",  cls: "boss-path-link", iconCls: "bpl-icon", title: "bossPath.title",    sub: "bossPath.sub",    schedule: EVENT_KEYS.bossEndless },
   { id: "memory",  to: "/memory",     icon: "🧠",  cls: "event-link",     iconCls: "ml-icon",  title: "memoryLink.title",  sub: "memoryLink.sub",  schedule: EVENT_KEYS.memory },
   { id: "drift",   to: "/drift",      icon: "🏎️", cls: "drift-link",     iconCls: "dl-icon",  title: "driftLink.title",   sub: "driftLink.sub",   schedule: EVENT_KEYS.drift },
@@ -806,6 +825,13 @@ watch(
 const tapLimitReached = computed(
   () => game.tapsUsed >= game.tapsMax && game.bonusTaps <= 0,
 );
+
+// Tutorial-Schritt 0: neue Spieler tippen ihr Tap-Budget leer, danach
+// öffnet sich das Willkommensgeschenk.
+const tapTutorialActive = computed(
+  () => game.tutorialStep === 0 && !shouldShowGiftDialog.value && !tapLimitReached.value,
+);
+const tapsUntilGift = computed(() => Math.max(0, game.tapsMax - game.tapsUsed));
 
 async function tap(e) {
   if (tapLimitReached.value) return;
@@ -1215,11 +1241,11 @@ async function doSplit(animalId) {
       <span class="db-arrow">›</span>
     </button>
 
-    <div class="scene-wrap" ref="sceneWrap">
+    <div class="scene-wrap" ref="sceneWrap" :class="{ 'tut-active': tapTutorialActive }">
       <TutorialBubble
-        v-if="game.tutorialStep === 0 && !shouldShowGiftDialog"
+        v-if="tapTutorialActive"
         class="tap-tutorial"
-        :text="tGlobal('tutorial.tap')"
+        :text="tGlobal('tutorial.tap', { n: tapsUntilGift })"
         finger="👇"
       />
       <div
@@ -1227,7 +1253,7 @@ async function doSplit(animalId) {
         :class="{
           disabled: tapLimitReached,
           boosted: game.favoriteBoostActive || game.bossBoostActive,
-          'tut-highlight': game.tutorialStep === 0 && !shouldShowGiftDialog,
+          'tut-glow': tapTutorialActive,
         }"
         @pointerdown="tap"
       >
@@ -1455,6 +1481,11 @@ async function doSplit(animalId) {
         <span class="qa-icon">🌍</span>
         <span class="qa-label">{{ tx("quick.world") }}</span>
         <span class="qa-sub">{{ tx("quick.worldSub") }}</span>
+      </router-link>
+      <router-link to="/blockfall" class="qa-btn">
+        <span class="qa-icon">🧱</span>
+        <span class="qa-label">{{ tx("quick.blockfall") }}</span>
+        <span class="qa-sub">{{ tx("quick.blockfallSub") }}</span>
       </router-link>
     </div>
 
@@ -2123,13 +2154,21 @@ async function doSplit(animalId) {
   position: relative;
   margin-bottom: 28px;
 }
+/* Tutorial-Schritt 0: die ganze Szene samt Tap-Knopf, Sprechblase und
+   Münz-Floats liegt über der Abdunkelung (z 700). Die Szene selbst bekommt
+   nur den Glow — mit .tut-highlight läge sie über Knopf und Sprechblase. */
+.scene-wrap.tut-active {
+  z-index: 760;
+}
 .tap-tutorial {
   position: absolute;
-  top: -28px;
+  bottom: 40px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 5;
+  z-index: 7;
 }
+.tap-tutorial :deep(.tb-bunny) { font-size: 30px; }
+.tap-tutorial :deep(.tb-finger) { font-size: 26px; }
 .zoo-scene {
   position: relative;
   height: 250px;
@@ -3203,6 +3242,34 @@ async function doSplit(animalId) {
   font-size: 36px;
   filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
   flex-shrink: 0;
+}
+.blockfall-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(155, 93, 229, 0.24), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(76, 201, 240, 0.18), transparent 50%),
+    var(--card);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.blockfall-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--purple);
+  box-shadow: 0 12px 28px rgba(155, 93, 229, 0.25);
+}
+.bfl-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.3));
+  flex-shrink: 0;
+  animation: bflDrop 2.2s ease-in infinite;
+}
+@keyframes bflDrop {
+  0% { transform: translateY(-6px); }
+  60%, 100% { transform: translateY(0); }
 }
 .events-toggle {
   display: flex;

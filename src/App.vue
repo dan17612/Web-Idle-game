@@ -283,6 +283,14 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
     <ConnectionBanner />
 
     <div v-if="tutorialDimActive" class="tutorial-dim"></div>
+    <button
+      v-if="tutorialDimActive"
+      type="button"
+      class="tutorial-skip"
+      @click="game.skipTutorial()"
+    >
+      {{ t('tutorial.skip') }} ✕
+    </button>
 
     <transition name="broadcast-fade">
       <div v-if="broadcast" class="broadcast-toast" :key="broadcast.id">
@@ -491,6 +499,23 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
   margin-bottom: 6px;
 }
 .nav-shop { position: relative; }
+/* Ausweg aus dem Tutorial, falls ein Schritt nicht erfüllbar ist (z. B.
+   Truhe nicht bezahlbar). Liegt über der Abdunkelung. */
+.tutorial-skip {
+  position: fixed;
+  top: calc(12px + var(--safe-top));
+  right: max(12px, calc((100% - 560px) / 2 + 12px));
+  z-index: 770;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(58, 40, 8, 0.55);
+  cursor: pointer;
+}
 .bottom-nav.tut-lift { z-index: 760; }
 .shop-tutorial {
   position: absolute;

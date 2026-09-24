@@ -52,6 +52,7 @@ export const useGameStore = defineStore('game', {
     dailyReward: null,
     driftProgress: { highest_level: 0, stars: {}, max_level: 12 },
     parkourProgress: { highest_level: 0, stars: {}, max_level: 12 },
+    blockfallProgress: { highest_level: 0, stars: {}, max_level: 30 },
     wordleState: null
   }),
   getters: {
@@ -121,6 +122,9 @@ export const useGameStore = defineStore('game', {
     },
     parkourActive(state) {
       return eventInfo(state.eventSchedule, EVENT_KEYS.parkour).active
+    },
+    blockfallActive(state) {
+      return eventInfo(state.eventSchedule, EVENT_KEYS.blockfall).active
     },
     boostActive(state) {
       return (Date.now() + state.serverOffset) < state.petBoostUntil
@@ -228,11 +232,18 @@ export const useGameStore = defineStore('game', {
         this.animals = animals || []
         try {
           const stored = localStorage.getItem('tutorialStep2:' + auth.user.id)
-          if (stored != null) {
-            this.tutorialStep = Number(stored)
-          } else {
-            this.tutorialStep = (this.newbieGiftClaimed || this.animals.length > 0) ? 5 : 0
-            localStorage.setItem('tutorialStep2:' + auth.user.id, String(this.tutorialStep))
+          const hasProgress = this.newbieGiftClaimed || this.animals.length > 0
+          let step = stored != null ? Number(stored) : (hasProgress ? 5 : 0)
+          if (!Number.isFinite(step) || step < 0) step = 5
+          // Schritt 0 (Tippen bis zum Geschenk) ist erledigt, sobald das
+          // Geschenk abgeholt wurde oder Tiere da sind — etwa auf einem
+          // anderen Gerät. Sonst bliebe die Abdunkelung für immer stehen.
+          if (step < 2 && hasProgress) {
+            step = this.animals.some(a => a.equipped) ? 5 : 2
+          }
+          this.tutorialStep = step
+          if (String(step) !== stored) {
+            localStorage.setItem('tutorialStep2:' + auth.user.id, String(step))
           }
         } catch { this.tutorialStep = 5 }
         if (!this.favoriteAnimalId && this.animals.length > 0) {
@@ -323,6 +334,28 @@ export const useGameStore = defineStore('game', {
       if (data?.tickets != null) this.tickets = Number(data.tickets)
       if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
       await this.loadParkourProgress()
+      return data
+    },
+    async loadBlockFallProgress() {
+      const { data, error } = await supabase.rpc('get_blockfall_progress')
+      if (error) throw error
+      if (data) {
+        this.blockfallProgress = data
+        if (data.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      }
+      return data
+    },
+    async completeBlockFallLevel(level, stars) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('complete_blockfall_level', {
+        p_level: Math.floor(Number(level) || 0),
+        p_stars: Math.max(1, Math.min(3, Math.floor(Number(stars) || 1)))
+      })
+      if (error) throw error
+      if (data?.coins != null) this.coins = Number(data.coins)
+      if (data?.tickets != null) this.tickets = Number(data.tickets)
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      await this.loadBlockFallProgress().catch(() => {})
       return data
     },
     async loadWordleState() {
@@ -534,6 +567,9 @@ export const useGameStore = defineStore('game', {
       } catch {}
       await this.load()
       return data
+    },
+    skipTutorial() {
+      this.setTutorialStep(5)
     },
     setTutorialStep(step) {
       const auth = useAuthStore()
