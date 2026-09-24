@@ -47,7 +47,20 @@ body {
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
   touch-action: manipulation;
+  /* Spiel, kein Dokument: Emojis/Text sollen beim Tippen nicht blau markiert
+     werden (Auswahl, Tap-Highlight, Long-Press-Menü). */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
+/* Eingabefelder bleiben normal auswähl- und bearbeitbar. */
+input, textarea, [contenteditable]:not([contenteditable="false"]) {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+img { -webkit-user-drag: none; user-drag: none; }
 button { font: inherit; color: inherit; }
 a { color: var(--accent-deep); text-decoration: none; }
 input, button, select, textarea {
