@@ -90,6 +90,22 @@ Spec: `docs/superpowers/specs/2026-08-03-zoo-welt-design.md`.
   braucht `.then(null, () => {})`, sonst wird die Query **nie ausgeführt**
   (`.catch?.()` startet sie nicht).
 
+## Zoo-Börse (`/market`) — Spezialwissen
+
+Spec: `docs/superpowers/specs/2026-09-24-tier-boerse-design.md`.
+
+- Marktwert pro `(species, tier)` = Basiswert × Stufe × (1 + 3 · Seltenheit ·
+  (1 − Beschaffbarkeit)), danach geklemmter Mix mit Trade-Medianen (7 Tage).
+  Formel doppelt: `_market_model`/`_market_values` (SQL) und `src/market.js`;
+  `src/marketSql.test.js` vergleicht die Konstanten.
+- Nur Spieler-zu-Spieler: `market_list` (Angebot), `market_buy` (annehmen),
+  `market_cancel`. Angebote sperren das Tier nicht — gültig ist ein Angebot nur,
+  solange `_market_listing_ok` gilt (Besitz, nicht ausgerüstet/upgradend/brütend).
+- Kursverlauf: `market_snapshots`, stündlich lazy aus `market_overview()`;
+  Sparklines = 28 Punkte im 6-h-Raster (Portfolio-Summe clientseitig).
+- Neue Tierquellen (Truhe, Ei, Zucht, Crafting) sollten in `_market_model`
+  als Beschaffbarkeit auftauchen, sonst gilt die Art als Limited Edition.
+
 ## Stolperfallen
 
 - `main.js` blockt Pinch/Double-Tap global — eigene Touch-Flächen brauchen
