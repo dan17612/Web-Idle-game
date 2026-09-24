@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { Capacitor } from '@capacitor/core'
+import { createTimeoutFetch } from './connectionHealth'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -13,8 +14,10 @@ if (!url || !key) {
 // einem erneuten load() veraltete Daten aus dem Cache – erst ein kompletter
 // App-Neustart leert diesen. cache: 'no-store' erzwingt bei jedem Request
 // einen echten Netzabruf, damit Daten immer aktuell sind.
-const noStoreFetch = (input, init = {}) =>
-  fetch(input, { ...init, cache: 'no-store' })
+// Zusätzlich Timeout: Nach App-Rückkehr aus dem Hintergrund hängen alte
+// Verbindungen sonst ewig und blockieren jeden weiteren Reload.
+const noStoreFetch = createTimeoutFetch((input, init = {}) =>
+  fetch(input, { ...init, cache: 'no-store' }))
 
 // detectSessionInUrl: false — wir parsen den Hash selbst in main.js,
 // weil wir createWebHashHistory nutzen (URL: /#/…) und Supabase-Tokens

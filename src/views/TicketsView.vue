@@ -454,7 +454,7 @@ useReturnRefresh(loadShop);
 
 let timer;
 onMounted(async () => {
-  if (!game.animals.length) await game.load();
+  if (!game.animals.length) await game.load().catch(() => {});
   await loadShop();
   timer = setInterval(() => {
     if (document.visibilityState !== "visible") return;

@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
-import { nextRetryDelay, isNetworkError } from '../connectionHealth'
+import { nextRetryDelay, isNetworkError, wakeRealtime } from '../connectionHealth'
+import { fireAppReconnected } from './useAppResume'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -68,7 +69,8 @@ async function pingSupabase() {
   }
 }
 
-// Health-Check → Session auffrischen → Spieldaten neu laden.
+// Health-Check → Session auffrischen → Realtime wecken → Spieldaten neu laden
+// → Views benachrichtigen (onAppReconnected).
 // Stores werden dynamisch importiert, um einen statischen Zyklus
 // (game.js → useConnectionHealth → game.js) zu vermeiden.
 export async function reconnect() {
@@ -94,11 +96,14 @@ export async function reconnect() {
     const auth = useAuthStore()
     const game = useGameStore()
     if (auth.isAuth) {
+      // getSession() frischt ein im Hintergrund abgelaufenes Token auf.
       await supabase.auth.getSession()
+      wakeRealtime(supabase.realtime)
       if (!game.loading) await game.load()
     } else {
       reportSyncSuccess()
     }
+    fireAppReconnected()
     return true
   } catch (e) {
     if (isNetworkError(e)) state.healthOk = false

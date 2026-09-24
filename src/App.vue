@@ -14,6 +14,7 @@ import TutorialBubble from "./components/TutorialBubble.vue";
 import ConnectionBanner from "./components/ConnectionBanner.vue";
 import { t } from "./i18n";
 import { onAppResume } from "./composables/useAppResume";
+import { reconnect } from "./composables/useConnectionHealth";
 import { usePullToRefresh } from "./composables/usePullToRefresh";
 
 const adminOpen = ref(false);
@@ -43,10 +44,13 @@ function refreshIfStale() {
   }
 }
 
-function refreshOnReturn() {
-  if (!auth.isAuth || game.loading) return;
+// Rückkehr aus dem Hintergrund: Verbindung komplett neu aufbauen
+// (Health-Check → Session → Realtime → game.load → View-Loader via
+// onAppReconnected). Schlägt es fehl, versucht reconnect() es mit Backoff erneut.
+function resyncOnReturn() {
+  if (!auth.isAuth) return;
   if (Date.now() - game.lastLoadedAt < RETURN_THROTTLE_MS) return;
-  game.load().catch(() => {});
+  reconnect();
 }
 
 const broadcast = ref(null);
@@ -112,7 +116,7 @@ onUnmounted(() => {
 
 onMounted(async () => {
   if (auth.isAuth) {
-    await game.load();
+    await game.load().catch(() => {});
     subscribeBroadcasts();
     auth.loadMySupportTickets().catch(() => {});
     auth.loadAdminSupportOverview().catch(() => {});
@@ -158,7 +162,7 @@ onMounted(async () => {
 // App-Rückkehr: Web (visibility/focus/pageshow/online) + Capacitor (appStateChange/resume).
 // Auf Android löst nur appStateChange beim Wiederöffnen aus dem Hintergrund zuverlässig aus.
 onAppResume(() => {
-  refreshOnReturn();
+  resyncOnReturn();
   if (auth.isAuth) {
     auth.loadMySupportTickets().catch(() => {});
     auth.loadAdminSupportOverview().catch(() => {});

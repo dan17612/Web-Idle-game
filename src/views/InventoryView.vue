@@ -23,7 +23,7 @@ async function loadSlot() {
 }
 
 onMounted(async () => {
-  if (!game.animals.length) await game.load();
+  if (!game.animals.length) await game.load().catch(() => {});
   await loadEggCatalog();
   await loadSlot();
 });
