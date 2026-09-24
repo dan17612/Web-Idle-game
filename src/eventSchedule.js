@@ -13,7 +13,8 @@ export const EVENT_KEYS = {
   parkour: 'parkour_game',
   wordle: 'wordle_game',
   world: 'world_lobby',
-  breeding: 'breeding_game'
+  breeding: 'breeding_game',
+  blockfall: 'blockfall_game'
 }
 
 export function eventInfo(schedule, key, now = Date.now()) {
