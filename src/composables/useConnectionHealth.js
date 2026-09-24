@@ -1,5 +1,8 @@
 import { reactive } from 'vue'
-import { nextRetryDelay, isNetworkError, wakeRealtime } from '../connectionHealth'
+import {
+  nextRetryDelay, isNetworkError, wakeRealtime,
+  createStallWatchdog, STALL_PROBE_INTERVAL_MS
+} from '../connectionHealth'
 import { fireAppReconnected } from './useAppResume'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
@@ -115,9 +118,46 @@ export async function reconnect() {
   }
 }
 
+const WATCHDOG_RELOAD_KEY = 'watchdogReloadAt'
+const WATCHDOG_RELOAD_COOLDOWN_MS = 3 * 60 * 1000
+
+// Letzte Rettung: Hängt der Supabase-Client fest (jede Anfrage wartet ewig),
+// hilft nur ein Neuladen der App. Schleifen-Schutz über sessionStorage.
+function reloadAfterStall() {
+  console.warn('[Watchdog] Supabase-Client reagiert nicht mehr – lade App neu')
+  try {
+    const last = Number(sessionStorage.getItem(WATCHDOG_RELOAD_KEY) || 0)
+    if (Date.now() - last < WATCHDOG_RELOAD_COOLDOWN_MS) return
+    sessionStorage.setItem(WATCHDOG_RELOAD_KEY, String(Date.now()))
+  } catch {}
+  window.location.reload()
+}
+
+function startStallWatchdog() {
+  const watchdog = createStallWatchdog({
+    probe: async () => {
+      const { supabase } = await import('../supabase')
+      await supabase.auth.getSession()
+    },
+    onStall: reloadAfterStall
+  })
+  let last = Date.now()
+  setInterval(() => {
+    const now = Date.now()
+    // Hintergrund-/Offline-Zeit zählt nicht als „hängt"; gedrosselte Timer
+    // nach der Rückkehr werden auf zwei Intervalle gedeckelt.
+    const elapsed = Math.min(now - last, STALL_PROBE_INTERVAL_MS * 2)
+    last = now
+    if (document.visibilityState !== 'visible') return
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+    watchdog.tick(elapsed)
+  }, STALL_PROBE_INTERVAL_MS)
+}
+
 export function initConnectionWatch() {
   if (initialized || typeof window === 'undefined') return
   initialized = true
+  startStallWatchdog()
   window.addEventListener('online', () => {
     state.navigatorOnline = true
     reconnect()

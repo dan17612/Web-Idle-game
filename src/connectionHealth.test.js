@@ -7,6 +7,7 @@ import {
   createTimeoutFetch,
   firstQueryError,
   wakeRealtime,
+  createStallWatchdog,
   STALE_WARN_MS,
   RETRY_BASE_MS,
   RETRY_MAX_MS
@@ -164,4 +165,50 @@ test('wakeRealtime öffnet ohne Kanäle keinen Socket', () => {
   assert.deepEqual(rt.calls, [])
   assert.equal(wakeRealtime(null), false)
   assert.equal(wakeRealtime({ getChannels: () => { throw new Error('x') } }), false)
+})
+
+const flush = () => new Promise((r) => setTimeout(r, 0))
+
+test('Watchdog meldet nichts, solange die Probe antwortet', async () => {
+  let stalls = 0, probes = 0
+  const w = createStallWatchdog({ probe: async () => { probes++ }, onStall: () => stalls++, stallMs: 10_000 })
+  for (let i = 0; i < 10; i++) { w.tick(5_000); await flush() }
+  assert.equal(stalls, 0)
+  assert.equal(probes, 10)
+  assert.equal(w.probing, false)
+})
+
+test('Watchdog schlägt an, wenn die Probe zu lange hängt', async () => {
+  let stalls = 0
+  const w = createStallWatchdog({ probe: () => new Promise(() => {}), onStall: () => stalls++, stallMs: 10_000 })
+  w.tick(5_000) // startet Probe
+  await flush()
+  w.tick(5_000)
+  assert.equal(stalls, 0)
+  w.tick(5_000)
+  assert.equal(stalls, 1)
+  assert.equal(w.probing, false)
+})
+
+test('Watchdog setzt zurück, wenn eine langsame Probe doch fertig wird', async () => {
+  let stalls = 0, resolve
+  const w = createStallWatchdog({ probe: () => new Promise((r) => { resolve = r }), onStall: () => stalls++, stallMs: 10_000 })
+  w.tick(5_000)
+  await flush()
+  w.tick(5_000)
+  assert.equal(w.stuckFor, 5_000)
+  resolve()
+  await flush()
+  assert.equal(w.probing, false)
+  assert.equal(w.stuckFor, 0)
+  assert.equal(stalls, 0)
+})
+
+test('Watchdog wertet fehlschlagende Probe als Antwort (kein Hänger)', async () => {
+  let stalls = 0
+  const w = createStallWatchdog({ probe: async () => { throw new Error('offline') }, onStall: () => stalls++, stallMs: 1 })
+  w.tick(5_000)
+  await flush()
+  w.tick(5_000)
+  assert.equal(stalls, 0)
 })
