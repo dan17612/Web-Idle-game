@@ -13,6 +13,22 @@ import { onMounted, onUnmounted, ref } from 'vue'
 // options:
 //   onRefresh: () => void  – wird beim Loslassen über dem Schwellwert aufgerufen
 //   enabled: () => boolean – Geste nur aktiv, wenn true (z. B. eingeloggt)
+// Gesten in Vollbild-Spielen, Modals und Touch-Flächen (Joystick, Spielfeld)
+// dürfen nie ein Neuladen auslösen: Die Seite darunter steht oft ganz oben,
+// ein Wisch nach unten im Spiel sähe sonst wie „runterziehen" aus.
+// Blockiert, sobald das Ziel oder ein Vorfahr touch-action: none hat, fixiert
+// positioniert ist (Overlay/Modal) oder data-no-pull-refresh trägt.
+export function blocksPullToRefresh(el, getStyle = (n) => getComputedStyle(n)) {
+  for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+    if (n.hasAttribute && n.hasAttribute('data-no-pull-refresh')) return true
+    if (n.tagName === 'BODY' || n.tagName === 'HTML') return false
+    const s = getStyle(n)
+    if (!s) continue
+    if (s.touchAction === 'none' || s.position === 'fixed') return true
+  }
+  return false
+}
+
 export function usePullToRefresh({ onRefresh, enabled } = {}) {
   const THRESHOLD = 64 // px (gedämpft), ab hier wird ausgelöst
   const MAX = 110 // px, gedämpftes Maximum für den Indikator
@@ -39,6 +55,7 @@ export function usePullToRefresh({ onRefresh, enabled } = {}) {
     if (refreshing.value) return
     if (enabled && !enabled()) { active = false; return }
     if (e.touches.length !== 1) { active = false; return }
+    if (blocksPullToRefresh(e.target)) { active = false; return }
     // Nur starten, wenn wir ganz oben stehen.
     if (!atTop()) { active = false; return }
     startY = e.touches[0].clientY

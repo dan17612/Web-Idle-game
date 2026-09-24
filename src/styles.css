@@ -33,6 +33,9 @@
 
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
+/* Kein natives Runterziehen-zum-Neuladen (Android/Chrome) — der Browser wertet
+   das am Root-Scroller aus, also muss es auch auf html stehen. */
+html { overscroll-behavior-y: none; }
 body {
   font-family: var(--font-round);
   background:
