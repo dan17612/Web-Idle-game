@@ -701,7 +701,7 @@ useReturnRefresh(loadTrades)
 // --- Realtime
 let channel
 onMounted(async () => {
-  await game.load()
+  await game.load().catch(() => {})
   await loadEggCatalog()
   await loadTrades()
   // Prefill from ?partner= or ?send= query (from Freunde-Ansicht)

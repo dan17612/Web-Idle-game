@@ -20,3 +20,20 @@ export function onAppResume(cb) {
   onMounted(() => callbacks.add(cb))
   onUnmounted(() => callbacks.delete(cb))
 }
+
+// Zweite Stufe: feuert, nachdem die Verbindung nach einer Rückkehr (oder nach
+// einem Netzausfall) wieder steht und game.load() durch ist. Views laden ihre
+// eigenen Daten erst dann — sonst laufen sie ins noch tote Netz und zeigen
+// nur Platzhalter.
+const reconnectCallbacks = new Set()
+
+export function fireAppReconnected() {
+  for (const cb of reconnectCallbacks) {
+    try { cb() } catch (e) { console.error('onAppReconnected callback failed', e) }
+  }
+}
+
+export function onAppReconnected(cb) {
+  onMounted(() => reconnectCallbacks.add(cb))
+  onUnmounted(() => reconnectCallbacks.delete(cb))
+}

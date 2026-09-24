@@ -5,6 +5,7 @@ import { useAuthStore } from './auth'
 import { t } from '../i18n'
 import { groupAnimalsForAutoRelease } from '../autoRelease'
 import { reportSyncSuccess, reportSyncFailure } from '../composables/useConnectionHealth'
+import { firstQueryError } from '../connectionHealth'
 import { EVENT_KEYS, eventInfo } from '../eventSchedule'
 
 const TAP_MAX = 10
@@ -205,11 +206,16 @@ export const useGameStore = defineStore('game', {
       this.loading = true
       try {
         await this.ensureCatalog()
-        const [{ data: p }, { data: animals }, tapStatus] = await Promise.all([
+        const results = await Promise.all([
           supabase.from('profiles').select('coins, tickets, last_collected_at, equip_slots, favorite_animal_id, tap_level, tap_cap_level, offline_level').eq('id', auth.user.id).maybeSingle(),
           supabase.from('animals').select('*').eq('owner_id', auth.user.id).order('acquired_at'),
           supabase.rpc('get_tap_status', { p_max: TAP_MAX })
         ])
+        // Fehlgeschlagene Abfrage (z. B. kurz nach App-Rückkehr) darf den
+        // Stand nicht mit 0 Coins / leerer Tierliste überschreiben.
+        const failure = firstQueryError(results.slice(0, 2))
+        if (failure) throw failure
+        const [{ data: p }, { data: animals }, tapStatus] = results
         this.coins = Number(p?.coins ?? 0)
         this.tickets = Number(p?.tickets ?? 0)
         this.equipSlots = Number(p?.equip_slots ?? 1)
@@ -509,6 +515,7 @@ export const useGameStore = defineStore('game', {
         const { data, error } = await supabase.rpc('collect_offline', { p_coins: pending })
         if (!error && data?.coins != null) this.coins = Number(data.coins)
         if (!error) reportSyncSuccess()
+        else reportSyncFailure(error)
       } catch (e) {
         // Persist ist Best-Effort (z.B. waehrend JWT-Refresh) und darf nachfolgende
         // Aktionen wie complete_boss_stage nicht blockieren.

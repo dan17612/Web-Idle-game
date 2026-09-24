@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import { supabase } from './supabase'
 import { locale } from './i18n'
+import { firstQueryError } from './connectionHealth'
 
 // DB-driven species cache (gefüllt beim App-Start)
 export const SPECIES = reactive({})
@@ -57,10 +58,14 @@ export function speciesName(key, fallback = '') {
 }
 
 export async function loadCatalog() {
-  const [{ data: sp }, { data: tiers }] = await Promise.all([
+  const results = await Promise.all([
     supabase.from('species_costs').select('species, name, emoji, cost, rate, enabled, shop_visible, rarity').order('cost'),
     supabase.from('tier_defs').select('*')
   ])
+  // Netzfehler: Katalog nicht leeren, sonst bleiben überall ❓-Platzhalter.
+  const failure = firstQueryError(results)
+  if (failure) throw failure
+  const [{ data: sp }, { data: tiers }] = results
   for (const k of Object.keys(SPECIES)) delete SPECIES[k]
   for (const r of sp || []) {
     SPECIES[r.species] = {
