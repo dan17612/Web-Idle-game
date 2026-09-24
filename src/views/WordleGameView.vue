@@ -210,7 +210,7 @@ function onKeyDown(e) {
 }
 
 function openLeaderboard() {
-  router.push({ name: 'leaderboard' })
+  router.push({ name: 'leaderboard', query: { tab: 'wordle' } })
 }
 
 function dismissTutorial() {
