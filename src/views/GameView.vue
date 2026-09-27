@@ -2020,6 +2020,8 @@ async function doSplit(animalId) {
       </div>
     </div>
 
+    <EggMachine />
+
     <div class="events-head">
       <h2 class="events-title">{{ tx("events.title") }}</h2>
       <div class="events-sort" role="group">
@@ -2034,8 +2036,6 @@ async function doSplit(animalId) {
         >{{ tx(EVENT_SORT_LABELS[mode]) }}</button>
       </div>
     </div>
-
-    <EggMachine />
 
     <component
       v-for="card in activeEvents"
@@ -2600,7 +2600,7 @@ async function doSplit(animalId) {
   margin-top: 2px;
 }
 .pet-status.boost {
-  color: #1d9457;
+  color: var(--success-ink);
   font-weight: 800;
 }
 .pet-actions {
@@ -2772,8 +2772,8 @@ async function doSplit(animalId) {
 .farm-cell.tiered {
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--tier-color) 24%, #fff) 0%,
-    color-mix(in srgb, var(--tier-color) 8%, #fff) 100%
+    color-mix(in srgb, var(--tier-color) 24%, var(--mix-base)) 0%,
+    color-mix(in srgb, var(--tier-color) 8%, var(--mix-base)) 100%
   );
   border-color: color-mix(in srgb, var(--tier-color) 55%, transparent);
   box-shadow: 0 4px 16px color-mix(in srgb, var(--tier-color) 25%, transparent);
@@ -3111,8 +3111,8 @@ async function doSplit(animalId) {
   --tier-color: #b8a888;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--tier-color) 26%, #fff) 0%,
-    color-mix(in srgb, var(--tier-color) 8%, #fff) 100%
+    color-mix(in srgb, var(--tier-color) 26%, var(--mix-base)) 0%,
+    color-mix(in srgb, var(--tier-color) 8%, var(--mix-base)) 100%
   );
   border: 2px solid color-mix(in srgb, var(--tier-color) 55%, transparent);
   border-radius: 14px;
@@ -3186,7 +3186,7 @@ async function doSplit(animalId) {
   font-variant-numeric: tabular-nums;
 }
 .cr-qty-label.ok {
-  color: #1d9457;
+  color: var(--success-ink);
 }
 .cr-ready-dot {
   font-size: 8px;
@@ -3488,6 +3488,10 @@ async function doSplit(animalId) {
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+/* Dark Mode: Verlaufs-Titel aufhellen, sonst saufen Blau/Lila im Grau ab. */
+.app-dark .bpl-title { background-image: linear-gradient(90deg, #ffc24a, #ff7ba1, #b69cff); }
+.app-dark .ml-title { background-image: linear-gradient(90deg, #4ade80, #5ec8f5, #b69cff); }
+.app-dark .dl-title { background-image: linear-gradient(90deg, #5ec8f5, #ff7ba1, #ffc24a); }
 .parkour-link {
   display: flex;
   align-items: center;

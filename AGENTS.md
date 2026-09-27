@@ -7,7 +7,7 @@ was ein Agent wissen muss, bevor er Code anfasst.
 ## Stack & Kommandos
 
 - Vue 3 (`<script setup>`, JS — **kein TypeScript**), Pinia, vue-router
-  (Hash-History), PrimeVue 4 (Aura, immer hell), Three.js (nur Minispiele/Welt),
+  (Hash-History), PrimeVue 4 (Aura, Dark über `.app-dark`), Three.js (nur Minispiele/Welt),
   Capacitor 8 (Android), Vite.
 - Backend: Supabase (Projekt-ID `rkskpvbismdlsevaqoer`, eu-north-1).
 - `npm run dev` — Dev-Server (Preview-Browser hat eine eingeloggte Test-Session;
@@ -42,10 +42,20 @@ was ein Agent wissen muss, bevor er Code anfasst.
 
 ## UI & Design-System („Toy Look")
 
-- Tokens in `src/styles.css:1-32`: `--bg #fdf2d9`, `--card`, `--accent #f4a912`,
+- Tokens in `src/styles.css:1-44`: `--bg #fdf2d9`, `--card`, `--accent #f4a912`,
   `--accent-2`, `--purple`, `--danger`, `--border`, `--radius: 22px`,
   `--space-1..6`, `--safe-top/--safe-bot` (`env(safe-area-inset-*)`).
   Keine Navy-Hexcodes; immer Tokens verwenden.
+- **Dark Mode (Discord-Look)**: `html.app-dark` in `src/styles.css:46-93`
+  überschreibt die Tokens (Grau `#313338/#2b2d31/#1e1f22`) und PrimeVues
+  Surface-Skala. Umschalter in Settings (`System/Hell/Dunkel`,
+  `src/theme.js` + `composables/useTheme.js`, Pre-Paint in `index.html`).
+  Neue Farben daher nie hart hell (`#fff`, `rgba(255,255,255,.9)`, Cremetöne)
+  auf Flächen mit `var(--heading)`-Text setzen — Tokens nutzen
+  (`--mix-base` statt `#fff` in `color-mix`, `--success-ink`, `--info-ink`,
+  `--overlay`, `--accent-shade` für Button-Schatten) oder am Ende des
+  Scoped-Styles `.app-dark .klasse { … }` ergänzen.
+  Spec: `docs/superpowers/specs/2026-09-27-dark-mode-eier-maschine-design.md`.
 - Chunky Buttons: `.btn` (Gold-Gradient, harter Bottom-Shadow), Varianten
   `.secondary`, `.danger`, `.btn-ghost`, `.full`. PrimeVue-Komponenten (Button,
   InputText, Select, Toast …) sind global registriert — nicht importieren.

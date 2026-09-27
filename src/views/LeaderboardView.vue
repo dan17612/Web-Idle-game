@@ -421,7 +421,7 @@ const subtitle = computed(() => t(SUBTITLES[mode.value] || 'leaderboard.subtitle
     radial-gradient(circle at 0% 0%, rgba(25, 146, 200, 0.18), transparent 60%),
     linear-gradient(135deg, var(--card-2), var(--surface-deep));
   border: 1px solid rgba(25, 146, 200, 0.45);
-  color: #1992c8;
+  color: var(--info-ink);
   font-weight: 800;
   font-size: 13px;
   font-variant-numeric: tabular-nums;

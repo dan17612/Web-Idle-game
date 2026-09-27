@@ -19,6 +19,7 @@ import './styles.css'
 import 'primeicons/primeicons.css'
 import { initLocale, t } from './i18n'
 import './composables/useAnimations'
+import './composables/useTheme'
 import { fireAppResume } from './composables/useAppResume'
 import { initConnectionWatch } from './composables/useConnectionHealth'
 // Zoom global deaktivieren (Pinch, Double-Tap, Gesture-Zoom).
@@ -138,7 +139,9 @@ async function bootstrap() {
     theme: {
       preset: Aura,
       options: {
-        darkModeSelector: false
+        // Gleiche Klasse wie src/theme.js (DARK_CLASS) — PrimeVue-Komponenten
+        // (Toast, ToggleSwitch …) wechseln so mit ins Discord-Dunkel.
+        darkModeSelector: '.app-dark'
       }
     }
   })

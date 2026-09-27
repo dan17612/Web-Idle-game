@@ -717,7 +717,7 @@ onUnmounted(() => {
 
 .wd-zone-btn { position:absolute; left:50%; transform:translateX(-50%);
   bottom:calc(170px + var(--safe-bot)); font-weight:900; white-space:nowrap;
-  box-shadow:0 4px 0 var(--accent-deep), 0 10px 26px rgba(60,40,10,0.3); }
+  box-shadow:0 4px 0 var(--accent-shade), 0 10px 26px rgba(60,40,10,0.3); }
 
 .wd-joy { position:absolute; left:16px; bottom:calc(18px + var(--safe-bot)); }
 
@@ -728,7 +728,7 @@ onUnmounted(() => {
   box-shadow:0 5px 14px rgba(60,40,10,0.25); backdrop-filter:blur(2px);
   display:flex; align-items:center; justify-content:center; padding:0; }
 .wd-fab.on { background:linear-gradient(180deg,var(--accent-soft),var(--accent));
-  box-shadow:0 4px 0 var(--accent-deep); }
+  box-shadow:0 4px 0 var(--accent-shade); }
 .wd-fab.honk { background:linear-gradient(180deg,#ffd0dc,#ef8aa6); }
 .wd-fab:active { transform:scale(0.92); }
 
@@ -791,4 +791,14 @@ onUnmounted(() => {
 .wd-tut-demo { text-align:center; font-size:34px; }
 .wd-tut ol { text-align:left; margin:0; padding-left:20px; display:flex;
   flex-direction:column; gap:8px; color:var(--text); font-size:13px; font-weight:600; }
+
+/* ── Dark Mode (Discord-Look) ─────────────────────────────────────── */
+.app-dark .wd-hud-top { background:rgba(43,45,49,0.94); }
+.app-dark .wd-loading { background:rgba(30,31,34,0.8); }
+.app-dark .wd-plaque { background:rgba(43,45,49,0.94); box-shadow:0 6px 16px rgba(0,0,0,0.35); }
+.app-dark .wd-fab { border-color:#4e5058; background:rgba(43,45,49,0.7); }
+.app-dark .wd-fab.on { background:linear-gradient(180deg,var(--accent-soft),var(--accent)); }
+.app-dark .wd-fab.honk { background:linear-gradient(180deg,#ffd0dc,#ef8aa6); }
+.app-dark .wd-leash-item.on { background:rgba(244,169,18,0.14); }
+.app-dark .wd-pop { background:rgba(43,45,49,0.97); box-shadow:0 12px 30px rgba(0,0,0,0.45); }
 </style>

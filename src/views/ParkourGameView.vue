@@ -628,4 +628,17 @@ onUnmounted(() => {
 .eo-body { min-width: 0; }
 .eo-title { font-weight: 900; color: var(--danger); }
 .eo-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ── Dark Mode (Discord-Look) ─────────────────────────────────────── */
+.app-dark .pn-stars,
+.app-dark .hud-stars,
+.app-dark .pf-stars { color:#5c5f66; }
+.app-dark .pk-hud { background:rgba(43,45,49,0.94); }
+.app-dark .psh-tap { background:rgba(43,45,49,0.95); }
+.app-dark .pk-loading-3d { background:rgba(30,31,34,0.8); }
+.app-dark .pf-badge { background:rgba(35,165,90,0.16); color:var(--success-ink); border-color:rgba(35,165,90,0.55); }
+.app-dark .pf-item { background:rgba(244,169,18,0.1); }
+.app-dark .pf-item.tickets { background:rgba(88,101,242,0.14); }
+.app-dark .pk-finish,
+.app-dark .tut-backdrop { background:var(--overlay); }
 </style>

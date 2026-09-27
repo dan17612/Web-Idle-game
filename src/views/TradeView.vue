@@ -1435,7 +1435,7 @@ function statusLabel(status) {
 }
 .tv-tab-icon { font-size: 18px; line-height: 1.1; }
 .tv-tab-label { font-size: 11px; font-weight: 800; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tv-tab.active { background: linear-gradient(180deg, var(--accent-soft), var(--accent)); box-shadow: 0 3px 0 var(--accent-deep); }
+.tv-tab.active { background: linear-gradient(180deg, var(--accent-soft), var(--accent)); box-shadow: 0 3px 0 var(--accent-shade); }
 .tv-tab.active .tv-tab-label { color: var(--accent-ink); }
 .tv-badge {
   position: absolute; top: 2px; right: 4px; min-width: 18px; height: 18px; padding: 0 5px;
@@ -1463,7 +1463,7 @@ function statusLabel(status) {
 .tv-step {
   width: 28px; height: 28px; border-radius: 50%; flex: 0 0 auto; display: grid; place-items: center;
   font-weight: 900; font-size: 14px; color: var(--accent-ink);
-  background: linear-gradient(160deg, var(--accent-soft), var(--accent)); box-shadow: 0 2px 0 var(--accent-deep);
+  background: linear-gradient(160deg, var(--accent-soft), var(--accent)); box-shadow: 0 2px 0 var(--accent-shade);
 }
 .tv-val { margin-left: auto; font-weight: 900; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--heading); white-space: nowrap; }
 .side-give { border-color: color-mix(in srgb, var(--danger) 30%, var(--border)); }

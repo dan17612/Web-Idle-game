@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#fdf2d9" />
+    <script>
+      // Farbschema vor dem ersten Paint setzen (kein heller Blitz im Dark Mode).
+      // Spiegel von src/theme.js — Key, Klasse und Farbe synchron halten.
+      (function () {
+        try {
+          var p = localStorage.getItem('zoo.theme');
+          var dark = p === 'dark' || (p !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (!dark) return;
+          document.documentElement.classList.add('app-dark');
+          document.documentElement.style.colorScheme = 'dark';
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#313338');
+        } catch (e) {}
+      })();
+    </script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

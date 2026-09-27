@@ -564,7 +564,7 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
 .event-banner.ended { background:linear-gradient(135deg,#2a1226,#1a0a1a);
   border-color:rgba(239,71,111,0.55); }
 .event-banner-icon { font-size:26px; }
-.event-banner-title { font-weight:900; font-size:14px; color:#1992c8; }
+.event-banner-title { font-weight:900; font-size:14px; color: var(--info-ink); }
 .event-banner.ended .event-banner-title { color:#ef476f; }
 .event-banner-sub { margin-top:2px; font-size:12px; color:var(--muted); font-weight:700; }
 .path-complete { text-align:center; padding:12px; border-radius:14px;
@@ -760,4 +760,10 @@ onUnmounted(() => { if (clockTimer) clearInterval(clockTimer) })
   .mem-stage-card { width:min(260px,90%); }
   .mem-node-circle { width:64px; height:64px; font-size:34px; }
 }
+
+/* ── Dark Mode (Discord-Look) ─────────────────────────────────────── */
+.app-dark .mem-stage-card { background:rgba(43,45,49,0.92); box-shadow:0 14px 30px rgba(0,0,0,0.4); }
+.app-dark .mem-stage.red-zone .mem-stage-card { background:rgba(74,34,38,0.94); }
+.app-dark .mem-node-circle { background:radial-gradient(circle at 40% 30%,#4e5058,var(--surface-deep)); }
+.app-dark .mem-trail { background:repeating-linear-gradient(180deg,rgba(255,255,255,0.22) 0 8px,transparent 8px 16px); }
 </style>
