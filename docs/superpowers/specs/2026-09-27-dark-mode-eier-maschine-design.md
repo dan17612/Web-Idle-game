@@ -65,3 +65,40 @@ tönt das Spielbrett im Dunkel passend ab.
   vor der „Ereignisse"-Liste.
 - Keine RPC-/SQL-Änderung: weiter `start_incubation`, `claim_hatched`,
   `get_incubation_status`.
+
+## Nachtrag: Zwei Brutplätze
+
+Die Eier-Maschine brütet **zwei Eier gleichzeitig**.
+
+### Datenbank (Migration `20260927_eier_zwei_brutplaetze.sql`)
+
+- `egg_incubations` bekommt `slot smallint not null default 1`
+  (`check (slot between 1 and 2)`), Primärschlüssel wird
+  `(user_id, slot)`. Laufende Bruten landen in Platz 1.
+- `start_incubation(p_egg_id)` sperrt die Profilzeile (`for update`),
+  sucht den ersten freien Platz (1..2) und wirft `incubator slots are busy`,
+  wenn beide belegt sind. Trade-Sperre und Zucht-Ergebnis
+  (`bred_species`/`bred_minutes`) bleiben unverändert. Antwort enthält `slot`.
+- `get_incubation_status()` liefert `slots` (sortiert nach Platz, je
+  `slot, egg_type, started_at, ready_at, ready_now`), `max_slots = 2`,
+  `server_now` — und weiterhin die alten Top-Level-Felder (`active`,
+  `egg_type`, `ready_at`, …) für den zuerst fertigen Platz, damit ältere
+  App-Versionen (gebündelte Android-Builds) weiter funktionieren.
+- `claim_hatched(p_slot int default null)` ersetzt `claim_hatched()`:
+  ohne Platz wird der zuerst fertige Platz abgeholt (alte Clients), mit
+  Platz genau dieser. Antwort enthält `slot`.
+- Alle drei RPCs: `security definer set search_path = public`, Grant nur
+  `authenticated`, `revoke … from anon, public`.
+
+### Client
+
+- `src/eggSlots.js` (rein, getestet): `EGG_SLOTS = 2` (Spiegel der
+  SQL-Konstante), `normalizeIncubation()` macht aus altem wie neuem Format
+  eine Platzliste, `slotRemainingMs()`, `slotProgress()`, `freeSlots()`.
+- Store: `incubation` hält den normalisierten Stand,
+  `claimHatched(slot)` übergibt `p_slot`.
+- `EggMachine.vue`: zwei Brutplatz-Zeilen (leer · brütet · fertig mit
+  eigenem „Abholen"), Kopf zeigt „Brutplätze x/2". Im geöffneten Zustand
+  startet „Ausbrüten starten" ein Ei im nächsten freien Platz; sind beide
+  Plätze frei und vom gewählten Ei mindestens zwei da, gibt es zusätzlich
+  „2× ausbrüten".
