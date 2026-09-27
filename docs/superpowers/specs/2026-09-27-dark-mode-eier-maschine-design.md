@@ -63,8 +63,8 @@ tönt das Spielbrett im Dunkel passend ab.
     Anzahl) und „Ausbrüten starten".
 - Platzierung: direkt unter der Fusions-Maschine (wie ursprünglich geplant),
   vor der „Ereignisse"-Liste.
-- Keine RPC-/SQL-Änderung: weiter `start_incubation`, `claim_hatched`,
-  `get_incubation_status`.
+- RPCs: `start_incubation`, `claim_hatched`, `get_incubation_status` —
+  erweitert für zwei Brutplätze, siehe Nachtrag.
 
 ## Nachtrag: Zwei Brutplätze
 

@@ -7,6 +7,7 @@ import { groupAnimalsForAutoRelease } from '../autoRelease'
 import { reportSyncSuccess, reportSyncFailure } from '../composables/useConnectionHealth'
 import { firstQueryError } from '../connectionHealth'
 import { EVENT_KEYS, eventInfo } from '../eventSchedule'
+import { normalizeIncubation } from '../eggSlots'
 
 const TAP_MAX = 10
 const TAP_MUL_MAX_LEVEL = 300
@@ -49,7 +50,8 @@ export const useGameStore = defineStore('game', {
     autoReleaseMap: {},
     _autoReleasing: false,
     playerEggs: [],
-    incubation: { active: false, egg_type: null, started_at: null, ready_at: null, ready_now: false },
+    // Brutplätze der Eier-Maschine (src/eggSlots.js): { active, maxSlots, slots[] }
+    incubation: normalizeIncubation({ slots: [] }),
     dailyReward: null,
     driftProgress: { highest_level: 0, stars: {}, max_level: 12 },
     parkourProgress: { highest_level: 0, stars: {}, max_level: 12 },
@@ -394,7 +396,8 @@ export const useGameStore = defineStore('game', {
       if (!auth.user) return
       const { data, error } = await supabase.rpc('get_incubation_status')
       if (error) return
-      this.incubation = data || { active: false }
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      this.incubation = normalizeIncubation(data)
     },
     async buyEgg(eggType, qty = 1) {
       const { data, error } = await supabase.rpc('buy_egg', { p_egg_type: eggType, p_qty: qty })
@@ -430,8 +433,8 @@ export const useGameStore = defineStore('game', {
       await this.loadPlayerEggs()
       return data
     },
-    async claimHatched() {
-      const { data, error } = await supabase.rpc('claim_hatched')
+    async claimHatched(slot = null) {
+      const { data, error } = await supabase.rpc('claim_hatched', slot ? { p_slot: slot } : {})
       if (error) throw error
       const auth = useAuthStore()
       if (auth.user) {

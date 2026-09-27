@@ -4,6 +4,7 @@ import { useGameStore } from '../stores/game'
 import { useAppToast } from '../composables/useAppToast'
 import { speciesInfo } from '../animals'
 import { rarityInfo, EGG_TYPES, loadEggCatalog } from '../eggs'
+import { slotRemainingMs, slotReady, slotProgress, freeSlots } from '../eggSlots'
 import { t } from '../i18n'
 
 const game = useGameStore()
@@ -24,7 +25,6 @@ onMounted(async () => {
 })
 onUnmounted(() => clearInterval(timer))
 
-const incubation = computed(() => game.incubation || { active: false })
 const playerEggs = computed(() => game.playerEggs || [])
 
 const groupedEggs = computed(() => {
@@ -47,12 +47,29 @@ function eggMeta(type) {
 
 const serverNow = computed(() => now.value + (game.serverOffset || 0))
 
-const remainingMs = computed(() => {
-  if (!incubation.value?.active || !incubation.value.ready_at) return 0
-  return Math.max(0, new Date(incubation.value.ready_at).getTime() - serverNow.value)
-})
+// ── Brutplätze ────────────────────────────────────────────────────────
+const slots = computed(() => game.incubation?.slots || [])
+const maxSlots = computed(() => game.incubation?.maxSlots || slots.value.length || 1)
+const free = computed(() => freeSlots(game.incubation))
+const busyCount = computed(() => maxSlots.value - free.value)
+const anyActive = computed(() => busyCount.value > 0)
 
-const readyNow = computed(() => incubation.value?.active && remainingMs.value === 0)
+const slotRows = computed(() => slots.value.map((s) => {
+  const meta = eggMeta(s.egg_type)
+  const ready = slotReady(s, serverNow.value)
+  return {
+    ...s,
+    meta,
+    ready,
+    remaining: slotRemainingMs(s, serverNow.value),
+    pct: ready ? 100 : Math.round(slotProgress(s, serverNow.value, meta.incubation_minutes || 60) * 100),
+  }
+}))
+
+// Mit zwei freien Plätzen und genug Eiern lassen sich beide auf einmal füllen.
+const canStartTwo = computed(() =>
+  free.value >= 2 && (selectedGroup.value?.list.length || 0) >= 2
+)
 
 function fmtTime(ms) {
   const s = Math.max(0, Math.floor(ms / 1000))
@@ -63,14 +80,6 @@ function fmtTime(ms) {
   return h > 0 ? `${h}:${mmss}` : mmss
 }
 
-const progressPct = computed(() => {
-  const totalMin = eggMeta(incubation.value?.egg_type).incubation_minutes || 60
-  const total = totalMin * 60 * 1000
-  return Math.round(Math.max(0, Math.min(1, 1 - remainingMs.value / total)) * 100)
-})
-
-const activeEgg = computed(() => eggMeta(incubation.value?.egg_type))
-
 function toggleOpen() {
   open.value = !open.value
   if (open.value && !selectedType.value && groupedEggs.value.length === 1) {
@@ -78,27 +87,38 @@ function toggleOpen() {
   }
 }
 
-async function startIncubation() {
-  const group = selectedGroup.value
-  if (!group || busy.value || incubation.value.active) return
-  busy.value = true
-  try {
-    await game.startIncubation(group.list[0].id)
-    selectedType.value = ''
-    open.value = false
-  } catch (e) { toast.err(e) } finally { busy.value = false }
+function openPicker() {
+  if (!open.value) toggleOpen()
 }
 
-async function claim() {
-  if (busy.value || !readyNow.value) return
+async function startIncubation(count = 1) {
+  const group = selectedGroup.value
+  if (!group || busy.value || free.value < 1) return
+  // IDs vorher festhalten — die Eier-Liste wird nach jedem Start neu geladen.
+  const ids = group.list.slice(0, Math.min(count, free.value)).map((e) => e.id)
   busy.value = true
   try {
-    hatchResult.value = await game.claimHatched()
+    for (const id of ids) await game.startIncubation(id)
+  } catch (e) {
+    toast.err(e)
+  } finally {
+    busy.value = false
+    if (!selectedGroup.value) selectedType.value = ''
+    // Offen lassen, solange noch ein Platz frei ist und Eier da sind.
+    if (free.value < 1 || !groupedEggs.value.length) open.value = false
+  }
+}
+
+async function claim(slot) {
+  if (busy.value || !slotReady(slot, serverNow.value)) return
+  busy.value = true
+  try {
+    hatchResult.value = await game.claimHatched(slot.slot)
   } catch (e) { toast.err(e) } finally { busy.value = false }
 }
 
 const startLabel = computed(() => {
-  if (incubation.value.active) return t('eggs.slotBusy')
+  if (free.value < 1) return t('eggs.allBusy')
   if (busy.value) return t('common.loadingShort')
   if (!selectedGroup.value) return t('eggs.pickEgg')
   return t('eggs.startIncubation')
@@ -106,40 +126,70 @@ const startLabel = computed(() => {
 </script>
 
 <template>
-  <!-- Eier-Maschine (gleiche Optik wie Crafter & Fusion) -->
+  <!-- Eier-Maschine (gleiche Optik wie Crafter & Fusion), zwei Brutplätze -->
   <div class="card egg-card">
     <div class="row between" style="margin-bottom: 8px">
-      <h2 class="title" style="margin: 0; font-size: 18px">{{ t('eggs.machineTitle') }}</h2>
+      <div class="egg-head">
+        <h2 class="title" style="margin: 0; font-size: 18px">{{ t('eggs.machineTitle') }}</h2>
+        <span class="egg-slots-pill" :class="{ full: free < 1 }">
+          {{ t('eggs.slotsCount', { busy: busyCount, max: maxSlots }) }}
+        </span>
+      </div>
       <Button class="btn fusion-toggle" @click="toggleOpen">
         {{ open ? t('eggs.toggleClose') : t('eggs.toggleOpen') }}
       </Button>
     </div>
-    <p class="hint">{{ t('eggs.hint') }}</p>
+    <p class="hint">{{ t('eggs.hint', { max: maxSlots }) }}</p>
 
-    <Button v-if="!open && !incubation.active" class="fusion-preview" @click="toggleOpen">
+    <Button v-if="!open && !anyActive" class="fusion-preview" @click="toggleOpen">
       <span class="fusion-preview-emoji">🥚</span>
       <span class="fusion-preview-label">
         {{ playerEggs.length ? t('eggs.empty') : t('eggs.noEggs') }}
       </span>
     </Button>
 
-    <div v-if="incubation.active" class="craft-job" :class="{ ready: readyNow }">
-      <div class="craft-job-row">
-        <div class="craft-job-emoji" :class="readyNow ? 'sparkle' : 'shake'">
-          {{ readyNow ? '🐣' : (activeEgg.emoji || '🥚') }}
-        </div>
-        <div class="craft-job-body">
-          <div class="craft-job-title">{{ activeEgg.name || incubation.egg_type }}</div>
-          <div class="craft-job-time">
-            {{ readyNow ? t('eggs.ready') : t('eggs.readyIn', { time: fmtTime(remainingMs) }) }}
+    <template v-if="anyActive">
+      <div
+        v-for="s in slotRows"
+        :key="s.slot"
+        class="craft-job"
+        :class="{ ready: s.ready, empty: !s.active }"
+      >
+        <div v-if="s.active" class="craft-job-row">
+          <div class="craft-job-emoji" :class="s.ready ? 'sparkle' : 'shake'">
+            {{ s.ready ? '🐣' : (s.meta.emoji || '🥚') }}
           </div>
-          <div class="craft-job-bar"><span :style="{ width: (readyNow ? 100 : progressPct) + '%' }"></span></div>
+          <div class="craft-job-body">
+            <div class="craft-job-title">
+              <span class="egg-slot-no">#{{ s.slot }}</span> {{ s.meta.name || s.egg_type }}
+            </div>
+            <div class="craft-job-time">
+              {{ s.ready ? t('eggs.ready') : t('eggs.readyIn', { time: fmtTime(s.remaining) }) }}
+            </div>
+            <div class="craft-job-bar"><span :style="{ width: s.pct + '%' }"></span></div>
+          </div>
+          <Button class="btn small" :disabled="!s.ready || busy" @click="claim(s)">
+            {{ t('eggs.claim') }}
+          </Button>
         </div>
-        <Button class="btn small" :disabled="!readyNow || busy" @click="claim">
-          {{ t('eggs.claim') }}
-        </Button>
+        <div v-else class="craft-job-row">
+          <div class="craft-job-emoji egg-free-emoji">🥚</div>
+          <div class="craft-job-body">
+            <div class="craft-job-title">
+              <span class="egg-slot-no">#{{ s.slot }}</span> {{ t('eggs.slotFree') }}
+            </div>
+            <div class="craft-job-time">
+              {{ playerEggs.length ? t('eggs.empty') : t('eggs.noEggs') }}
+            </div>
+          </div>
+          <Button
+            class="btn secondary small"
+            :disabled="!playerEggs.length"
+            @click="openPicker"
+          >{{ t('eggs.fill') }}</Button>
+        </div>
       </div>
-    </div>
+    </template>
 
     <div v-if="open" class="fusion-body">
       <div v-if="!groupedEggs.length" class="hint" style="text-align: center; padding: 12px">
@@ -162,7 +212,7 @@ const startLabel = computed(() => {
           </div>
 
           <div class="fm-core">
-            <div class="fm-factory" :class="{ busy: incubation.active }">🐣</div>
+            <div class="fm-factory" :class="{ busy: free < 1 }">🐣</div>
             <div v-if="busy" class="hint">{{ t('common.loadingShort') }}</div>
           </div>
 
@@ -195,13 +245,23 @@ const startLabel = computed(() => {
             </div>
           </div>
 
-          <Button
-            class="btn full"
-            :disabled="!selectedGroup || busy || incubation.active"
-            @click="startIncubation"
-          >
-            {{ startLabel }}
-          </Button>
+          <div class="egg-start-row" :class="{ two: canStartTwo }">
+            <Button
+              class="btn full"
+              :disabled="!selectedGroup || busy || free < 1"
+              @click="startIncubation(1)"
+            >
+              {{ startLabel }}
+            </Button>
+            <Button
+              v-if="canStartTwo"
+              class="btn full"
+              :disabled="busy"
+              @click="startIncubation(2)"
+            >
+              {{ t('eggs.startTwo') }}
+            </Button>
+          </div>
         </div>
       </template>
     </div>
@@ -269,6 +329,51 @@ const startLabel = computed(() => {
   font-weight: 800;
   font-size: 15px;
   color: var(--heading);
+}
+
+.egg-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.egg-slots-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  color: var(--purple-deep);
+  font-variant-numeric: tabular-nums;
+}
+.egg-slots-pill.full {
+  background: rgba(244, 169, 18, 0.14);
+  border-color: rgba(244, 169, 18, 0.5);
+  color: var(--accent-deep);
+}
+.craft-job.empty {
+  background: var(--card-2);
+  border: 2px dashed var(--border);
+}
+.egg-free-emoji { opacity: 0.35; filter: grayscale(1); }
+.egg-slot-no {
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--muted);
+  margin-right: 2px;
+}
+.egg-start-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.egg-start-row.two {
+  grid-template-columns: 1fr 1fr;
 }
 
 /* Laufender Brutvorgang — wie .craft-job */
