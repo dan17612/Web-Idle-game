@@ -238,4 +238,12 @@ function close() {
   50% { box-shadow:0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent); } }
 @media (max-width:380px) { .dr-grid { grid-template-columns:repeat(3,1fr); }
   .dr-day.big { grid-column:span 3; } }
+
+/* ── Dark Mode (Discord-Look) ─────────────────────────────────────── */
+.app-dark .dr-backdrop { background:var(--overlay); }
+.app-dark .dr-day.big { background:linear-gradient(135deg,rgba(244,169,18,0.22),rgba(244,169,18,0.08)); }
+.app-dark .dr-day.next,
+.app-dark .dr-reveal-item { background:rgba(244,169,18,0.12); }
+.app-dark .dr-reveal-item.tickets { background:rgba(88,101,242,0.16); }
+.app-dark .dr-day-check { border-color:var(--card); }
 </style>

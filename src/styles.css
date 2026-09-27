@@ -10,6 +10,7 @@
   --accent: #f4a912;
   --accent-soft: #fbd35c;
   --accent-deep: #c97f06;
+  --accent-shade: #c97f06; /* harter Bottom-Shadow der Gold-Buttons */
   --accent-ink: #5c3d00;
   --accent-2: #2ec272;
   --purple: #8b5cf6;
@@ -18,7 +19,18 @@
   --sky: #7ecdf0;
   --grass: #5dc24f;
   --border: #f1e3c2;
+  --success-ink: #1d9457;
+  --info-ink: #1992c8;
+  --mix-base: #ffffff;       /* Basis für color-mix-Tönungen auf Karten */
+  --bg-glow-1: #fff7e0;
+  --bg-glow-2: #fbe7bb;
+  --topbar-line: rgba(214, 178, 110, 0.18);
+  --overlay: rgba(74, 52, 12, 0.45);
+  --overlay-strong: rgba(58, 40, 8, 0.55);
   --shadow-card: 0 2px 0 #f3e6c6, 0 10px 24px rgba(186, 140, 50, 0.10);
+  --shadow-float: 0 18px 40px rgba(150, 108, 30, 0.18);
+  --shadow-pop: 0 30px 80px rgba(90, 60, 10, 0.35);
+  --shadow-menu: 0 14px 36px rgba(120, 86, 20, 0.18);
   --radius: 22px;
   --font-round: "Baloo 2", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --space-1: 4px;
@@ -31,6 +43,55 @@
   --safe-bot: env(safe-area-inset-bottom, 0px);
 }
 
+/* ── Dark Mode im Discord-Look ─────────────────────────────────────
+   Graustufen aus Discords Dark-Theme (#313338 / #2b2d31 / #1e1f22),
+   Gold, Grün & Co. bleiben — die Spielfarben sind die Marke. Aktiv über
+   html.app-dark (src/theme.js, Pre-Paint in index.html). */
+html.app-dark {
+  color-scheme: dark;
+  --bg: #313338;
+  --bg-2: #2b2d31;
+  --card: #2b2d31;
+  --card-2: #383a40;
+  --surface-deep: #1e1f22;
+  --text: #dbdee1;
+  --heading: #f2f3f5;
+  --muted: #949ba4;
+  --accent-deep: #f0b232;
+  --accent-shade: #b87605;
+  --purple: #5865f2;
+  --purple-deep: #949cf7;
+  --danger: #f23f43;
+  --accent-2: #23a55a;
+  --border: #3f4147;
+  --success-ink: #4ade80;
+  --info-ink: #5ec8f5;
+  --mix-base: #2b2d31;
+  --bg-glow-1: rgba(88, 101, 242, 0.10);
+  --bg-glow-2: rgba(35, 165, 90, 0.05);
+  --topbar-line: rgba(0, 0, 0, 0.35);
+  --overlay: rgba(0, 0, 0, 0.62);
+  --overlay-strong: rgba(0, 0, 0, 0.66);
+  --shadow-card: 0 2px 0 #1e1f22, 0 10px 24px rgba(0, 0, 0, 0.24);
+  --shadow-float: 0 18px 40px rgba(0, 0, 0, 0.45);
+  --shadow-pop: 0 30px 80px rgba(0, 0, 0, 0.6);
+  --shadow-menu: 0 14px 36px rgba(0, 0, 0, 0.45);
+  /* PrimeVue (Aura dark, darkModeSelector .app-dark) auf Discord-Grau
+     umbiegen — html.app-dark schlägt dessen .app-dark-Block. */
+  --p-surface-0: #ffffff;
+  --p-surface-50: #f2f3f5;
+  --p-surface-100: #dbdee1;
+  --p-surface-200: #b5bac1;
+  --p-surface-300: #949ba4;
+  --p-surface-400: #80848e;
+  --p-surface-500: #6d6f78;
+  --p-surface-600: #4e5058;
+  --p-surface-700: #404249;
+  --p-surface-800: #383a40;
+  --p-surface-900: #2b2d31;
+  --p-surface-950: #1e1f22;
+}
+
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
 /* Kein natives Runterziehen-zum-Neuladen (Android/Chrome) — der Browser wertet
@@ -39,8 +100,8 @@ html { overscroll-behavior-y: none; }
 body {
   font-family: var(--font-round);
   background:
-    radial-gradient(circle at 12% -4%, #fff7e0 0%, transparent 40%),
-    radial-gradient(circle at 95% 8%, #fbe7bb 0%, transparent 35%),
+    radial-gradient(circle at 12% -4%, var(--bg-glow-1) 0%, transparent 40%),
+    radial-gradient(circle at 95% 8%, var(--bg-glow-2) 0%, transparent 35%),
     var(--bg);
   background-attachment: fixed;
   color: var(--text);
@@ -166,7 +227,7 @@ input:focus { border-color: var(--accent); }
   border: 2px solid var(--border);
   color: var(--text);
   border-radius: 16px;
-  box-shadow: 0 14px 36px rgba(120, 86, 20, 0.18);
+  box-shadow: var(--shadow-menu);
 }
 .p-select-option {
   color: var(--text);
@@ -195,7 +256,7 @@ input:focus { border-color: var(--accent); }
   display: flex; align-items: center; justify-content: space-between;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px);
-  border-bottom: 2px solid rgba(214, 178, 110, 0.18);
+  border-bottom: 2px solid var(--topbar-line);
 }
 .brand {
   font-weight: 800; font-size: 20px; letter-spacing: 0.2px;
@@ -262,7 +323,7 @@ input:focus { border-color: var(--accent); }
   background: var(--card);
   border: 2px solid var(--border);
   border-radius: 26px;
-  box-shadow: 0 4px 0 var(--border), 0 18px 40px rgba(150, 108, 30, 0.18);
+  box-shadow: 0 4px 0 var(--border), var(--shadow-float);
   align-items: end;
 }
 .nav-item {
@@ -288,7 +349,7 @@ input:focus { border-color: var(--accent); }
 .nav-item.router-link-active .ico,
 .nav-item.nav-active .ico {
   background: linear-gradient(180deg, var(--accent-soft), var(--accent));
-  box-shadow: 0 3px 0 var(--accent-deep), 0 8px 18px rgba(244, 169, 18, 0.45);
+  box-shadow: 0 3px 0 var(--accent-shade), 0 8px 18px rgba(244, 169, 18, 0.45);
   transform: translateY(-6px) scale(1.06);
 }
 .nav-item:active .ico { transform: scale(0.92); }
@@ -300,7 +361,7 @@ input:focus { border-color: var(--accent); }
   background: linear-gradient(180deg, var(--accent-soft), var(--accent));
   color: var(--accent-ink);
   font-size: 28px;
-  box-shadow: 0 4px 0 var(--accent-deep), 0 12px 26px rgba(244, 169, 18, 0.4);
+  box-shadow: 0 4px 0 var(--accent-shade), 0 12px 26px rgba(244, 169, 18, 0.4);
   transform: translateY(-14px);
   transition: transform .15s ease;
 }
@@ -343,7 +404,7 @@ input:focus { border-color: var(--accent); }
 }
 
 .modal-backdrop {
-  position: fixed; inset: 0; background: rgba(74, 52, 12, 0.45);
+  position: fixed; inset: 0; background: var(--overlay);
   z-index: 100; display: flex; align-items: center; justify-content: center;
   padding: 16px;
   backdrop-filter: blur(3px);
@@ -352,7 +413,7 @@ input:focus { border-color: var(--accent); }
   width: 100%; max-width: 440px; max-height: 80vh; overflow: auto;
   background: var(--card); border: 2px solid var(--border);
   border-radius: 24px; padding: 16px;
-  box-shadow: 0 30px 80px rgba(90, 60, 10, 0.35);
+  box-shadow: var(--shadow-pop);
 }
 .modal-card h2 { margin: 0 0 10px; font-size: 18px; color: var(--heading); }
 
@@ -376,12 +437,12 @@ input:focus { border-color: var(--accent); }
   border-radius: 16px;
   padding: 12px 16px;
   cursor: pointer;
-  box-shadow: 0 4px 0 var(--accent-deep), 0 8px 18px rgba(244, 169, 18, 0.30);
+  box-shadow: 0 4px 0 var(--accent-shade), 0 8px 18px rgba(244, 169, 18, 0.30);
   transition: transform .06s ease, box-shadow .06s ease;
 }
 .btn:active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--accent-deep), 0 3px 8px rgba(244, 169, 18, 0.25);
+  box-shadow: 0 1px 0 var(--accent-shade), 0 3px 8px rgba(244, 169, 18, 0.25);
 }
 .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 .btn.secondary {
@@ -404,11 +465,11 @@ input:focus { border-color: var(--accent); }
   border: none;
   border-radius: 16px;
   padding: 12px 16px;
-  box-shadow: 0 4px 0 var(--accent-deep), 0 8px 18px rgba(244, 169, 18, 0.30);
+  box-shadow: 0 4px 0 var(--accent-shade), 0 8px 18px rgba(244, 169, 18, 0.30);
 }
 .p-button.btn:not(:disabled):active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--accent-deep);
+  box-shadow: 0 1px 0 var(--accent-shade);
 }
 .p-button.btn.secondary {
   background: var(--card);
@@ -466,7 +527,7 @@ input:focus { border-color: var(--accent); }
   display: inline-block;
   padding: 2px 9px;
   background: rgba(46, 194, 114, 0.14);
-  color: #1d9457;
+  color: var(--success-ink);
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
@@ -523,7 +584,7 @@ input:focus { border-color: var(--accent); }
 .tutorial-dim {
   position: fixed;
   inset: 0;
-  background: rgba(58, 40, 8, 0.55);
+  background: var(--overlay-strong);
   z-index: 700;
   pointer-events: none;
   animation: tut-fade-in 0.25s ease-out;
@@ -556,6 +617,9 @@ input:focus { border-color: var(--accent); }
 .p-toast .p-toast-message {
   border-radius: 16px;
   box-shadow: 0 12px 32px rgba(110, 80, 20, 0.22);
+}
+html.app-dark .p-toast .p-toast-message {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 .p-toast .p-toast-message-content {
   font-size: 14px;

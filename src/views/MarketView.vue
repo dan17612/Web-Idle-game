@@ -1363,7 +1363,7 @@ const pct100 = (x) => `${Math.round((Number(x) || 0) * 100)}%`
   flex: 0 0 auto; font-size: 13px; font-weight: 800; padding: 6px 12px; border-radius: 999px; cursor: pointer;
   background: var(--card); border: 2px solid var(--border); color: var(--text);
 }
-.mk-chip.active { background: var(--accent); border-color: var(--accent-deep); color: var(--accent-ink); box-shadow: 0 2px 0 var(--accent-deep); }
+.mk-chip.active { background: var(--accent); border-color: var(--accent-deep); color: var(--accent-ink); box-shadow: 0 2px 0 var(--accent-shade); }
 .mk-chip.sm { font-size: 12px; padding: 5px 10px; }
 .mk-tools { display: flex; gap: var(--space-2); margin-bottom: var(--space-3); }
 .mk-search { flex: 1; min-width: 0; padding: 10px 12px; }

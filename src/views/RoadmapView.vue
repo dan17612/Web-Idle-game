@@ -322,7 +322,7 @@ async function submitIdea() {
 .status-chip[data-status="planned"] {
   background: rgba(25, 146, 200, 0.18);
   border-color: rgba(25, 146, 200, 0.45);
-  color: #1992c8;
+  color: var(--info-ink);
 }
 .status-chip[data-status="in_progress"] {
   background: rgba(244, 169, 18, 0.18);

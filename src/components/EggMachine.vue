@@ -9,15 +9,18 @@ import { t } from '../i18n'
 const game = useGameStore()
 const toast = useAppToast()
 const now = ref(Date.now())
-const showPicker = ref(false)
+const open = ref(false)
 const busy = ref(false)
 const hatchResult = ref(null)
+const selectedType = ref('')
 
 let timer
 onMounted(async () => {
   await loadEggCatalog()
   await game.loadIncubation()
-  timer = setInterval(() => { now.value = Date.now() }, 1000)
+  timer = setInterval(() => {
+    if (document.visibilityState === 'visible') now.value = Date.now()
+  }, 1000)
 })
 onUnmounted(() => clearInterval(timer))
 
@@ -33,190 +36,424 @@ const groupedEggs = computed(() => {
   return Object.values(m)
 })
 
+// Auswahl bleibt gültig, solange noch ein Ei dieses Typs da ist.
+const selectedGroup = computed(() =>
+  groupedEggs.value.find((g) => g.egg_type === selectedType.value) || null
+)
+
+function eggMeta(type) {
+  return EGG_TYPES[type] || {}
+}
+
+const serverNow = computed(() => now.value + (game.serverOffset || 0))
+
 const remainingMs = computed(() => {
   if (!incubation.value?.active || !incubation.value.ready_at) return 0
-  return Math.max(0, new Date(incubation.value.ready_at).getTime() - now.value)
+  return Math.max(0, new Date(incubation.value.ready_at).getTime() - serverNow.value)
 })
 
 const readyNow = computed(() => incubation.value?.active && remainingMs.value === 0)
 
 function fmtTime(ms) {
   const s = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(s / 60)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
   const sec = s % 60
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  const mmss = `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  return h > 0 ? `${h}:${mmss}` : mmss
 }
 
-const progress = computed(() => {
-  const et = EGG_TYPES[incubation.value?.egg_type]
-  const totalMin = et?.incubation_minutes || 60
+const progressPct = computed(() => {
+  const totalMin = eggMeta(incubation.value?.egg_type).incubation_minutes || 60
   const total = totalMin * 60 * 1000
-  return Math.max(0, Math.min(1, 1 - (remainingMs.value / total)))
+  return Math.round(Math.max(0, Math.min(1, 1 - remainingMs.value / total)) * 100)
 })
 
-const currentEggName = computed(() => EGG_TYPES[incubation.value?.egg_type]?.name || 'Ei')
+const activeEgg = computed(() => eggMeta(incubation.value?.egg_type))
 
-const subtitleText = computed(() => {
-  if (readyNow.value) return t('eggs.ready')
-  if (incubation.value.active) return t('eggs.readyIn', { time: fmtTime(remainingMs.value) })
-  if (!playerEggs.value.length) return t('eggs.noEggs')
-  return t('eggs.empty')
-})
-
-const cardIcon = computed(() => {
-  if (readyNow.value) return '✨'
-  if (incubation.value.active) return '🥚'
-  return '🥚'
-})
-
-const arrowGlyph = computed(() => {
-  if (readyNow.value) return '🎁'
-  if (incubation.value.active) return ''
-  return '›'
-})
-
-function handleCardClick() {
-  if (busy.value) return
-  if (readyNow.value) { claim(); return }
-  if (incubation.value.active) return
-  if (!playerEggs.value.length) return
-  showPicker.value = !showPicker.value
+function toggleOpen() {
+  open.value = !open.value
+  if (open.value && !selectedType.value && groupedEggs.value.length === 1) {
+    selectedType.value = groupedEggs.value[0].egg_type
+  }
 }
 
-async function startIncubation(eggId) {
+async function startIncubation() {
+  const group = selectedGroup.value
+  if (!group || busy.value || incubation.value.active) return
   busy.value = true
   try {
-    await game.startIncubation(eggId)
-    showPicker.value = false
+    await game.startIncubation(group.list[0].id)
+    selectedType.value = ''
+    open.value = false
   } catch (e) { toast.err(e) } finally { busy.value = false }
 }
 
 async function claim() {
+  if (busy.value || !readyNow.value) return
   busy.value = true
   try {
-    const result = await game.claimHatched()
-    hatchResult.value = result
+    hatchResult.value = await game.claimHatched()
   } catch (e) { toast.err(e) } finally { busy.value = false }
 }
 
-function closeHatchResult() {
-  hatchResult.value = null
-}
+const startLabel = computed(() => {
+  if (incubation.value.active) return t('eggs.slotBusy')
+  if (busy.value) return t('common.loadingShort')
+  if (!selectedGroup.value) return t('eggs.pickEgg')
+  return t('eggs.startIncubation')
+})
 </script>
 
 <template>
-  <div
-    class="card egg-link"
-    :class="{ 'is-ready': readyNow, 'is-brewing': incubation.active && !readyNow, 'is-disabled': !incubation.active && !playerEggs.length }"
-    @click="handleCardClick"
-  >
-    <div class="egl-icon" :class="{ shake: incubation.active && !readyNow, sparkle: readyNow }">{{ cardIcon }}</div>
-    <div class="egl-body">
-      <div class="egl-title">{{ t('eggs.machineTitle') }}</div>
-      <div class="egl-sub">
-        <template v-if="incubation.active && !readyNow">{{ t('eggs.brewing', { name: currentEggName }) }}</template>
-        <template v-else>{{ subtitleText }}</template>
-      </div>
-      <div v-if="incubation.active && !readyNow" class="egl-progress">
-        <div class="egl-progress-fill" :style="{ width: (progress * 100) + '%' }"></div>
-      </div>
-      <div v-if="incubation.active && !readyNow" class="egl-countdown">{{ fmtTime(remainingMs) }}</div>
-      <div v-else-if="readyNow" class="egl-status-pill ready">{{ t('eggs.ready') }}</div>
+  <!-- Eier-Maschine (gleiche Optik wie Crafter & Fusion) -->
+  <div class="card egg-card">
+    <div class="row between" style="margin-bottom: 8px">
+      <h2 class="title" style="margin: 0; font-size: 18px">{{ t('eggs.machineTitle') }}</h2>
+      <Button class="btn fusion-toggle" @click="toggleOpen">
+        {{ open ? t('eggs.toggleClose') : t('eggs.toggleOpen') }}
+      </Button>
     </div>
-    <div class="egl-arrow">{{ arrowGlyph }}</div>
-  </div>
+    <p class="hint">{{ t('eggs.hint') }}</p>
 
-  <div v-if="showPicker" class="egg-picker-overlay" @click.self="showPicker = false">
-    <div class="egg-picker-dialog">
-      <div class="row between" style="align-items:center;margin-bottom:10px">
-        <h3 style="margin:0;font-size:18px">{{ t('eggs.pickEgg') }}</h3>
-        <Button class="btn secondary small" @click="showPicker = false">×</Button>
+    <Button v-if="!open && !incubation.active" class="fusion-preview" @click="toggleOpen">
+      <span class="fusion-preview-emoji">🥚</span>
+      <span class="fusion-preview-label">
+        {{ playerEggs.length ? t('eggs.empty') : t('eggs.noEggs') }}
+      </span>
+    </Button>
+
+    <div v-if="incubation.active" class="craft-job" :class="{ ready: readyNow }">
+      <div class="craft-job-row">
+        <div class="craft-job-emoji" :class="readyNow ? 'sparkle' : 'shake'">
+          {{ readyNow ? '🐣' : (activeEgg.emoji || '🥚') }}
+        </div>
+        <div class="craft-job-body">
+          <div class="craft-job-title">{{ activeEgg.name || incubation.egg_type }}</div>
+          <div class="craft-job-time">
+            {{ readyNow ? t('eggs.ready') : t('eggs.readyIn', { time: fmtTime(remainingMs) }) }}
+          </div>
+          <div class="craft-job-bar"><span :style="{ width: (readyNow ? 100 : progressPct) + '%' }"></span></div>
+        </div>
+        <Button class="btn small" :disabled="!readyNow || busy" @click="claim">
+          {{ t('eggs.claim') }}
+        </Button>
       </div>
-      <div class="egg-picker-list">
-        <div v-for="g in groupedEggs" :key="g.egg_type" class="egg-picker-row">
-          <span class="egg-picker-emoji">{{ EGG_TYPES[g.egg_type]?.emoji || '🥚' }}</span>
-          <span class="egg-picker-name">{{ EGG_TYPES[g.egg_type]?.name || g.egg_type }} ×{{ g.list.length }}</span>
-          <Button class="btn small" :disabled="busy" @click="startIncubation(g.list[0].id)">
-            {{ t('eggs.startIncubation') }}
+    </div>
+
+    <div v-if="open" class="fusion-body">
+      <div v-if="!groupedEggs.length" class="hint" style="text-align: center; padding: 12px">
+        {{ t('eggs.noEggs') }}
+      </div>
+
+      <template v-else>
+        <div class="fusion-machine">
+          <div class="fm-slot">
+            <div class="fm-slot-title">{{ t('eggs.slotEgg') }}</div>
+            <div class="fm-slot-body">
+              <div v-if="selectedGroup" class="egg-slot-pick">
+                <span class="fm-chip big">{{ eggMeta(selectedGroup.egg_type).emoji || '🥚' }}</span>
+                <span class="egg-slot-meta">
+                  ⏳ {{ t('eggs.minutes', { minutes: eggMeta(selectedGroup.egg_type).incubation_minutes || 60 }) }}
+                </span>
+              </div>
+              <div v-else class="hint" style="margin: 0">{{ t('eggs.pickEgg') }}</div>
+            </div>
+          </div>
+
+          <div class="fm-core">
+            <div class="fm-factory" :class="{ busy: incubation.active }">🐣</div>
+            <div v-if="busy" class="hint">{{ t('common.loadingShort') }}</div>
+          </div>
+
+          <div class="fm-slot">
+            <div class="fm-slot-title">{{ t('eggs.slotResult') }}</div>
+            <div class="fm-slot-body">
+              <div v-if="selectedGroup" class="egg-slot-pick">
+                <span class="fm-chip big egg-mystery">❓</span>
+                <span class="egg-slot-meta">{{ t('eggs.mystery') }}</span>
+              </div>
+              <div v-else class="hint" style="margin: 0">?</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fm-controls">
+          <div class="fm-row">
+            <label class="hint" style="margin: 0">{{ t('eggs.yourEggs') }}</label>
+            <div class="fm-species-grid">
+              <Button
+                v-for="g in groupedEggs"
+                :key="g.egg_type"
+                class="fm-sp-btn"
+                :class="{ active: selectedType === g.egg_type }"
+                @click="selectedType = g.egg_type"
+              >
+                <span class="fm-sp-emoji">{{ eggMeta(g.egg_type).emoji || '🥚' }}</span>
+                <span class="fm-sp-count">{{ eggMeta(g.egg_type).name || g.egg_type }} ×{{ g.list.length }}</span>
+              </Button>
+            </div>
+          </div>
+
+          <Button
+            class="btn full"
+            :disabled="!selectedGroup || busy || incubation.active"
+            @click="startIncubation"
+          >
+            {{ startLabel }}
           </Button>
         </div>
-      </div>
+      </template>
     </div>
   </div>
 
-  <div v-if="hatchResult" class="hatch-modal" @click.self="closeHatchResult">
+  <div v-if="hatchResult" class="hatch-modal" @click.self="hatchResult = null">
     <div class="hatch-dialog">
       <div class="hatch-emoji">{{ speciesInfo(hatchResult.species).emoji }}</div>
       <div class="hatch-rarity" :style="{ color: rarityInfo(hatchResult.rarity).color }">
         {{ rarityInfo(hatchResult.rarity).emoji }} {{ t('rarity.' + hatchResult.rarity).toUpperCase() }}
       </div>
       <div class="hatch-name">{{ speciesInfo(hatchResult.species).name }}</div>
-      <Button class="btn full" @click="closeHatchResult">OK</Button>
+      <Button class="btn full" @click="hatchResult = null">OK</Button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.egg-link {
+/* Maschinen-Optik gespiegelt aus GameView (.crafter-card / .fusion-card). */
+.egg-card { position: relative; }
+.hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.fusion-toggle {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 800;
+  min-height: 40px;
+}
+.btn.small {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.fusion-preview {
+  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 14px;
-  padding: 14px 16px;
-  text-decoration: none;
-  color: inherit;
+  background: var(--card-2);
+  border: 2px dashed var(--border);
+  border-radius: 18px;
+  padding: 18px 14px;
+  margin-bottom: 8px;
   cursor: pointer;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.14), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(244, 169, 18, 0.14), transparent 60%),
-    var(--card);
-  border: 2px solid rgba(168, 85, 247, 0.4);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  color: inherit;
+  font: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
 }
-.egg-link:hover {
-  transform: translateY(-2px);
+.fusion-preview:hover {
+  background: var(--surface-deep);
   border-color: var(--accent);
-  box-shadow: 0 12px 28px rgba(168, 85, 247, 0.22);
+  transform: translateY(-1px);
 }
-.egg-link.is-disabled {
-  cursor: default;
-  filter: grayscale(0.45);
-  opacity: 0.78;
+.fusion-preview-emoji {
+  font-size: 56px;
+  line-height: 1;
+  animation: bob 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.25));
 }
-.egg-link.is-disabled:hover {
-  transform: none;
-  box-shadow: none;
+.fusion-preview-label {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--heading);
 }
-.egg-link.is-brewing {
-  cursor: default;
-  border-color: rgba(25, 146, 200, 0.5);
+
+/* Laufender Brutvorgang — wie .craft-job */
+.craft-job {
+  margin: 6px 0 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(96, 165, 250, 0.10));
+  border: 2px solid rgba(124, 58, 237, 0.25);
 }
-.egg-link.is-brewing:hover {
-  transform: none;
+.craft-job.ready {
+  background: linear-gradient(135deg, rgba(46, 194, 114, 0.12), rgba(251, 211, 92, 0.14));
+  border-color: rgba(46, 194, 114, 0.5);
+  animation: cardPulse 2s ease-in-out infinite;
 }
-.egg-link.is-ready {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 28px rgba(244, 169, 18, 0.28);
-  animation: readyGlow 1.4s ease-in-out infinite;
+.craft-job-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-@keyframes readyGlow {
-  0%, 100% { box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 28px rgba(244, 169, 18, 0.22); }
-  50% { box-shadow: 0 0 0 1px var(--accent) inset, 0 12px 36px rgba(244, 169, 18, 0.45); }
+.craft-job-emoji { font-size: 32px; flex-shrink: 0; }
+.craft-job-emoji.shake { animation: eggShake 0.9s ease-in-out infinite; }
+.craft-job-emoji.sparkle { animation: eggSparkle 1s ease-in-out infinite; }
+.craft-job-body { flex: 1; min-width: 0; }
+.craft-job-title { font-weight: 800; font-size: 14px; color: var(--heading); }
+.craft-job-time {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
-.egl-icon {
-  font-size: 36px;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
-  flex-shrink: 0;
-  animation: bplFloat 3s ease-in-out infinite;
+.craft-job-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-deep);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-top: 4px;
 }
-.egl-icon.shake {
+.craft-job-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #a855f7, var(--accent));
+  transition: width 1s linear;
+}
+.craft-job.ready .craft-job-bar span {
+  background: linear-gradient(90deg, #2ec272, #fbd35c);
+}
+
+/* Maschinen-Anzeige — wie .fusion-machine */
+.fusion-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+.fusion-machine {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+.fm-slot {
+  background: var(--card-2);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  padding: 10px;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fm-slot-title {
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fm-slot-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+.fm-chip {
+  font-size: 26px;
+  background: var(--card);
+  padding: 4px 8px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+}
+.fm-chip.big {
+  font-size: 44px;
+  padding: 6px 14px;
+}
+.fm-chip.egg-mystery {
+  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.45));
+  border-color: rgba(168, 85, 247, 0.45);
+  animation: bob 2.4s ease-in-out infinite;
+}
+.egg-slot-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.egg-slot-meta {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.fm-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+.fm-factory {
+  font-size: 64px;
+  animation: bob 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(110, 80, 20, 0.25));
+}
+.fm-factory.busy {
   animation: eggShake 0.9s ease-in-out infinite;
 }
-.egl-icon.sparkle {
-  animation: eggSparkle 1s ease-in-out infinite;
+.fm-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-@keyframes bplFloat {
-  0%, 100% { transform: translateY(0) rotate(-3deg); }
-  50% { transform: translateY(-3px) rotate(3deg); }
+.fm-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fm-species-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+}
+.fm-sp-btn {
+  background: var(--card-2);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 4px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.fm-sp-btn.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.fm-sp-emoji {
+  font-size: 24px;
+  line-height: 1;
+}
+.fm-sp-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+}
+@media (max-width: 520px) {
+  .fm-factory { font-size: 48px; }
+  .fm-chip { font-size: 22px; padding: 3px 6px; }
+  .fm-chip.big { font-size: 34px; padding: 4px 10px; }
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-4px) rotate(2deg); }
+}
+@keyframes cardPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.012); }
 }
 @keyframes eggShake {
   0%, 100% { transform: translate(0, 0) rotate(0); }
@@ -229,99 +466,11 @@ function closeHatchResult() {
   0%, 100% { transform: scale(1) rotate(0); filter: drop-shadow(0 0 8px rgba(244, 169, 18, 0.6)); }
   50% { transform: scale(1.15) rotate(8deg); filter: drop-shadow(0 0 18px rgba(244, 169, 18, 1)); }
 }
-.egl-body { flex: 1; min-width: 0; }
-.egl-title {
-  font-weight: 800;
-  font-size: 16px;
-  background: linear-gradient(90deg, #d98c00, #e8447a, #8b5cf6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.egl-sub {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 700;
-  margin-top: 2px;
-}
-.egl-progress {
-  margin-top: 8px;
-  height: 8px;
-  background: var(--surface-deep);
-  border-radius: 999px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-.egl-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #a855f7, var(--accent));
-  transition: width 1s linear;
-}
-.egl-countdown {
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--accent-deep);
-  font-variant-numeric: tabular-nums;
-}
-.egl-status-pill {
-  margin-top: 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 800;
-  background: rgba(244, 169, 18, 0.14);
-  border: 1px solid rgba(244, 169, 18, 0.55);
-  color: var(--accent-deep);
-}
-.egl-arrow {
-  font-size: 30px;
-  color: var(--accent-deep);
-  font-weight: 800;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.egg-picker-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1500;
-  padding: 16px;
-  backdrop-filter: blur(4px);
-}
-.egg-picker-dialog {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 18px 20px;
-  width: min(360px, 92vw);
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
-}
-.egg-picker-list { display: flex; flex-direction: column; gap: 8px; }
-.egg-picker-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  background: var(--card-2);
-  border-radius: 10px;
-  border: 1px solid var(--border);
-}
-.egg-picker-emoji { font-size: 22px; }
-.egg-picker-name { flex: 1; font-weight: 600; }
-.btn.small { padding: 6px 10px; font-size: 13px; }
 
 .hatch-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.78);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -331,13 +480,13 @@ function closeHatchResult() {
 }
 .hatch-dialog {
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
   padding: 28px 24px;
   text-align: center;
   min-width: 280px;
   max-width: 360px;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-pop);
   animation: hatch-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 @keyframes hatch-pop {
@@ -351,5 +500,5 @@ function closeHatchResult() {
   filter: drop-shadow(0 0 18px rgba(244, 169, 18, 0.7));
 }
 .hatch-rarity { font-weight: 800; font-size: 14px; margin-bottom: 6px; letter-spacing: 1.5px; }
-.hatch-name { font-size: 22px; font-weight: 800; margin-bottom: 18px; }
+.hatch-name { font-size: 22px; font-weight: 800; margin-bottom: 18px; color: var(--heading); }
 </style>

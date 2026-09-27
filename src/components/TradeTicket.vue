@@ -161,7 +161,7 @@ const verdictText = computed(() => {
   width: 40px; height: 40px; border-radius: 50%; flex: 0 0 auto;
   display: grid; place-items: center; font-size: 19px; font-weight: 900; color: var(--accent-ink);
   background: linear-gradient(160deg, var(--accent-soft), var(--accent));
-  box-shadow: 0 2px 0 var(--accent-deep);
+  box-shadow: 0 2px 0 var(--accent-shade);
 }
 .compact .tk-avatar { width: 32px; height: 32px; font-size: 15px; }
 .tk-who { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
@@ -235,4 +235,7 @@ const verdictText = computed(() => {
 }
 .tk-actions { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
 .tk-actions :deep(.p-button) { flex: 1; }
+
+/* ── Dark Mode (Discord-Look) ─────────────────────────────────────── */
+.app-dark .tk-coins { background:rgba(244,169,18,0.14); color:var(--accent-deep); }
 </style>

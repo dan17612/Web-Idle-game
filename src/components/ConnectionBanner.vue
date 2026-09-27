@@ -159,7 +159,7 @@ async function onReconnect() {
   font-size: 13px;
   color: var(--accent-ink);
   background: linear-gradient(180deg, var(--accent-soft), var(--accent));
-  box-shadow: 0 3px 0 var(--accent-deep);
+  box-shadow: 0 3px 0 var(--accent-shade);
   cursor: pointer;
 }
 :deep(.p-button).conn-btn:disabled {
