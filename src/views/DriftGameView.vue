@@ -841,4 +841,16 @@ onUnmounted(() => {
 .eo-body { min-width: 0; }
 .eo-title { font-weight: 900; color: var(--danger); }
 .eo-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ── Dark Mode (Discord-Look) ─────────────────────────────────────── */
+.app-dark .dn-stars,
+.app-dark .hud-stars,
+.app-dark .df-stars { color:#5c5f66; }
+.app-dark .drift-hud { background:rgba(43,45,49,0.94); }
+.app-dark .dsh-tap { background:rgba(43,45,49,0.95); }
+.app-dark .df-badge { background:rgba(35,165,90,0.16); color:var(--success-ink); border-color:rgba(35,165,90,0.55); }
+.app-dark .df-item { background:rgba(244,169,18,0.1); }
+.app-dark .df-item.tickets { background:rgba(88,101,242,0.14); }
+.app-dark .drift-finish,
+.app-dark .tut-backdrop { background:var(--overlay); }
 </style>

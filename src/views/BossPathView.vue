@@ -759,7 +759,7 @@ const victoryPetReward = computed(() => petRewardPayload(victoryInfo.value));
 .bp-event-title {
   font-weight: 900;
   font-size: 14px;
-  color: #1992c8;
+  color: var(--info-ink);
   font-variant-numeric: tabular-nums;
 }
 .bp-event-banner.ended .bp-event-title { color: #ef476f; }

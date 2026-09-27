@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { localePreference, setLocale, t, LOCALE_OPTIONS } from '../i18n'
 import { animationsEnabled } from '../composables/useAnimations'
+import { themePreference, setThemePreference } from '../composables/useTheme'
+import { THEME_OPTIONS } from '../theme'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -39,6 +41,16 @@ const selectedLocale = computed({
   set: (value) => {
     setLocale(value)
     flash(t('settings.languageSaved'))
+  }
+})
+const themeOptions = computed(() =>
+  THEME_OPTIONS.map((code) => ({ code, label: t(`themes.${code}`) }))
+)
+const selectedTheme = computed({
+  get: () => themePreference.value,
+  set: (value) => {
+    setThemePreference(value)
+    flash(t('settings.themeSaved'))
   }
 })
 const friendRequestsEnabled = computed(() => auth.profile?.friend_requests_enabled !== false)
@@ -262,6 +274,22 @@ async function logout() {
           <Select
             v-model="selectedLocale"
             :options="localeOptions"
+            optionLabel="label"
+            optionValue="code"
+            class="pref-select"
+          />
+        </div>
+
+        <div class="pref-sep" />
+
+        <div class="pref-row">
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.themeTitle') }}</span>
+            <span class="pref-desc">{{ t('settings.themeHint') }}</span>
+          </div>
+          <Select
+            v-model="selectedTheme"
+            :options="themeOptions"
             optionLabel="label"
             optionValue="code"
             class="pref-select"

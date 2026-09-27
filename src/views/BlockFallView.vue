@@ -7,6 +7,7 @@ import { useGameStore } from '../stores/game'
 import { useAuthStore } from '../stores/auth'
 import { useAppToast } from '../composables/useAppToast'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
+import { resolvedTheme } from '../composables/useTheme'
 import {
   BlockFallGame, COLS, VISIBLE_ROWS, HIDDEN_ROWS, ROWS, MAX_LEVEL, LEVELS_PER_CHAPTER,
   GARBAGE, PIECE_TYPES, ROTATIONS, CHAPTERS, levelConfig, blockfallReward
@@ -121,6 +122,8 @@ function tx(key, vars = {}) {
 const COLORS = ['', '#4cc9f0', '#f4c21a', '#9b5de5', '#2ec272', '#ef476f', '#3a86ff', '#ff8c42', '#c7b18a']
 const SHADES = ['', '#2b9fc4', '#c99a0a', '#7239b8', '#1f9656', '#c22d51', '#1f5fd1', '#d8661e', '#9c8762']
 const BOARD_BG = ['#f1fbe9', '#fff4df', '#ecf7ff', '#fff0ea', '#f1ecff']
+// Dark Mode: gleiche Kapitel-Tönung auf Discord-Grau.
+const BOARD_BG_DARK = ['#26302a', '#332e25', '#252f36', '#342a28', '#2c2a3a']
 
 // ── Fortschritt & Pfad ────────────────────────────────────────────────────
 const loading = ref(true)
@@ -284,7 +287,8 @@ function startLevel(level) {
   sheetLevel.value = 0
   playLevel.value = level
   bf = new BlockFallGame(level)
-  boardBg.value = BOARD_BG[bf.cfg.chapter] || BOARD_BG[0]
+  const bgs = resolvedTheme.value === 'dark' ? BOARD_BG_DARK : BOARD_BG
+  boardBg.value = bgs[bf.cfg.chapter] || bgs[0]
   phase.value = 'ready'
   quitConfirm.value = false
   rewardData.value = null
@@ -440,7 +444,7 @@ function draw() {
   ctx.clearRect(0, 0, w, h)
   ctx.fillStyle = boardBg.value
   ctx.fillRect(0, 0, w, h)
-  ctx.strokeStyle = 'rgba(120, 90, 30, 0.08)'
+  ctx.strokeStyle = resolvedTheme.value === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(120, 90, 30, 0.08)'
   ctx.lineWidth = 1
   ctx.beginPath()
   for (let x = 1; x < COLS; x++) { ctx.moveTo(x * cell + 0.5, 0); ctx.lineTo(x * cell + 0.5, h) }
@@ -1274,4 +1278,32 @@ onUnmounted(() => {
   flex-direction: column; gap: 8px; color: var(--text); font-size: 13px; font-weight: 600; }
 .tut-steps li { line-height: 1.4; }
 .tut-got { width: 100%; font-weight: 900; }
+
+/* ── Dark Mode (Discord-Look) ─────────────────────────────────────── */
+.app-dark .ch-meadow { background: linear-gradient(180deg, rgba(111, 217, 154, 0.16), var(--card) 40%); }
+.app-dark .ch-desert { background: linear-gradient(180deg, rgba(251, 207, 74, 0.14), var(--card) 40%); }
+.app-dark .ch-ice { background: linear-gradient(180deg, rgba(94, 200, 245, 0.16), var(--card) 40%); }
+.app-dark .ch-volcano { background: linear-gradient(180deg, rgba(255, 123, 90, 0.16), var(--card) 40%); }
+.app-dark .ch-stars { background: linear-gradient(180deg, rgba(148, 156, 247, 0.2), var(--card) 40%); }
+.app-dark .path-base { stroke: rgba(255, 255, 255, 0.14); }
+.app-dark .bf-node { border-color: #4e5058; }
+.app-dark .bf-node.st-locked { background: linear-gradient(180deg, #4e5058, #404249); box-shadow: 0 5px 0 #1e1f22; }
+.app-dark .node-stars { color: #5c5f66; text-shadow: none; }
+.app-dark .bf-hud { background: rgba(43, 45, 49, 0.94); }
+.app-dark .hud-stars,
+.app-dark .pf-stars { color: #5c5f66; }
+.app-dark .hud-progress { background: rgba(255, 255, 255, 0.08); }
+.app-dark .bf-canvas { border-color: var(--border); box-shadow: 0 4px 0 #1e1f22, 0 14px 30px rgba(0, 0, 0, 0.35); }
+.app-dark .pp-points,
+.app-dark .pp-sub { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+.app-dark .bs-go { background: rgba(43, 45, 49, 0.95); }
+.app-dark .ctrl { border-color: #4e5058; }
+.app-dark .ctrl:not(.rot):not(.drop) { background: linear-gradient(180deg, #404249, #313338); box-shadow: 0 5px 0 #1e1f22, 0 10px 18px rgba(0, 0, 0, 0.3); }
+.app-dark .ctrl:not(.rot):not(.drop):active { box-shadow: 0 2px 0 #1e1f22; }
+.app-dark .pf-badge { background: rgba(35, 165, 90, 0.16); color: var(--success-ink); border-color: rgba(35, 165, 90, 0.55); }
+.app-dark .pf-item { background: rgba(244, 169, 18, 0.1); }
+.app-dark .pf-item.tickets { background: rgba(88, 101, 242, 0.14); }
+.app-dark .bf-sheet-backdrop,
+.app-dark .tut-backdrop,
+.app-dark .bf-panel-wrap { background: var(--overlay); }
 </style>

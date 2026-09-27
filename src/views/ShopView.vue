@@ -1104,7 +1104,7 @@ function goToTickets() {
   font-weight: 800;
   background: rgba(25, 146, 200, 0.15);
   border: 1px solid rgba(25, 146, 200, 0.45);
-  color: #1992c8;
+  color: var(--info-ink);
   font-variant-numeric: tabular-nums;
 }
 .disappears-chip.ended {

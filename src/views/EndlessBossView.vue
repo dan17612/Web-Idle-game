@@ -498,7 +498,7 @@ onUnmounted(() => {
 .eb-warn.cooldown {
   background: rgba(25, 146, 200, 0.16);
   border-color: rgba(25, 146, 200, 0.45);
-  color: #1992c8;
+  color: var(--info-ink);
 }
 .eb-start {
   background: linear-gradient(135deg, var(--accent), #a855f7);

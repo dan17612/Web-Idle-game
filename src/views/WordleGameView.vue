@@ -444,7 +444,7 @@ onUnmounted(() => {
 .wr-bar.me { background: #58a35b; color: #fff; }
 .wr-countdown {
   font-weight: 800; font-variant-numeric: tabular-nums;
-  color: #1992c8;
+  color: var(--info-ink);
 }
 
 .tut-backdrop { position: fixed; inset: 0; background: rgba(60,40,10,0.5); display: flex;
