@@ -20,10 +20,6 @@ const busy = ref('')
 const error = ref('')
 const info = ref('')
 
-const supportSubject = ref('')
-const supportMessage = ref('')
-const supportNotifyCopy = ref(false)
-
 const expanded = ref('')
 function toggleExpand(key) {
   expanded.value = expanded.value === key ? '' : key
@@ -211,27 +207,6 @@ async function deleteAccount() {
     await auth.deleteMyAccount()
     flash(t('settingsFlash.accountDeleted'))
     router.replace({ name: 'login' })
-  } catch (e) {
-    flash(e.message || String(e), true)
-  } finally {
-    busy.value = ''
-  }
-}
-
-async function submitSupport() {
-  const subject = supportSubject.value.trim()
-  const message = supportMessage.value.trim()
-  if (!subject) return flash(t('settings.supportEnterSubject'), true)
-  if (!message) return flash(t('settings.supportEnterMessage'), true)
-  busy.value = 'support'
-  try {
-    const res = await auth.submitSupportTicket(subject, message, supportNotifyCopy.value)
-    const number = res?.ticket_number || '?'
-    const key = res?.notified_user ? 'settings.supportSentWithMail' : 'settings.supportSent'
-    flash(t(key, { number }))
-    supportSubject.value = ''
-    supportMessage.value = ''
-    supportNotifyCopy.value = false
   } catch (e) {
     flash(e.message || String(e), true)
   } finally {
@@ -493,25 +468,8 @@ async function logout() {
     <h2 class="cluster-head">{{ t('settings.clusterSupport') }}</h2>
     <section class="card cluster">
       <p class="cluster-desc">{{ t('settings.supportHint') }}</p>
-      <InputText
-        v-model="supportSubject"
-        type="text"
-        :placeholder="t('settings.supportSubjectPlaceholder')"
-        maxlength="200"
-      />
-      <Textarea
-        v-model="supportMessage"
-        :placeholder="t('settings.supportMessagePlaceholder')"
-        rows="5"
-        maxlength="5000"
-        autoResize
-      />
-      <label class="check-row">
-        <Checkbox v-model="supportNotifyCopy" :binary="true" inputId="support-notify-copy" />
-        <span>{{ t('settings.supportNotifyCopy') }}</span>
-      </label>
-      <Button class="btn" :disabled="busy==='support'" @click="submitSupport">
-        {{ busy==='support' ? t('common.loadingShort') : t('settings.supportSubmit') }}
+      <Button class="btn" @click="router.push({ name: 'support' })">
+        💬 {{ t('settings.supportOpenChat') }}
       </Button>
     </section>
 
@@ -754,15 +712,6 @@ async function logout() {
   align-items: center;
 }
 .grow { flex: 1; min-width: 0; }
-
-/* ── Check row (non-toggle) ───────────────────────────────── */
-.check-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 13px;
-  padding: var(--space-1) 0;
-}
 
 /* ── Avatar picker ────────────────────────────────────────── */
 .avatar-grid {

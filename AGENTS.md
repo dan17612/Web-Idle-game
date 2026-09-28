@@ -116,6 +116,20 @@ Spec: `docs/superpowers/specs/2026-09-24-tier-boerse-design.md`.
 - Neue Tierquellen (Truhe, Ei, Zucht, Crafting) sollten in `_market_model`
   als Beschaffbarkeit auftauchen, sonst gilt die Art als Limited Edition.
 
+## Support-Tab (`/support`) — Spezialwissen
+
+Spec: `docs/superpowers/specs/2026-09-28-support-tab-roadmap-downvotes-design.md`.
+
+- Nav-Tab „💬 Support“ mit zwei Reitern (`?tab=chat|roadmap`, Standard Chat);
+  `/roadmap` leitet auf `/support?tab=roadmap` um.
+- Support-Chat (`SupportChat.vue`, Logik `src/supportChat.js`): ein Gespräch =
+  ein Support-Ticket; Betreff wird aus Kategorie + erster Zeile gebaut, Antworten
+  über `user_reply_support_ticket`, Polling 15 s (keine Realtime-Publikation).
+  Admin antwortet weiter im AdminModal → Tickets.
+- Roadmap (`RoadmapBoard.vue`, Logik `src/roadmap.js`): Up-/Downvotes über
+  `vote_idea(p_idea_id, p_value)` (±1, gleiche Richtung = zurückziehen);
+  `roadmap_view.vote_count` = Score, `my_value` = eigene Stimme. Standardfilter „Ideen“.
+
 ## Stolperfallen
 
 - `main.js` blockt Pinch/Double-Tap global — eigene Touch-Flächen brauchen
