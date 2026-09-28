@@ -9,7 +9,6 @@ import { Analytics } from "@vercel/analytics/vue";
 import { supabase } from "./supabase";
 import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
-import SupportModal from "./components/SupportModal.vue";
 import TutorialBubble from "./components/TutorialBubble.vue";
 import ConnectionBanner from "./components/ConnectionBanner.vue";
 import { t } from "./i18n";
@@ -18,7 +17,6 @@ import { reconnect } from "./composables/useConnectionHealth";
 import { usePullToRefresh } from "./composables/usePullToRefresh";
 
 const adminOpen = ref(false);
-const supportOpen = ref(false);
 
 function formatDuration(sec) {
   const s = Math.max(0, Math.floor(Number(sec) || 0));
@@ -375,8 +373,9 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
       <router-link to="/" class="nav-item">
         <span class="ico">🏡</span><span>{{ t('app.nav.home') }}</span>
       </router-link>
-      <router-link to="/roadmap" class="nav-item">
-        <span class="ico">🗺️</span><span>{{ t('app.nav.roadmap') }}</span>
+      <router-link to="/support" class="nav-item nav-support">
+        <span class="ico">💬<span v-if="auth.hasUnseenSupportReply" class="nav-dot"></span></span>
+        <span>{{ t('app.nav.support') }}</span>
       </router-link>
       <router-link to="/leaderboard" class="nav-item">
         <span class="ico">🏆</span><span>{{ t('app.nav.rank') }}</span>
@@ -393,18 +392,7 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
       <span v-if="auth.hasUnseenAdminSupport" class="fab-dot-blue"></span>
     </Button>
 
-    <Button
-      v-if="showNav && auth.qualifiedSupportTickets.length"
-      class="support-fab"
-      @click="supportOpen = true"
-      :title="t('app.supportTickets')"
-    >
-      🎫
-      <span v-if="auth.hasUnseenSupportReply" class="fab-dot"></span>
-    </Button>
-
     <AdminModal v-if="adminOpen" @close="adminOpen = false" />
-    <SupportModal v-if="supportOpen" @close="supportOpen = false" />
     <SpeedInsights />
     <Analytics />
   </div>
@@ -503,6 +491,18 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
   margin-bottom: 6px;
 }
 .nav-shop { position: relative; }
+.nav-support .ico { position: relative; }
+/* Ungelesene Entwickler-Antwort im Support-Chat */
+.nav-dot {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 2px solid var(--card);
+}
 /* Ausweg aus dem Tutorial, falls ein Schritt nicht erfüllbar ist (z. B.
    Truhe nicht bezahlbar). Liegt über der Abdunkelung. */
 .tutorial-skip {

@@ -5,20 +5,26 @@ import { useAuthStore } from '../stores/auth'
 import { t } from '../i18n'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 import { useAppToast } from '../composables/useAppToast'
+import {
+  ROADMAP_DEFAULT_FILTER, ROADMAP_STATUSES, myVoteOf, ideaScore, nextVoteValue,
+  applyVote, voteResultToFields, filterAndSortIdeas, formatScore
+} from '../roadmap'
 
 const toast = useAppToast()
 const auth = useAuthStore()
 const ideas = ref([])
 const loading = ref(false)
-const filter = ref('all')
+const filter = ref(ROADMAP_DEFAULT_FILTER)
 const sortBy = ref('votes')
+const voteBusy = ref(new Set())
 const expanded = ref(new Set())
 const submitOpen = ref(false)
 const submitForm = reactive({ title: '', description: '', busy: false })
 const adminBusy = ref('')
 
-const isAdmin = computed(() => !!(auth.profile?.is_admin || auth.profile?.is_subadmin))
-const adminStatuses = ['idea', 'planned', 'in_progress', 'done', 'rejected']
+// Roadmap verwalten (Status/Löschen) nur Admins, Sub-Admins nicht
+const isAdmin = computed(() => !!auth.profile?.is_admin)
+const adminStatuses = ROADMAP_STATUSES
 
 function isOwnIdea(idea) {
   return !!auth.user && idea.created_by === auth.user.id
@@ -48,16 +54,7 @@ const statusFilters = computed(() => [
   { k: 'done',        label: t('roadmap.statusDone'),        emoji: '✅' }
 ])
 
-const filteredIdeas = computed(() => {
-  let list = ideas.value
-  if (filter.value !== 'all') list = list.filter(i => i.status === filter.value)
-  if (sortBy.value === 'votes') {
-    list = [...list].sort((a, b) => (Number(b.vote_count) || 0) - (Number(a.vote_count) || 0))
-  } else {
-    list = [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  }
-  return list
-})
+const filteredIdeas = computed(() => filterAndSortIdeas(ideas.value, filter.value, sortBy.value))
 
 function statusEmoji(s) {
   return ({ idea: '💡', planned: '📋', in_progress: '🔨', done: '✅', rejected: '❌' })[s] || '💡'
@@ -67,24 +64,35 @@ function statusLabel(s) {
   return t('roadmap.status' + s.charAt(0).toUpperCase() + s.slice(1).replace(/_(\w)/g, (_, c) => c.toUpperCase()))
 }
 
-function fmtVotes(n) {
-  const num = Number(n) || 0
-  return num > 99 ? '99+' : String(num)
-}
-
 function toggleExpand(id) {
   if (expanded.value.has(id)) expanded.value.delete(id)
   else expanded.value.add(id)
   expanded.value = new Set(expanded.value)
 }
 
-async function vote(idea) {
+// ▲ = +1, ▼ = -1; gleiche Richtung erneut zieht die Stimme zurück.
+// Optimistisch anzeigen, danach die Serverwerte übernehmen.
+async function vote(idea, direction) {
+  if (voteBusy.value.has(idea.id)) return
+  const value = nextVoteValue(myVoteOf(idea), direction)
+  const before = {
+    up_count: idea.up_count, down_count: idea.down_count,
+    vote_count: idea.vote_count, my_value: idea.my_value, my_vote: idea.my_vote
+  }
+  Object.assign(idea, applyVote(idea, value))
+  voteBusy.value = new Set(voteBusy.value).add(idea.id)
   try {
-    const { data, error } = await supabase.rpc('vote_idea', { p_idea_id: idea.id })
+    const { data, error } = await supabase.rpc('vote_idea', { p_idea_id: idea.id, p_value: value })
     if (error) throw error
-    idea.vote_count = data.count
-    idea.my_vote = data.voted
-  } catch (e) { toast.err(e) }
+    Object.assign(idea, voteResultToFields(data))
+  } catch (e) {
+    Object.assign(idea, before)
+    toast.err(e)
+  } finally {
+    const next = new Set(voteBusy.value)
+    next.delete(idea.id)
+    voteBusy.value = next
+  }
 }
 
 async function adminSetStatus(idea, status) {
@@ -143,7 +151,7 @@ async function submitIdea() {
 </script>
 
 <template>
-  <h1 class="title">🗺️ {{ t('roadmap.title') }}</h1>
+  <p class="subtitle board-hint">{{ t('roadmap.hint') }}</p>
 
   <div class="card filter-card">
     <div class="filter-bar">
@@ -176,18 +184,37 @@ async function submitIdea() {
   <div v-if="loading" class="card subtitle">{{ t('common.loading') }}</div>
   <div v-else-if="!filteredIdeas.length" class="card subtitle">{{ t('roadmap.empty') }}</div>
 
-  <div v-else>
+  <div v-else class="idea-list">
     <div
       v-for="idea in filteredIdeas"
       :key="idea.id"
       class="card idea-card"
-      :class="{ 'has-voted': idea.my_vote }"
+      :class="{ 'has-voted': myVoteOf(idea) === 1, 'has-downvoted': myVoteOf(idea) === -1 }"
       @click="toggleExpand(idea.id)"
     >
       <div class="idea-row">
-        <div class="vote-col" @click.stop="vote(idea)">
-          <span class="vote-arrow" :class="{ active: idea.my_vote }">▲</span>
-          <span class="vote-count">{{ fmtVotes(idea.vote_count) }}</span>
+        <div class="vote-col" @click.stop>
+          <button
+            type="button"
+            class="vote-btn up"
+            :class="{ active: myVoteOf(idea) === 1 }"
+            :aria-label="t('roadmap.upvote')"
+            :title="t('roadmap.upvote')"
+            @click="vote(idea, 1)"
+          >▲</button>
+          <span
+            class="vote-count"
+            :class="{ neg: ideaScore(idea) < 0 }"
+            :title="`▲ ${idea.up_count ?? idea.vote_count ?? 0} · ▼ ${idea.down_count ?? 0}`"
+          >{{ formatScore(ideaScore(idea)) }}</span>
+          <button
+            type="button"
+            class="vote-btn down"
+            :class="{ active: myVoteOf(idea) === -1 }"
+            :aria-label="t('roadmap.downvote')"
+            :title="t('roadmap.downvote')"
+            @click="vote(idea, -1)"
+          >▼</button>
         </div>
         <div class="idea-body">
           <div class="idea-title">{{ idea.title }}</div>
@@ -293,19 +320,36 @@ async function submitIdea() {
 }
 .idea-card:hover { transform: translateY(-1px); border-color: var(--accent); }
 .idea-card.has-voted { border-color: rgba(244, 169, 18, 0.5); }
+.idea-card.has-downvoted { border-color: color-mix(in srgb, var(--info-ink) 45%, transparent); }
+.board-hint { margin: 0 2px 10px; }
 .idea-row { display: flex; align-items: flex-start; gap: 12px; }
 .vote-col {
   display: flex; flex-direction: column; align-items: center;
-  min-width: 44px; padding: 4px 6px;
+  min-width: 44px; padding: 2px;
   background: var(--card-2); border: 1px solid var(--border);
-  border-radius: 10px;
-  cursor: pointer; user-select: none;
-  transition: border-color 0.15s ease;
+  border-radius: 12px;
+  user-select: none;
+  cursor: default;
 }
-.vote-col:hover { border-color: var(--accent); }
-.vote-arrow { font-size: 16px; color: var(--muted); line-height: 1; }
-.vote-arrow.active { color: var(--accent); }
-.vote-count { font-size: 12px; font-weight: 800; margin-top: 2px; }
+.vote-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 28px;
+  padding: 0;
+  font-size: 15px; line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.vote-btn:active { transform: scale(0.88); }
+.vote-btn.up:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.vote-btn.down:hover { color: var(--info-ink); background: color-mix(in srgb, var(--info-ink) 12%, transparent); }
+.vote-btn.up.active { color: var(--accent); }
+.vote-btn.down.active { color: var(--info-ink); }
+.vote-count { font-size: 13px; font-weight: 800; line-height: 1.1; color: var(--heading); }
+.vote-count.neg { color: var(--info-ink); }
 .idea-body { flex: 1; min-width: 0; }
 .idea-title { font-weight: 700; font-size: 15px; }
 .idea-desc { color: var(--muted); font-size: 13px; margin-top: 4px; }
@@ -388,9 +432,12 @@ async function submitIdea() {
   margin-top: 2px;
 }
 
+/* Platz, damit die letzte Karte nicht unter dem Einreichen-Knopf liegt */
+.idea-list { padding-bottom: 56px; }
+
 .submit-fab {
   position: fixed;
-  bottom: 80px;
+  bottom: calc(100px + var(--safe-bot));
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
