@@ -363,7 +363,8 @@ function tx(key, vars = {}) {
   return text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''))
 }
 
-const tab = ref('broadcast')
+// Sub-Admins: nur Spieler sperren + Tickets bearbeiten (Server erzwingt das).
+const tab = ref(isSubadmin.value ? 'tickets' : 'broadcast')
 const busy = ref('')
 const error = ref('')
 const info = ref('')
@@ -383,6 +384,13 @@ const expandedTicket = ref(null)
 function toggleTicket(id) {
   expandedTicket.value = expandedTicket.value === id ? null : id
 }
+// Admin-Nachrichten mit Namen (+ Sub-Admin-Kennzeichen), ältere ohne Namen als „admin“
+function senderLabel(m) {
+  if (!m || m.sender !== 'admin') return m?.sender || ''
+  if (!m.sender_name) return 'admin'
+  return m.sender_role === 'subadmin' ? `${m.sender_name} ⚡` : m.sender_name
+}
+
 function lastMsg(t) {
   const arr = ticketThreads.value[t.id] || []
   return arr.length ? arr[arr.length - 1] : null
@@ -481,6 +489,11 @@ async function loadUsers() {
 }
 
 onMounted(async () => {
+  if (isSubadmin.value) {
+    loadTickets()
+    await loadUsers()
+    return
+  }
   await loadSpecies()
   await loadUsers()
 })
@@ -791,9 +804,9 @@ async function deleteUser(u) {
       </div>
 
       <div class="tabs">
-        <Button :class="{ active: tab==='broadcast' }" @click="tab='broadcast'">{{ tx('tabs.broadcast') }}</Button>
-        <Button :class="{ active: tab==='shop' }" @click="tab='shop'">{{ tx('tabs.shop') }}</Button>
-        <Button :class="{ active: tab==='gift' }" @click="tab='gift'">{{ tx('tabs.gift') }}</Button>
+        <Button v-if="isFullAdmin" :class="{ active: tab==='broadcast' }" @click="tab='broadcast'">{{ tx('tabs.broadcast') }}</Button>
+        <Button v-if="isFullAdmin" :class="{ active: tab==='shop' }" @click="tab='shop'">{{ tx('tabs.shop') }}</Button>
+        <Button v-if="isFullAdmin" :class="{ active: tab==='gift' }" @click="tab='gift'">{{ tx('tabs.gift') }}</Button>
         <Button :class="{ active: tab==='users' }" @click="tab='users'">{{ tx('tabs.users') }}</Button>
         <Button :class="{ active: tab==='tickets' }" @click="tab='tickets'; loadTickets()">{{ tx('tabs.tickets') }}</Button>
         <Button v-if="isFullAdmin" :class="{ active: tab==='filter' }" @click="tab='filter'; loadForbidden()">{{ tx('tabs.filter') }}</Button>
@@ -802,7 +815,7 @@ async function deleteUser(u) {
       <p v-if="error" class="error">{{ error }}</p>
       <p v-if="info" class="success">{{ info }}</p>
 
-      <template v-if="tab === 'broadcast'">
+      <template v-if="tab === 'broadcast' && isFullAdmin">
         <p class="subtitle">{{ tx('broadcast.subtitle') }}</p>
         <Textarea
           v-model="broadcastMsg"
@@ -816,7 +829,7 @@ async function deleteUser(u) {
         </Button>
       </template>
 
-      <template v-if="tab === 'gift'">
+      <template v-if="tab === 'gift' && isFullAdmin">
         <p class="subtitle">{{ tx('gift.subtitle') }}</p>
         <label class="subtitle">{{ tx('gift.recipientLabel') }} <code>@all</code> / <code>@online</code></label>
         <InputText v-model="giftForm.username" :placeholder="tx('gift.recipientPlaceholder')" style="width:100%;margin-bottom:8px" />
@@ -853,7 +866,7 @@ async function deleteUser(u) {
         </Button>
       </template>
 
-      <template v-if="tab === 'shop'">
+      <template v-if="tab === 'shop' && isFullAdmin">
         <Button class="btn full" :disabled="busy==='rotate'" @click="rotate" style="margin-bottom:10px">
           {{ tx('shop.rerollNow') }}
         </Button>
@@ -1053,7 +1066,7 @@ async function deleteUser(u) {
               &lt;{{ t.user_email || '?' }}&gt;
             </div>
             <div v-if="expandedTicket !== t.id && lastMsg(t)" class="ticket-last">
-              <b>{{ lastMsg(t).sender }}:</b>
+              <b>{{ senderLabel(lastMsg(t)) }}:</b>
               {{ lastMsg(t).body.slice(0, 140) }}<span v-if="lastMsg(t).body.length > 140">…</span>
               <span class="subtitle" style="font-size:11px"> · {{ fmtDateTime(lastMsg(t).created_at) }}</span>
             </div>
@@ -1071,7 +1084,7 @@ async function deleteUser(u) {
                 :class="m.sender === 'admin' ? 'adm-bubble-admin' : 'adm-bubble-user'"
               >
                 <pre class="ticket-msg" style="margin:0">{{ m.body }}</pre>
-                <div class="subtitle" style="font-size:11px">{{ m.sender }} · {{ fmtDateTime(m.created_at) }}</div>
+                <div class="subtitle" style="font-size:11px">{{ senderLabel(m) }} · {{ fmtDateTime(m.created_at) }}</div>
               </div>
             </div>
             <Textarea

@@ -43,7 +43,10 @@ export const useAuthStore = defineStore('auth', {
     loading: true,
     mySupportTickets: [],
     ticketThreads: {},
-    adminSupportTickets: []
+    adminSupportTickets: [],
+    // Zähler, damit hasUnseenSupportReply nach markSupportRepliesSeen() neu
+    // berechnet wird (die Seen-Map liegt nicht reaktiv im localStorage).
+    supportSeenTick: 0
   }),
   getters: {
     user: (s) => s.session?.user || null,
@@ -51,7 +54,10 @@ export const useAuthStore = defineStore('auth', {
     hasGoogleLinked: (s) => (s.identities || []).some((i) => i.provider === 'google'),
     canUnlinkGoogle: (s) => (s.identities || []).some((i) => i.provider === 'google'),
     qualifiedSupportTickets: (s) => qualifySupportTickets(s.mySupportTickets, Date.now()),
-    hasUnseenSupportReply: (s) => hasUnseenReply(s.mySupportTickets, readSeenMap(), Date.now()),
+    hasUnseenSupportReply: (s) => {
+      void s.supportSeenTick
+      return hasUnseenReply(s.mySupportTickets, readSeenMap(), Date.now())
+    },
     hasUnseenAdminSupport: (s) => hasUnseenAdminMessage(s.adminSupportTickets, readAdminSeenMap())
   },
   actions: {
@@ -241,11 +247,12 @@ export const useAuthStore = defineStore('auth', {
     },
     markSupportRepliesSeen() {
       writeSeenMap(buildSeenMap(this.mySupportTickets, readSeenMap(), Date.now()))
+      this.supportSeenTick++
     },
     async loadTicketThread(ticketId) {
       const { data, error } = await supabase
         .from('support_ticket_messages')
-        .select('id, sender, body, created_at')
+        .select('id, sender, body, created_at, sender_name, sender_role')
         .eq('ticket_id', ticketId)
         .order('created_at', { ascending: true })
       if (error) { console.error(error); return }
