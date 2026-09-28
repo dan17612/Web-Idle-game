@@ -252,7 +252,7 @@ export const useAuthStore = defineStore('auth', {
     async loadTicketThread(ticketId) {
       const { data, error } = await supabase
         .from('support_ticket_messages')
-        .select('id, sender, body, created_at')
+        .select('id, sender, body, created_at, sender_name, sender_role')
         .eq('ticket_id', ticketId)
         .order('created_at', { ascending: true })
       if (error) { console.error(error); return }

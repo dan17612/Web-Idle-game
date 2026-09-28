@@ -79,3 +79,20 @@ Komponente `src/components/RoadmapBoard.vue` (bisheriger Inhalt von
 - `src/supportChat.test.js` — Betreff-Bau, aktives Ticket, Gesprächs-Sortierung.
 - `src/roadmapVotesSql.test.js` — Spalte/Check, RPC-Signatur, Kompat-Felder,
   `security_invoker`, search_path-Pins, Revokes.
+
+## Nachtrag: Absender im Chat & Sub-Admin-Rechte
+
+Migration `20260928_support_rollen_und_absender.sql`:
+
+- `support_ticket_messages` bekommt `sender_id`, `sender_name` (Schnappschuss
+  des Benutzernamens) und `sender_role` (`admin`/`subadmin`).
+  `admin_reply_support_ticket` füllt sie; `admin_list_ticket_messages` liefert sie.
+- Im Chat steht über jeder Antwort „🛠️ Name · Entwickler“ bzw.
+  „🛡️ Name · Support-Team“; ältere Antworten ohne Namen nur die Rolle.
+- **Sub-Admins dürfen nur noch Spieler sperren (inkl. Suche) und Tickets
+  bearbeiten.** Ticket-RPCs erlauben jetzt `_admin_role()` (vorher nur
+  `is_admin`). Shop-Restock/Rotation, Spezies an/aus/Gewicht, Geschenke,
+  Broadcast, Promo-Codes und Roadmap-Verwaltung sind admin-only — der Guard
+  wird per `pg_get_functiondef` + `replace` in der Live-Definition getauscht.
+- AdminModal: Sub-Admins sehen nur die Reiter 👥 und 🎫 (Start auf Tickets);
+  Roadmap-Verwaltung nur für Admins.

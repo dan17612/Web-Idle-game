@@ -53,3 +53,12 @@ export function pickActiveTicketId(tickets) {
   const open = sortConversations(tickets).find((t) => t.status !== 'closed')
   return open ? open.id : null
 }
+
+// Wer hat im Chat geantwortet? Ältere Nachrichten ohne gespeicherten Namen
+// zeigen nur die Rolle (Admin = Entwickler, Sub-Admin = Support-Team).
+export function replyAuthor(message) {
+  if (!message || message.sender === 'user') return null
+  const role = message.sender_role === 'subadmin' ? 'subadmin' : 'admin'
+  const name = String(message.sender_name || '').trim() || null
+  return { name, role, icon: role === 'subadmin' ? '🛡️' : '🛠️' }
+}

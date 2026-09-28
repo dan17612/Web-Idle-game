@@ -22,7 +22,8 @@ const submitOpen = ref(false)
 const submitForm = reactive({ title: '', description: '', busy: false })
 const adminBusy = ref('')
 
-const isAdmin = computed(() => !!(auth.profile?.is_admin || auth.profile?.is_subadmin))
+// Roadmap verwalten (Status/Löschen) nur Admins, Sub-Admins nicht
+const isAdmin = computed(() => !!auth.profile?.is_admin)
 const adminStatuses = ROADMAP_STATUSES
 
 function isOwnIdea(idea) {

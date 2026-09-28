@@ -129,6 +129,10 @@ Spec: `docs/superpowers/specs/2026-09-28-support-tab-roadmap-downvotes-design.md
 - Roadmap (`RoadmapBoard.vue`, Logik `src/roadmap.js`): Up-/Downvotes über
   `vote_idea(p_idea_id, p_value)` (±1, gleiche Richtung = zurückziehen);
   `roadmap_view.vote_count` = Score, `my_value` = eigene Stimme. Standardfilter „Ideen“.
+- Rollen: Sub-Admins dürfen **nur** Spieler sperren (`admin_list_users`,
+  `admin_set_user_ban`) und Tickets bearbeiten; alle anderen Admin-RPCs prüfen
+  `role is distinct from 'admin'`. Antworten speichern `sender_name`/`sender_role`
+  (Anzeige im Chat). Neue Admin-RPCs standardmäßig admin-only anlegen.
 
 ## Stolperfallen
 

@@ -6,7 +6,7 @@ import { useAppToast } from '../composables/useAppToast'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 import {
   SUPPORT_CATEGORIES, SUPPORT_MESSAGE_MAX, buildTicketSubject, canSendMessage,
-  sortConversations, pickActiveTicketId
+  sortConversations, pickActiveTicketId, replyAuthor
 } from '../supportChat'
 
 const I18N = {
@@ -15,6 +15,8 @@ const I18N = {
     introText: 'Bug gefunden, Frage oder Feedback? Schreib einfach los – die Antwort kommt hier im Chat und zusätzlich per E-Mail.',
     newChat: 'Neu',
     dev: 'Entwickler',
+    role_admin: 'Entwickler',
+    role_subadmin: 'Support-Team',
     welcome: '👋 Hi! Was kann ich für dich tun? Beschreib kurz, was los ist – bei Bugs gern mit dem, was du vorher gemacht hast.',
     topic: 'Worum geht’s?',
     cat_bug: 'Bug',
@@ -38,6 +40,8 @@ const I18N = {
     introText: 'Found a bug, have a question or feedback? Just write – the reply shows up here in the chat and by email.',
     newChat: 'New',
     dev: 'Developer',
+    role_admin: 'Developer',
+    role_subadmin: 'Support team',
     welcome: '👋 Hi! How can I help? Briefly describe what’s going on – for bugs, ideally what you did right before.',
     topic: 'What is it about?',
     cat_bug: 'Bug',
@@ -61,6 +65,8 @@ const I18N = {
     introText: 'Нашёл баг, есть вопрос или отзыв? Просто напиши – ответ появится здесь в чате и придёт на e-mail.',
     newChat: 'Новый',
     dev: 'Разработчик',
+    role_admin: 'Разработчик',
+    role_subadmin: 'Команда поддержки',
     welcome: '👋 Привет! Чем могу помочь? Коротко опиши, что случилось – для багов лучше с тем, что ты делал перед этим.',
     topic: 'О чём речь?',
     cat_bug: 'Баг',
@@ -248,9 +254,12 @@ onUnmounted(() => {
             v-for="m in messages"
             :key="m.id"
             class="bubble"
-            :class="m.sender === 'user' ? 'me' : 'dev'"
+            :class="m.sender === 'user' ? 'me' : ['dev', replyAuthor(m).role]"
           >
-            <div v-if="m.sender !== 'user'" class="bubble-who">🛠️ {{ tx('dev') }}</div>
+            <div v-if="replyAuthor(m)" class="bubble-who">
+              {{ replyAuthor(m).icon }}
+              <template v-if="replyAuthor(m).name">{{ replyAuthor(m).name }} · </template>{{ tx('role_' + replyAuthor(m).role) }}
+            </div>
             <div class="bubble-body">{{ m.body }}</div>
             <div class="bubble-time">{{ fmtTime(m.created_at) }}</div>
           </div>
@@ -373,6 +382,7 @@ onUnmounted(() => {
   border-bottom-left-radius: 6px;
 }
 .bubble-who { font-size: 11px; font-weight: 800; color: var(--accent-deep); margin-bottom: 2px; }
+.bubble.dev.subadmin .bubble-who { color: var(--info-ink); }
 .bubble-body { white-space: pre-wrap; word-break: break-word; color: var(--text); }
 .bubble-time { font-size: 10px; color: var(--muted); margin-top: 3px; text-align: right; font-weight: 600; }
 .thread-note { align-self: center; font-size: 12px; color: var(--muted); font-weight: 700; padding: 2px 8px; }
