@@ -21,6 +21,7 @@ import DailyRewardModal from "../components/DailyRewardModal.vue";
 import { supabase } from "../supabase";
 import { useAppToast } from "../composables/useAppToast";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
+import { openDailyReward } from "../composables/useDailyRewardModal";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -850,7 +851,6 @@ const activeEvents = computed(() => sortedEvents.value.filter((c) => !c.ended));
 const endedEvents = computed(() => sortedEvents.value.filter((c) => c.ended));
 const endedOpen = ref(false);
 
-const dailyOpen = ref(false);
 const dailyRemaining = computed(() => {
   void now.value;
   const at = game.dailyReward?.next_claim_at
@@ -867,7 +867,7 @@ watch(
     let seen = false;
     try { seen = sessionStorage.getItem(key) === today; } catch {}
     if (seen) return;
-    dailyOpen.value = true;
+    openDailyReward();
     try { sessionStorage.setItem(key, today); } catch {}
   },
   { immediate: true },
@@ -1277,7 +1277,7 @@ async function doSplit(animalId) {
     <button
       class="daily-banner"
       :class="{ ready: game.dailyRewardAvailable }"
-      @click="dailyOpen = true"
+      @click="openDailyReward"
     >
       <span class="db-icon">🎁</span>
       <span class="db-body">
@@ -2085,7 +2085,7 @@ async function doSplit(animalId) {
       </div>
     </template>
 
-    <DailyRewardModal :open="dailyOpen" @close="dailyOpen = false" />
+    <DailyRewardModal />
   </div>
 </template>
 

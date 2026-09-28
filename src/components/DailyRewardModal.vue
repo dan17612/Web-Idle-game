@@ -4,9 +4,7 @@ import { useGameStore } from '../stores/game'
 import { formatCoins } from '../animals'
 import { locale } from '../i18n'
 import { useAppToast } from '../composables/useAppToast'
-
-const props = defineProps({ open: Boolean })
-const emit = defineEmits(['close'])
+import { dailyRewardOpen, closeDailyReward } from '../composables/useDailyRewardModal'
 
 const game = useGameStore()
 const appToast = useAppToast()
@@ -75,8 +73,16 @@ const justClaimed = ref(null)
 const now = ref(Date.now())
 let timer = null
 
-onMounted(() => { timer = setInterval(() => { now.value = Date.now() }, 1000) })
-onUnmounted(() => { if (timer) clearInterval(timer) })
+onMounted(() => {
+  timer = setInterval(() => {
+    if (dailyRewardOpen.value && document.visibilityState === 'visible') now.value = Date.now()
+  }, 1000)
+})
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+  // Zustand ist modulweit — beim Verlassen der Startseite nicht offen lassen
+  closeDailyReward()
+})
 
 const status = computed(() => game.dailyReward)
 const days = computed(() => Array.isArray(status.value?.days) ? status.value.days : [])
@@ -117,14 +123,16 @@ async function claim() {
 }
 
 function close() {
+  // Beides im selben Tick: das Modal verschwindet direkt, ohne vorher noch
+  // einmal das Tage-Raster zu rendern.
+  closeDailyReward()
   justClaimed.value = null
-  emit('close')
 }
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="props.open" class="dr-backdrop" @click.self="close">
+    <div v-if="dailyRewardOpen" class="dr-backdrop" @click.self="close">
       <div class="dr-dialog card">
         <template v-if="!justClaimed">
           <button class="dr-close" @click="close">✕</button>
