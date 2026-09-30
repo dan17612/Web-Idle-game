@@ -16,6 +16,10 @@ const PLAYER_RADIUS = 0.7
 const FARM_DETAIL_DIST = 55
 const EMOTE_SECONDS = 2.2
 
+// Mehr-Codepoint-Emoji zerfallen im Canvas auf Windows; hier Einzel-Ersatz.
+// Phönix (ZWJ-Sequenz) → Adler.
+const CANVAS_EMOJI_FALLBACK = { '\u{1F426}\u200D\u{1F525}': '\u{1F985}' }
+
 export class WorldEngine {
   constructor(canvas, callbacks = {}) {
     this.canvas = canvas
@@ -833,6 +837,7 @@ export class WorldEngine {
 
   // ── Sprites & Texturen ──────────────────────────────────────────────────
   _emojiMaterial(emoji, px) {
+    emoji = CANVAS_EMOJI_FALLBACK[emoji] || emoji
     const key = `${emoji}@${px}`
     if (this._emojiMats.has(key)) return this._emojiMats.get(key)
     const THREE = this.THREE
