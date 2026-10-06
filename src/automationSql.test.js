@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { AUTOMATION_RULES } from './automationCheck.js'
+import { CLICK_RULES } from './automationCheck.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sql = readFileSync(
@@ -37,11 +37,55 @@ test('only one open check per player, 4-digit code', () => {
   assert.match(fnBody('_automation_new_code'), /% 10000\)::text,\s*4, '0'/)
 })
 
-test('rules mirror AUTOMATION_RULES in src/automationCheck.js', () => {
+function sqlRules() {
   const body = fnBody('_automation_rules')
   const pairs = [...body.matchAll(/'([a-z_]+)',\s*([0-9.]+)/g)]
-  const fromSql = Object.fromEntries(pairs.map(([, k, v]) => [k, Number(v)]))
-  assert.deepEqual(fromSql, { ...AUTOMATION_RULES })
+  return Object.fromEntries(pairs.map(([, k, v]) => [k, Number(v)]))
+}
+
+test('click thresholds mirror CLICK_RULES in src/automationCheck.js', () => {
+  const rules = sqlRules()
+  for (const [k, v] of Object.entries(CLICK_RULES)) assert.equal(rules[k], v, k)
+})
+
+test('server-only defaults (not shipped to the client)', () => {
+  assert.deepEqual(sqlRules(), {
+    ...CLICK_RULES,
+    slot_minutes: 5,
+    run_window_slots: 96,
+    run_min_slots: 94,
+    takt_slots: 25,
+    takt_max_sd_s: 1.0,
+    click_reports_needed: 3,
+    click_report_window_h: 2,
+    max_attempts: 5
+  })
+})
+
+test('live thresholds can be overridden privately via app_settings', () => {
+  const body = fnBody('_automation_rules')
+  assert.match(body, /from public\.app_settings\s+where key = 'automation_rules'/)
+  assert.match(body, /exception when others then\s+v_override := null/)
+  assert.match(body, /jsonb_typeof\(v_override\) is distinct from 'object'/)
+  assert.match(body, /\|\| \(v_override - 'slot_minutes'\)/)
+})
+
+test('players never learn which pattern was detected', () => {
+  const status = fnBody('automation_status')
+  assert.doesNotMatch(status, /'reason'|'details'/)
+  const ticket = fnBody('_automation_open_ticket')
+  assert.match(sql, /create or replace function public\._automation_open_ticket\(p_uid uuid\)/)
+  assert.doesNotMatch(ticket, /_automation_describe|p_details|p_reason/)
+  assert.doesNotMatch(fnBody('automation_verify'), /reason|details/)
+})
+
+test('admin RPC shows the details to admins and sub-admins only', () => {
+  const a = fnBody('admin_automation_checks')
+  assert.match(a, /security definer/)
+  assert.match(a, /if public\._admin_role\(\) is null then raise exception 'admin only'/)
+  assert.match(a, /public\._automation_describe\(c\.reason, c\.details\)/)
+  assert.match(sql, /revoke all on function public\.admin_automation_checks\(uuid\) from public, anon;/)
+  assert.match(sql, /grant execute on function public\.admin_automation_checks\(uuid\) to authenticated;/)
 })
 
 test('every function pins search_path, definer where it touches data', () => {
@@ -50,15 +94,16 @@ test('every function pins search_path, definer where it touches data', () => {
   for (const name of fns) {
     assert.match(fnBody(name), /set search_path = public/, `${name} search_path`)
   }
-  for (const name of ['_automation_guard', '_automation_open_ticket', '_automation_flag', '_automation_track',
-    '_automation_trg_purchase', '_automation_trg_tap', 'automation_status', 'automation_verify', 'automation_report']) {
+  for (const name of ['_automation_rules', '_automation_guard', '_automation_open_ticket', '_automation_flag',
+    '_automation_track', '_automation_trg_purchase', '_automation_trg_tap', 'automation_status',
+    'automation_verify', 'automation_report', 'admin_automation_checks']) {
     assert.match(fnBody(name), /security definer/, `${name} definer`)
   }
 })
 
 test('helpers are revoked, client RPCs only for authenticated', () => {
   for (const name of ['_automation_rules\\(\\)', '_automation_new_code\\(\\)', '_automation_guard\\(uuid\\)',
-    '_automation_describe\\(text, jsonb\\)', '_automation_open_ticket\\(uuid, text, jsonb\\)',
+    '_automation_describe\\(text, jsonb\\)', '_automation_open_ticket\\(uuid\\)',
     '_automation_flag\\(uuid, text, jsonb\\)', '_automation_track\\(uuid, text\\)',
     '_automation_trg_purchase\\(\\)', '_automation_trg_tap\\(\\)']) {
     assert.match(sql, new RegExp(`revoke all on function public\\.${name} from public, anon, authenticated`))

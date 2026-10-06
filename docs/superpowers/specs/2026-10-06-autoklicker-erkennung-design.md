@@ -9,7 +9,8 @@ Wenn ein Spieler über lange Zeit ein zu genaues, sich wiederholendes Muster
 zeigt (z. B. 8 Stunden lang jede Truhe jeder Shop-Rotation geöffnet), erscheint
 ein **Prüf-Fenster**:
 
-- Hinweis „🤖 Automatisierung erkannt“ mit dem Grund,
+- Hinweis „🤖 Automatisierung erkannt“ – **ohne** zu verraten, welches Muster
+  erkannt wurde (siehe „Geheimhaltung“),
 - eine zufällige **4-stellige Zahl**, die in ein Textfeld getippt werden muss,
 - Hinweis, dass automatisch ein **Support-Ticket für das Admin-Team** eröffnet
   wurde (Ticketnummer).
@@ -58,8 +59,35 @@ gelösten Prüfung, damit es nach der Eingabe nicht sofort wieder auslöst.
    Selbstmeldungen können nur den eigenen Account treffen, daher kein
    Missbrauchsrisiko.
 
-Die Schwellen stehen doppelt: in SQL und in `src/automationCheck.js`
-(`AUTOMATION_RULES`). `src/automationSql.test.js` vergleicht beide.
+Die Werte oben sind die **Standardwerte** in `_automation_rules()`. Nur die
+Klick-Schwellen, die der Browser braucht, stehen zusätzlich in
+`src/automationCheck.js` (`CLICK_RULES`). `src/automationSql.test.js` vergleicht
+beide.
+
+## Geheimhaltung
+
+Spieler sollen nicht erfahren, nach welchem Muster sie erkannt wurden.
+Sonst stellt man den Klicker einfach knapp unter die Schwelle.
+
+- Das Prüf-Fenster sagt nur „Hinweise auf automatisiertes Spielen“.
+- `automation_status()`, `automation_verify()` und `automation_report()`
+  liefern weder `reason` noch `details`.
+- Der Ticket-Text im Support-Chat des Spielers ist neutral.
+- Regel, Messwerte und Verlauf sehen nur Admins und Sub-Admins über
+  `admin_automation_checks(p_ticket_id)`. Sub-Admins dürfen das, weil sie
+  Tickets bearbeiten und sperren. Angezeigt wird es im AdminModal → Tickets
+  als Kasten „🔒 Autoklicker-Erkennung“ bei Tickets, deren Betreff mit 🤖
+  beginnt.
+- Im JS-Bundle stehen nur die Klick-Schwellen. Dauerlauf-, Takt- und
+  Meldungs-Werte gibt es nur in SQL.
+- Das Repo ist öffentlich, daher sind die Standardwerte einsehbar. Die
+  Live-Werte lassen sich privat überschreiben:
+  `app_settings(key = 'automation_rules', value = '{"run_min_slots": 92, …}')`.
+  Das JSON wird über die Standardwerte gelegt. `slot_minutes` ist fest, weil
+  es an `_current_slot()` hängt. Ungültiges JSON ⇒ Standardwerte.
+  Werden Klick-Schwellen serverseitig strenger gesetzt, filtert der Client
+  zwar weiter mit seinen Werten vor, der Server verwirft aber alles, was die
+  strengeren Werte nicht erfüllt.
 
 ## Prüfung (Code)
 
@@ -70,8 +98,8 @@ Tabelle `automation_checks` (eine offene Prüfung pro Spieler, Partial-Unique-In
 - `_automation_guard(uid)` wirft `automation_check_required`, solange eine
   Prüfung offen ist. Die Tracking-Trigger rufen den Guard auf. Die ganze
   Transaktion (Coins-Abzug, Truhe, Tap) wird dadurch zurückgerollt.
-- `automation_status()` liefert `{ pending, code, reason, details, ticket_number,
-  attempts, max_attempts, created_at, server_now }`.
+- `automation_status()` liefert `{ pending, code, ticket_number, attempts,
+  max_attempts, created_at, server_now }` (bewusst ohne Grund).
 - `automation_verify(p_code)` vergleicht die Eingabe. Bei Erfolg wird
   `solved_at` gesetzt und ein Vermerk ins Ticket geschrieben (Dauer bis zur
   Eingabe, Fehlversuche). Nach **5 Fehlversuchen** gibt es einen neuen Code.
@@ -91,10 +119,13 @@ direkt zurück.
 - Gibt es ein noch nicht geschlossenes Ticket aus einer früheren Prüfung, wird
   dort eine neue Nachricht „🤖 Erneut erkannt …“ angehängt und der Status auf
   `open` gesetzt.
-- Sonst neues Ticket: Betreff `🤖 Automatisierung erkannt: <Spielername>`,
-  Nachricht mit Regel und Messwerten. Die erste Nachricht ist `sender = 'user'`,
+- Sonst neues Ticket: Betreff `🤖 Automatisierung erkannt: <Spielername>`.
+  Die Nachricht ist neutral (Zeitpunkt, Code nötig, keine Sperre), ohne Regel
+  und Messwerte. Die erste Nachricht ist `sender = 'user'`,
   damit der Admin-Punkt (`last_user_message_at`) und die Admin-Mail
   (`_notify_support_mailer(..., 'new')`) wie bei normalen Tickets auslösen.
+  Die Mail enthält deshalb auch nur den neutralen Text. Details stehen im
+  AdminModal.
   Der Text beginnt mit „🤖 Automatisch erstellt“, damit er im Chat des Spielers
   nicht wie eine eigene Nachricht wirkt.
 - Folgevermerke (Code gelöst) laufen als `sender = 'admin'`,
@@ -103,22 +134,28 @@ direkt zurück.
 
 ## Client
 
-- `src/automationCheck.js`: Konstanten, `analyzeClicks()`, `createClickSampler()`,
-  `isAutomationLockError()`, `sanitizeCode()`, Grund-Schlüssel.
+- `src/automationCheck.js`: `CLICK_RULES`, `analyzeClicks()`,
+  `createClickSampler()`, `isAutomationLockError()`, `sanitizeCode()`,
+  `normalizeAutomationStatus()`.
 - Store (`game`): `automationCheck`, `loadAutomationCheck()`,
   `verifyAutomationCode()`, `reportAutomation()`, `noteAutomationError(err)`.
   `tapEarn`, `buyAnimal`, `openTicketChest` und ShopView-`buy_chest` rufen bei
   Lock-Fehlern `noteAutomationError` auf. Für diese Fehler gibt es keinen
   Fehler-Toast, denn das Fenster erklärt alles.
 - `src/components/AutomationCheckModal.vue`: globales Vollbild-Overlay in
-  `App.vue` (Teleport, nicht wegklickbar), lokales `I18N` de/en/ru, Code als
-  Ziffern-Kacheln, `InputText` (`inputmode="numeric"`, `autocomplete="off"`),
+  `App.vue` (Teleport, nicht wegklickbar), lokales `I18N` de/en/ru, neutraler
+  Hinweis ohne Grund, Code als Ziffern-Kacheln, `InputText` (`inputmode="numeric"`, `autocomplete="off"`),
   Enter bestätigt. Erfolg → Toast, Fenster schließt.
 - `GameView.vue`: Klick-Sampler am Tap-Bereich, meldet Treffer an den Store.
+- `AdminModal.vue`: Kasten „🔒 Autoklicker-Erkennung (nur Admins sichtbar)“
+  im aufgeklappten 🤖-Ticket mit Regelbeschreibung, Zeitpunkt, Status und
+  Fehlversuchen aller Prüfungen des Spielers (max. 20).
 
 ## Tests
 
 - `src/automationCheck.test.js`: Klickanalyse (Bot vs. Mensch, Maus ohne
   Bewegung, Lücken), Sampler-Cooldown, Fehlererkennung, Code-Eingabe.
 - `src/automationSql.test.js`: RLS, Revokes, search_path-Pins, Grants,
-  Schwellen-Spiegel, Guard in allen Triggern, Ticket-Logik, keine Sperre.
+  Klick-Schwellen-Spiegel, Standardwerte, privater Override, Guard in allen
+  Triggern, Ticket-Logik, keine Sperre, kein Grund in Spieler-Antworten und
+  Ticket-Text, Admin-RPC nur für Admins/Sub-Admins.

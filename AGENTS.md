@@ -143,8 +143,12 @@ Spec: `docs/superpowers/specs/2026-10-06-autoklicker-erkennung-design.md`.
   `_automation_track()` → `automation_slots` (pro Spieler × 5-Min-Slot).
   Regeln (Dauerlauf 94/96 Slots in 8 h, Takt σ < 1 s über 25 Slots,
   Klickmuster per Client-Meldung) laufen nur bei der ersten Aktion eines Slots.
-- Schwellen doppelt: `_automation_rules()` (SQL) ↔ `AUTOMATION_RULES` in
-  `src/automationCheck.js`; `src/automationSql.test.js` vergleicht beide.
+- **Geheimhaltung:** Spieler erfahren nie, welches Muster erkannt wurde.
+  Fenster, Ticket-Text und `automation_status()` bleiben neutral. Details
+  gibt es nur über `admin_automation_checks` (AdminModal → 🤖-Ticket). Im
+  Bundle stehen nur `CLICK_RULES`. Live-Schwellen privat über
+  `app_settings.automation_rules` (JSON) überschreiben, weil das Repo
+  öffentlich ist.
 - Offene Prüfung ⇒ Trigger werfen `automation_check_required` (ganze
   Transaktion rollt zurück). **Keine automatische Sperre**: Der Spieler tippt
   den 4-stelligen Code (`automation_verify`), der Admin entscheidet im

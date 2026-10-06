@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useGameStore } from '../stores/game'
-import { locale, currentLocaleTag } from '../i18n'
+import { locale } from '../i18n'
 import { useAppToast } from '../composables/useAppToast'
 import { CODE_LENGTH, sanitizeCode } from '../automationCheck'
 
@@ -15,11 +15,7 @@ const appToast = useAppToast()
 const I18N = {
   de: {
     title: 'Automatisierung erkannt',
-    lead: 'Wir haben ein auffällig genaues, sich ständig wiederholendes Muster bemerkt – typisch für Autoklicker oder Makros.',
-    reason_dauerlauf: 'In {active} von {window} Shop-Rotationen der letzten {hours} Stunden wurde gespielt – z. B. jede Truhe geöffnet.',
-    reason_takt: '{slots} Rotationen am Stück im exakt gleichen Abstand (Abweichung nur {sd} s).',
-    reason_klickmuster: 'Mehrfach Klickserien auf exakt derselben Stelle im exakt gleichen Rhythmus.',
-    reason_unknown: 'Auffälliges Spielmuster erkannt.',
+    lead: 'Unser System hat Hinweise auf automatisiertes Spielen (z. B. Autoklicker oder Makros) festgestellt.',
     prompt: 'Bitte tippe diese Zahl ab, um weiterzuspielen:',
     placeholder: '4-stellige Zahl',
     confirm: 'Bestätigen',
@@ -33,11 +29,7 @@ const I18N = {
   },
   en: {
     title: 'Automation detected',
-    lead: 'We noticed an unusually precise pattern that keeps repeating – typical for auto clickers or macros.',
-    reason_dauerlauf: 'You played in {active} of {window} shop rotations during the last {hours} hours – e.g. every chest was opened.',
-    reason_takt: '{slots} rotations in a row at exactly the same interval (only {sd} s deviation).',
-    reason_klickmuster: 'Repeated click series on exactly the same spot with exactly the same rhythm.',
-    reason_unknown: 'Unusual play pattern detected.',
+    lead: 'Our system found signs of automated play (e.g. auto clickers or macros).',
     prompt: 'Please type this number to keep playing:',
     placeholder: '4-digit number',
     confirm: 'Confirm',
@@ -51,11 +43,7 @@ const I18N = {
   },
   ru: {
     title: 'Обнаружена автоматизация',
-    lead: 'Мы заметили слишком точный, постоянно повторяющийся шаблон – типично для автокликеров или макросов.',
-    reason_dauerlauf: 'Игра велась в {active} из {window} ротаций магазина за последние {hours} часов – например, открывался каждый сундук.',
-    reason_takt: '{slots} ротаций подряд с одинаковым интервалом (отклонение всего {sd} с).',
-    reason_klickmuster: 'Несколько серий кликов в одну и ту же точку с одинаковым ритмом.',
-    reason_unknown: 'Обнаружен подозрительный шаблон игры.',
+    lead: 'Наша система обнаружила признаки автоматизированной игры (например, автокликер или макросы).',
     prompt: 'Введите это число, чтобы продолжить игру:',
     placeholder: '4-значное число',
     confirm: 'Подтвердить',
@@ -82,24 +70,6 @@ const input = ref('')
 const busy = ref(false)
 const feedback = ref('')
 const inputEl = ref(null)
-
-const reasonText = computed(() => {
-  const c = check.value
-  if (!c) return ''
-  const d = c.details || {}
-  if (c.reason === 'dauerlauf') {
-    return tx('reason_dauerlauf', { active: d.active_slots ?? '?', window: d.window_slots ?? '?', hours: d.hours ?? 8 })
-  }
-  if (c.reason === 'takt') {
-    const sd = Number(d.sd_s)
-    return tx('reason_takt', {
-      slots: d.slots ?? '?',
-      sd: Number.isFinite(sd) ? sd.toLocaleString(currentLocaleTag(), { maximumFractionDigits: 2 }) : '?'
-    })
-  }
-  if (c.reason === 'klickmuster') return tx('reason_klickmuster')
-  return tx('reason_unknown')
-})
 
 const ticketText = computed(() =>
   tx('ticket', { num: check.value?.ticketNumber ? ` (${check.value.ticketNumber})` : '' })
@@ -155,7 +125,6 @@ onMounted(focusInput)
         <div class="ac-icon">🤖</div>
         <h2 class="ac-title">{{ tx('title') }}</h2>
         <p class="ac-lead">{{ tx('lead') }}</p>
-        <div class="ac-reason">{{ reasonText }}</div>
 
         <p class="ac-prompt">{{ tx('prompt') }}</p>
         <div class="ac-code" :aria-label="digits.join(' ')">
@@ -220,17 +189,7 @@ onMounted(focusInput)
 }
 .ac-icon { font-size: 52px; line-height: 1; margin-bottom: 6px; }
 .ac-title { margin: 0 0 6px; font-size: 21px; font-weight: 900; color: var(--heading); }
-.ac-lead { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--text); }
-.ac-reason {
-  margin: 0 0 14px;
-  padding: 8px 12px;
-  border-radius: 14px;
-  border: 2px solid color-mix(in srgb, var(--danger) 45%, var(--border));
-  background: color-mix(in srgb, var(--danger) 8%, var(--mix-base));
-  color: var(--heading);
-  font-size: 12.5px;
-  font-weight: 800;
-}
+.ac-lead { margin: 0 0 14px; font-size: 13px; font-weight: 700; color: var(--text); }
 .ac-prompt { margin: 0 0 8px; font-size: 13px; font-weight: 800; color: var(--muted); }
 .ac-code {
   display: flex;

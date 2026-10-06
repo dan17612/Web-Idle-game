@@ -2,26 +2,21 @@
 // supabase/migrations/20261006_autoklicker_erkennung.sql,
 // Spec: docs/superpowers/specs/2026-10-06-autoklicker-erkennung-design.md
 
-// Spiegel von public._automation_rules() — src/automationSql.test.js vergleicht beide.
-export const AUTOMATION_RULES = Object.freeze({
-  slot_minutes: 5,
-  run_window_slots: 96,
-  run_min_slots: 94,
-  takt_slots: 25,
-  takt_max_sd_s: 1.0,
+// Nur die Klick-Schwellen, die der Sampler im Browser braucht. Spiegel der
+// gleichnamigen Schlüssel in public._automation_rules() (src/automationSql.test.js).
+// Die übrigen Regeln (Dauerlauf, Takt, Meldungen) bleiben bewusst nur auf dem
+// Server, damit sie nicht im ausgelieferten Bundle stehen.
+export const CLICK_RULES = Object.freeze({
   click_window: 30,
   click_max_spread_px: 1.5,
   click_min_sd_ms: 8,
   click_rel_sd: 0.04,
   click_max_gap_ms: 5000,
-  click_reports_needed: 3,
-  click_report_window_h: 2,
-  click_report_cooldown_s: 60,
-  max_attempts: 5
+  click_report_cooldown_s: 60
 })
 
-export const AUTOMATION_REASONS = ['dauerlauf', 'takt', 'klickmuster']
 export const CODE_LENGTH = 4
+const DEFAULT_MAX_ATTEMPTS = 5
 
 // Fehler aus den Tracking-Triggern, solange eine Prüfung offen ist.
 export function isAutomationLockError(err) {
@@ -34,21 +29,16 @@ export function sanitizeCode(input) {
   return String(input ?? '').replace(/\D/g, '').slice(0, CODE_LENGTH)
 }
 
-export function reasonKey(reason) {
-  return AUTOMATION_REASONS.includes(reason) ? reason : 'unknown'
-}
-
 // Normalisiert die Antwort von automation_status()/automation_verify().
+// Der Server verrät bewusst nicht, welches Muster erkannt wurde.
 export function normalizeAutomationStatus(data) {
   if (!data || !data.pending) return null
   return {
     id: data.id ?? null,
     code: sanitizeCode(data.code),
-    reason: reasonKey(data.reason),
-    details: data.details && typeof data.details === 'object' ? data.details : {},
     ticketNumber: data.ticket_number || null,
     attempts: Math.max(0, Number(data.attempts) || 0),
-    maxAttempts: Math.max(1, Number(data.max_attempts) || AUTOMATION_RULES.max_attempts),
+    maxAttempts: Math.max(1, Number(data.max_attempts) || DEFAULT_MAX_ATTEMPTS),
     createdAt: data.created_at || null
   }
 }
@@ -67,7 +57,7 @@ function stddev(values) {
 // Bewertet eine Klickserie ({ t, x, y }[], t in ms). Auffällig ist nur, was ein
 // Mensch nicht schafft: gleiche Stelle UND gleichmäßiger Rhythmus über die
 // ganze Serie. Eine ruhende Maus allein reicht nicht (Rhythmus streut).
-export function analyzeClicks(samples, rules = AUTOMATION_RULES) {
+export function analyzeClicks(samples, rules = CLICK_RULES) {
   const list = Array.isArray(samples) ? samples : []
   if (list.length < rules.click_window) return null
   const win = list.slice(-rules.click_window)
@@ -94,7 +84,7 @@ export function analyzeClicks(samples, rules = AUTOMATION_RULES) {
 
 // Sammelt pointerdown-Ereignisse und meldet ein auffälliges Muster höchstens
 // einmal pro Cooldown. Nach einer Meldung beginnt die Serie von vorn.
-export function createClickSampler({ onPattern, now = () => Date.now(), rules = AUTOMATION_RULES } = {}) {
+export function createClickSampler({ onPattern, now = () => Date.now(), rules = CLICK_RULES } = {}) {
   let samples = []
   let lastReport = -Infinity
 

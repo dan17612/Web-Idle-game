@@ -2,6 +2,9 @@
 -- erkennen, dann Code-Abfrage (4 Ziffern) + automatisches Support-Ticket.
 -- Keine automatische Sperre: Bis der Code eingegeben ist, lehnt der Server nur
 -- Taps, Truhen und Shop-Käufe ab.
+-- Spieler erfahren nie, welches Muster erkannt wurde (Fenster, Ticket-Text und
+-- automation_status() bleiben neutral). Details nur für Admins über
+-- admin_automation_checks().
 -- Spec: docs/superpowers/specs/2026-10-06-autoklicker-erkennung-design.md
 
 -- ---------------------------------------------------------------------------
@@ -51,17 +54,33 @@ alter table public.automation_checks enable row level security;
 revoke all on table public.automation_checks from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 2) Schwellen. Spiegel: AUTOMATION_RULES in src/automationCheck.js
---    (src/automationSql.test.js vergleicht beide).
+-- 2) Schwellen. Standardwerte hier; die Live-Werte lassen sich privat über
+--    app_settings(key = 'automation_rules', value = JSON) überschreiben, damit
+--    sie nicht im öffentlichen Repo stehen. Die Klick-Schwellen spiegelt
+--    CLICK_RULES in src/automationCheck.js (src/automationSql.test.js).
 -- ---------------------------------------------------------------------------
 
 create or replace function public._automation_rules()
 returns jsonb
-language sql
-immutable
+language plpgsql
+stable
+security definer
 set search_path = public
 as $$
-  select jsonb_build_object(
+declare
+  v_override jsonb;
+begin
+  begin
+    select value::jsonb into v_override
+      from public.app_settings
+     where key = 'automation_rules';
+  exception when others then
+    v_override := null;
+  end;
+  if jsonb_typeof(v_override) is distinct from 'object' then
+    v_override := '{}'::jsonb;
+  end if;
+  return jsonb_build_object(
     'slot_minutes', 5,
     'run_window_slots', 96,
     'run_min_slots', 94,
@@ -76,8 +95,8 @@ as $$
     'click_report_window_h', 2,
     'click_report_cooldown_s', 60,
     'max_attempts', 5
-  )
-$$;
+  ) || (v_override - 'slot_minutes');
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- 3) Helfer
@@ -114,7 +133,7 @@ begin
   end if;
 end $$;
 
--- Lesbare Beschreibung für Ticket und Admin.
+-- Lesbare Beschreibung der Regel – nur für Admins (admin_automation_checks).
 create or replace function public._automation_describe(p_reason text, p_details jsonb)
 returns text
 language sql
@@ -139,8 +158,9 @@ $$;
 
 -- Ticket für das Admin-Team: offenes Auto-Ticket weiterführen, sonst neu.
 -- Erste Nachricht als sender='user', damit Admin-Punkt und Admin-Mail wie bei
--- normalen Tickets auslösen.
-create or replace function public._automation_open_ticket(p_uid uuid, p_reason text, p_details jsonb)
+-- normalen Tickets auslösen. Der Spieler sieht das Ticket im Support-Chat –
+-- daher bewusst ohne Regel und Messwerte (die stehen in automation_checks).
+create or replace function public._automation_open_ticket(p_uid uuid)
 returns uuid
 language plpgsql
 security definer
@@ -153,11 +173,10 @@ declare
   v_num    text;
   v_body   text;
 begin
-  v_body := '🤖 Automatisch erstellt – Verdacht auf Automatisierung (Autoklicker/Makro).' || E'\n'
-         || public._automation_describe(p_reason, p_details) || E'\n'
+  v_body := '🤖 Automatisch erstellt – Verdacht auf automatisiertes Spielen (Autoklicker/Makro).' || E'\n'
          || 'Erkannt: ' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD HH24:MI') || ' UTC' || E'\n'
-         || 'Der Spieler muss einen 4-stelligen Code eingeben, um weiterzuspielen. '
-         || 'Es wurde keine Sperre verhängt – ein Admin entscheidet.';
+         || 'Zum Weiterspielen war ein 4-stelliger Bestätigungscode nötig. '
+         || 'Es wurde keine Sperre verhängt – ein Admin prüft den Fall.';
 
   select c.ticket_id into v_ticket
     from public.automation_checks c
@@ -215,7 +234,7 @@ begin
    where user_id = p_uid and solved_at is null;
   if found then return v_check; end if;
 
-  v_ticket := public._automation_open_ticket(p_uid, p_reason, coalesce(p_details, '{}'::jsonb));
+  v_ticket := public._automation_open_ticket(p_uid);
 
   insert into public.automation_checks (user_id, reason, details, code, ticket_id)
   values (p_uid, p_reason, coalesce(p_details, '{}'::jsonb), public._automation_new_code(), v_ticket)
@@ -372,6 +391,7 @@ create trigger automation_track_tap
 -- 5) RPCs für den Client
 -- ---------------------------------------------------------------------------
 
+-- Bewusst ohne reason/details: Spieler sollen nicht erfahren, was erkannt wurde.
 create or replace function public.automation_status()
 returns jsonb
 language plpgsql
@@ -397,8 +417,6 @@ begin
     'pending', true,
     'id', v.id,
     'code', v.code,
-    'reason', v.reason,
-    'details', v.details,
     'ticket_number', v_num,
     'attempts', v.attempts,
     'max_attempts', (public._automation_rules()->>'max_attempts')::int,
@@ -552,6 +570,42 @@ begin
   return public.automation_status();
 end $$;
 
+-- Admin/Sub-Admin (Ticket-Bearbeitung): Erkennungsdetails zum Ticket-Spieler.
+create or replace function public.admin_automation_checks(p_ticket_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user uuid;
+begin
+  if auth.uid() is null then raise exception 'not authenticated'; end if;
+  if public._admin_role() is null then raise exception 'admin only'; end if;
+
+  select user_id into v_user from public.support_tickets where id = p_ticket_id;
+  if v_user is null then return '[]'::jsonb; end if;
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', c.id,
+             'reason', c.reason,
+             'description', public._automation_describe(c.reason, c.details),
+             'details', c.details,
+             'wrong_total', c.wrong_total,
+             'created_at', c.created_at,
+             'solved_at', c.solved_at,
+             'this_ticket', c.ticket_id = p_ticket_id
+           ) order by c.created_at desc)
+      from (
+        select * from public.automation_checks
+         where user_id = v_user
+         order by created_at desc
+         limit 20
+      ) c
+  ), '[]'::jsonb);
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- 6) Rechte
 -- ---------------------------------------------------------------------------
@@ -560,7 +614,7 @@ revoke all on function public._automation_rules() from public, anon, authenticat
 revoke all on function public._automation_new_code() from public, anon, authenticated;
 revoke all on function public._automation_guard(uuid) from public, anon, authenticated;
 revoke all on function public._automation_describe(text, jsonb) from public, anon, authenticated;
-revoke all on function public._automation_open_ticket(uuid, text, jsonb) from public, anon, authenticated;
+revoke all on function public._automation_open_ticket(uuid) from public, anon, authenticated;
 revoke all on function public._automation_flag(uuid, text, jsonb) from public, anon, authenticated;
 revoke all on function public._automation_track(uuid, text) from public, anon, authenticated;
 revoke all on function public._automation_trg_purchase() from public, anon, authenticated;
@@ -569,6 +623,8 @@ revoke all on function public._automation_trg_tap() from public, anon, authentic
 revoke all on function public.automation_status() from public, anon;
 revoke all on function public.automation_verify(text) from public, anon;
 revoke all on function public.automation_report(text, jsonb) from public, anon;
+revoke all on function public.admin_automation_checks(uuid) from public, anon;
 grant execute on function public.automation_status() to authenticated;
 grant execute on function public.automation_verify(text) to authenticated;
 grant execute on function public.automation_report(text, jsonb) to authenticated;
+grant execute on function public.admin_automation_checks(uuid) to authenticated;
