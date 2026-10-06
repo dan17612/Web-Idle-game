@@ -8,6 +8,7 @@ import { reportSyncSuccess, reportSyncFailure } from '../composables/useConnecti
 import { firstQueryError } from '../connectionHealth'
 import { EVENT_KEYS, eventInfo } from '../eventSchedule'
 import { normalizeIncubation } from '../eggSlots'
+import { isAutomationLockError, normalizeAutomationStatus } from '../automationCheck'
 
 const TAP_MAX = 10
 const TAP_MUL_MAX_LEVEL = 300
@@ -56,7 +57,9 @@ export const useGameStore = defineStore('game', {
     driftProgress: { highest_level: 0, stars: {}, max_level: 12 },
     parkourProgress: { highest_level: 0, stars: {}, max_level: 12 },
     blockfallProgress: { highest_level: 0, stars: {}, max_level: 30 },
-    wordleState: null
+    wordleState: null,
+    // Offene Autoklicker-Prüfung (src/automationCheck.js) oder null.
+    automationCheck: null
   }),
   getters: {
     favoriteAnimal(state) {
@@ -288,6 +291,7 @@ export const useGameStore = defineStore('game', {
       this.loadDailyReward().catch(() => {})
       this.loadDriftProgress().catch(() => {})
       this.loadParkourProgress().catch(() => {})
+      this.loadAutomationCheck().catch(() => {})
       this.lastLoadedAt = Date.now()
     },
     async loadDailyReward() {
@@ -537,6 +541,7 @@ export const useGameStore = defineStore('game', {
       const { data, error } = await supabase.rpc('tap_earn', { p_max: effectiveMax })
       if (error) {
         this.tapsUsed = Math.max(0, this.tapsUsed - 1)
+        this.noteAutomationError(error)
         if (/limit/i.test(error.message)) await this.refreshTapStatus()
         throw error
       }
@@ -746,7 +751,7 @@ export const useGameStore = defineStore('game', {
       await this.persist()
       if (this.displayCoins < info.cost) throw new Error(t('storeErrors.notEnoughCoins'))
       const { data, error } = await supabase.rpc('buy_animal', { p_species: speciesKey, p_cost: info.cost })
-      if (error) throw error
+      if (error) { this.noteAutomationError(error); throw error }
       this.coins = Number(data?.coins ?? this.coins - info.cost)
       if (data?.animal) {
         this.animals.push(data.animal)
@@ -943,10 +948,41 @@ export const useGameStore = defineStore('game', {
     async openTicketChest(qty = 1) {
       await this.persist()
       const { data, error } = await supabase.rpc('ticket_chest_open', { p_qty: qty })
-      if (error) throw error
+      if (error) { this.noteAutomationError(error); throw error }
       this.tickets = Number(data?.tickets ?? this.tickets)
       await this.load()
       return data
+    },
+    // Autoklicker-Prüfung: Status laden (fehlende RPC = keine Prüfung).
+    async loadAutomationCheck() {
+      const auth = useAuthStore()
+      if (!auth.user) return null
+      const { data, error } = await supabase.rpc('automation_status')
+      if (error) return this.automationCheck
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      this.automationCheck = normalizeAutomationStatus(data)
+      return this.automationCheck
+    },
+    async verifyAutomationCode(code) {
+      const { data, error } = await supabase.rpc('automation_verify', { p_code: String(code || '') })
+      if (error) throw error
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      this.automationCheck = normalizeAutomationStatus(data)
+      return data
+    },
+    // Selbstmeldung eines zu genauen Klickmusters (Server prüft nochmals).
+    async reportAutomation(kind, stats) {
+      if (this.automationCheck) return null
+      const { data, error } = await supabase.rpc('automation_report', { p_kind: kind, p_details: stats || {} })
+      if (error) return null
+      this.automationCheck = normalizeAutomationStatus(data)
+      return this.automationCheck
+    },
+    // Server lehnt Aktionen ab, solange eine Prüfung offen ist → Fenster zeigen.
+    noteAutomationError(err) {
+      if (!isAutomationLockError(err)) return false
+      this.loadAutomationCheck().catch(() => {})
+      return true
     }
   }
 })

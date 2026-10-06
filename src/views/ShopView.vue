@@ -53,7 +53,10 @@ async function buyChest() {
   try {
     await game.persist();
     const { data, error: e } = await supabase.rpc("buy_chest", { p_qty: chestQty.value });
-    if (e) throw e;
+    if (e) {
+      game.noteAutomationError(e);
+      throw e;
+    }
     game.coins = Number(data.coins);
     await Promise.all([game.load(), loadChestStatus()]);
     await new Promise(r => setTimeout(r, 800));

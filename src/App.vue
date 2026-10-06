@@ -11,6 +11,7 @@ import { formatCoins, speciesInfo, tierInfo } from "./animals";
 import AdminModal from "./components/AdminModal.vue";
 import TutorialBubble from "./components/TutorialBubble.vue";
 import ConnectionBanner from "./components/ConnectionBanner.vue";
+import AutomationCheckModal from "./components/AutomationCheckModal.vue";
 import { t } from "./i18n";
 import { onAppResume } from "./composables/useAppResume";
 import { reconnect } from "./composables/useConnectionHealth";
@@ -393,6 +394,7 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
     </Button>
 
     <AdminModal v-if="adminOpen" @close="adminOpen = false" />
+    <AutomationCheckModal v-if="auth.isAuth && game.automationCheck" />
     <SpeedInsights />
     <Analytics />
   </div>

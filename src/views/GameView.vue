@@ -22,6 +22,7 @@ import { supabase } from "../supabase";
 import { useAppToast } from "../composables/useAppToast";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { openDailyReward } from "../composables/useDailyRewardModal";
+import { createClickSampler } from "../automationCheck";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -740,6 +741,11 @@ watch(
 
 const floats = ref([]);
 let floatId = 0;
+// Autoklicker-Erkennung: zu genaue Klickserien (gleiche Stelle + gleicher Takt)
+// werden dem Server gemeldet; erst wiederholte Meldungen lösen die Prüfung aus.
+const clickSampler = createClickSampler({
+  onPattern: (stats) => game.reportAutomation("click_pattern", stats).catch(() => {}),
+});
 const floatTimers = new Set();
 const equipBestBusy = ref(false);
 
@@ -885,7 +891,8 @@ const tapTutorialActive = computed(
 const tapsUntilGift = computed(() => Math.max(0, game.tapsMax - game.tapsUsed));
 
 async function tap(e) {
-  if (tapLimitReached.value) return;
+  clickSampler.record(e);
+  if (game.automationCheck || tapLimitReached.value) return;
   const host = sceneWrap.value || e.currentTarget;
   const rect = host.getBoundingClientRect();
   const cx = e.clientX ?? e.touches?.[0]?.clientX;
