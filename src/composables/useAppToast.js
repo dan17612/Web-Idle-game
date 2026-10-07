@@ -1,10 +1,13 @@
 import { useToast } from "primevue/usetoast"
 import { t } from "../i18n"
+import { isAutomationLockError } from "../automationCheck"
 
 export function useAppToast() {
   const toast = useToast()
 
   function err(message, summary) {
+    // Offene Autoklicker-Prüfung: das Prüf-Fenster erklärt es, kein Fehler-Toast.
+    if (isAutomationLockError(message)) return
     toast.add({
       severity: "error",
       summary: summary || t("common.error") || "Fehler",

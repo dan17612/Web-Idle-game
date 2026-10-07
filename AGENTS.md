@@ -134,6 +134,29 @@ Spec: `docs/superpowers/specs/2026-09-28-support-tab-roadmap-downvotes-design.md
   `role is distinct from 'admin'`. Antworten speichern `sender_name`/`sender_role`
   (Anzeige im Chat). Neue Admin-RPCs standardmäßig admin-only anlegen.
 
+## Autoklicker-Erkennung — Spezialwissen
+
+Spec: `docs/superpowers/specs/2026-10-06-autoklicker-erkennung-design.md`.
+
+- Zählung über **Trigger** (nicht in den RPCs): `profiles.taps_used`↑,
+  `chest_purchases`, `ticket_chest_purchases`, `shop_purchases` →
+  `_automation_track()` → `automation_slots` (pro Spieler × 5-Min-Slot).
+  Regeln (Dauerlauf 94/96 Slots in 8 h, Takt σ < 1 s über 25 Slots,
+  Klickmuster per Client-Meldung) laufen nur bei der ersten Aktion eines Slots.
+- **Geheimhaltung:** Spieler erfahren nie, welches Muster erkannt wurde.
+  Fenster, Ticket-Text und `automation_status()` bleiben neutral. Details
+  gibt es nur über `admin_automation_checks` (AdminModal → 🤖-Ticket). Im
+  Bundle stehen nur `CLICK_RULES`. Live-Schwellen privat über
+  `app_settings.automation_rules` (JSON) überschreiben, weil das Repo
+  öffentlich ist.
+- Offene Prüfung ⇒ Trigger werfen `automation_check_required` (ganze
+  Transaktion rollt zurück). **Keine automatische Sperre**: Der Spieler tippt
+  den 4-stelligen Code (`automation_verify`), der Admin entscheidet im
+  automatisch eröffneten Support-Ticket.
+- Neue Truhen-/Klick-Quellen: Trigger auf deren Kauf-Tabelle ergänzen und im
+  Client bei Fehlern `game.noteAutomationError(err)` aufrufen. `useAppToast().err`
+  verschluckt Lock-Fehler, weil das globale `AutomationCheckModal` sie erklärt.
+
 ## Stolperfallen
 
 - `main.js` blockt Pinch/Double-Tap global — eigene Touch-Flächen brauchen
