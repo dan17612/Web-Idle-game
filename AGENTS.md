@@ -31,6 +31,9 @@ was ein Agent wissen muss, bevor er Code anfasst.
   (`YYYYMMDD_feature.sql`), angewendet zusätzlich via MCP `apply_migration`.
   Jede neue Tabelle: RLS an, Policies nur Select, Schreiben über RPCs.
   Achtung: Views nach Neuaufbau wieder `security_invoker` setzen.
+  `apply_migration` mit `drop …` (auch `drop policy if exists`) löst beim
+  Supabase-MCP eine Bestätigung aus, die in Cloud-Sessions als „cancelled“
+  abbricht — solche Statements beim Einspielen weglassen bzw. abtrennen.
 - **Tests:** reine Logikmodule (`src/foo.js`) bekommen `src/foo.test.js`;
   Migrationen bekommen `src/fooSql.test.js` mit Regex-Prüfungen auf RLS,
   Revokes, search_path-Pins und Formeln (Vorlage: `src/wordleSql.test.js`).
