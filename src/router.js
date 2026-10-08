@@ -21,6 +21,7 @@ const routes = [
   { path: '/parkour', name: 'parkour', component: () => import('./views/ParkourGameView.vue'), meta: { auth: true } },
   { path: '/wordle', name: 'wordle', component: () => import('./views/WordleGameView.vue'), meta: { auth: true } },
   { path: '/blockfall', name: 'blockfall', component: () => import('./views/BlockFallView.vue'), meta: { auth: true } },
+  { path: '/halloween', name: 'halloween', component: () => import('./views/HalloweenPuzzleView.vue'), meta: { auth: true } },
   { path: '/breeding', name: 'breeding', component: () => import('./views/BreedingView.vue'), meta: { auth: true } },
   { path: '/world', name: 'world', component: () => import('./views/WorldView.vue'), meta: { auth: true } },
   { path: '/memory-online', name: 'memory-online', component: () => import('./views/MemoryOnlineView.vue'), meta: { auth: true } },

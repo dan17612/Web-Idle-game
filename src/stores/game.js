@@ -57,6 +57,7 @@ export const useGameStore = defineStore('game', {
     driftProgress: { highest_level: 0, stars: {}, max_level: 12 },
     parkourProgress: { highest_level: 0, stars: {}, max_level: 12 },
     blockfallProgress: { highest_level: 0, stars: {}, max_level: 30 },
+    halloweenPuzzleProgress: { highest_level: 0, stars: {}, best_times: {}, max_level: 24 },
     wordleState: null,
     // Offene Autoklicker-Prüfung (src/automationCheck.js) oder null.
     automationCheck: null
@@ -131,6 +132,9 @@ export const useGameStore = defineStore('game', {
     },
     blockfallActive(state) {
       return eventInfo(state.eventSchedule, EVENT_KEYS.blockfall).active
+    },
+    halloweenPuzzleActive(state) {
+      return eventInfo(state.eventSchedule, EVENT_KEYS.halloween).active
     },
     boostActive(state) {
       return (Date.now() + state.serverOffset) < state.petBoostUntil
@@ -368,6 +372,37 @@ export const useGameStore = defineStore('game', {
       if (data?.tickets != null) this.tickets = Number(data.tickets)
       if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
       await this.loadBlockFallProgress().catch(() => {})
+      return data
+    },
+    async loadHalloweenPuzzleProgress() {
+      const { data, error } = await supabase.rpc('get_halloween_puzzle_progress')
+      if (error) throw error
+      if (data) {
+        this.halloweenPuzzleProgress = data
+        if (data.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      }
+      return data
+    },
+    // Meldet nur die Legezeit — die Sterne rechnet der Server (_hpuzzle_stars).
+    async completeHalloweenPuzzle(level, seconds) {
+      await this.persist()
+      const { data, error } = await supabase.rpc('complete_halloween_puzzle', {
+        p_level: Math.floor(Number(level) || 0),
+        p_seconds: Math.max(1, Math.floor(Number(seconds) || 1))
+      })
+      if (error) throw error
+      if (data?.coins != null) this.coins = Number(data.coins)
+      if (data?.tickets != null) this.tickets = Number(data.tickets)
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      if (data?.pet) {
+        const auth = useAuthStore()
+        if (auth.user) {
+          const { data: animals } = await supabase.from('animals')
+            .select('*').eq('owner_id', auth.user.id).order('acquired_at')
+          if (animals) this.animals = animals
+        }
+      }
+      await this.loadHalloweenPuzzleProgress().catch(() => {})
       return data
     },
     async loadWordleState() {

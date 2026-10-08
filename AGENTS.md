@@ -31,12 +31,15 @@ was ein Agent wissen muss, bevor er Code anfasst.
   (`YYYYMMDD_feature.sql`), angewendet zusätzlich via MCP `apply_migration`.
   Jede neue Tabelle: RLS an, Policies nur Select, Schreiben über RPCs.
   Achtung: Views nach Neuaufbau wieder `security_invoker` setzen.
+  `apply_migration` mit `drop …` (auch `drop policy if exists`) löst beim
+  Supabase-MCP eine Bestätigung aus, die in Cloud-Sessions als „cancelled“
+  abbricht — solche Statements beim Einspielen weglassen bzw. abtrennen.
 - **Tests:** reine Logikmodule (`src/foo.js`) bekommen `src/foo.test.js`;
   Migrationen bekommen `src/fooSql.test.js` mit Regex-Prüfungen auf RLS,
   Revokes, search_path-Pins und Formeln (Vorlage: `src/wordleSql.test.js`).
 - **Routen:** flach, lazy, `meta: { auth: true }` in `src/router.js`;
   Minispiele/Features als eigene Top-Level-Route (`/drift`, `/parkour`,
-  `/wordle`, `/world`).
+  `/wordle`, `/world`, `/halloween`).
 - **Einstiege in GameView:** Jedes Feature bekommt eine Quick-Action-Kachel
   (`.qa-btn`) und einen Full-Width-Kartenlink (Muster `.parkour-link`).
 
@@ -156,6 +159,30 @@ Spec: `docs/superpowers/specs/2026-10-06-autoklicker-erkennung-design.md`.
 - Neue Truhen-/Klick-Quellen: Trigger auf deren Kauf-Tabelle ergänzen und im
   Client bei Fehlern `game.noteAutomationError(err)` aufrufen. `useAppToast().err`
   verschluckt Lock-Fehler, weil das globale `AutomationCheckModal` sie erklärt.
+
+## Halloween (`/halloween`) — Spezialwissen
+
+Spec: `docs/superpowers/specs/2026-10-08-halloween-update-design.md`.
+
+- **Kürbis-Puzzle** (Legepuzzle, 24 Level): `src/halloweenPuzzle.js` = reine
+  Logik (`GRIDS`, `starsForTime`, `puzzleReward`, Kanten/Umrisse, `PuzzleGame`,
+  `sceneLayout`), `src/halloweenScene.js` = Canvas (Bild, Teile, Brett),
+  `HalloweenPuzzleView.vue` = Pfad + Vollbild-Spiel (Teile als `<img>`-DataURLs,
+  Ziehen über Window-Pointer-Listener).
+- Der Client meldet nur die **Legezeit**: `complete_halloween_puzzle(p_level,
+  p_seconds)` rechnet die Sterne selbst (`_hpuzzle_stars`) und lehnt
+  < 0,5 s pro Teil ab. Spiegel: `_hpuzzle_pieces/_stars/_reward` ↔
+  `src/halloweenPuzzleSql.test.js`.
+- **Fledermaus** (`bat`) gibt es nur über Level 12/24 (`enabled = false`,
+  `shop_visible = false`) — an der Börse daher Limited Edition.
+- **Saison-Deko** 1.10.–8.11. (lokales Datum): `src/halloween.js`,
+  `composables/useHalloween.js` (Klasse `html.halloween`, Schalter in den
+  Einstellungen), `components/HalloweenDecor.vue`. Vorgabe: deutlich **mehr
+  Kürbisse als Skelette** — `src/halloween.test.js` zählt nach.
+- Die schwebende Deko liegt bei z-index 9 (Spinnweben 11). Vollbild-Overlays
+  brauchen wie bisher z-index ≥ 1100, sonst fliegen Fledermäuse durchs Spiel.
+- Canvas-Emoji nur mit einem Codepoint (`emojiSafe.test.js` scannt beide
+  Puzzle-Dateien komplett).
 
 ## Stolperfallen
 

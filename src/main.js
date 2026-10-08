@@ -20,6 +20,7 @@ import 'primeicons/primeicons.css'
 import { initLocale, t } from './i18n'
 import './composables/useAnimations'
 import './composables/useTheme'
+import './composables/useHalloween'
 import { fireAppResume } from './composables/useAppResume'
 import { initConnectionWatch } from './composables/useConnectionHealth'
 // Zoom global deaktivieren (Pinch, Double-Tap, Gesture-Zoom).
