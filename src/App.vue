@@ -12,10 +12,12 @@ import AdminModal from "./components/AdminModal.vue";
 import TutorialBubble from "./components/TutorialBubble.vue";
 import ConnectionBanner from "./components/ConnectionBanner.vue";
 import AutomationCheckModal from "./components/AutomationCheckModal.vue";
+import HalloweenDecor from "./components/HalloweenDecor.vue";
 import { t } from "./i18n";
 import { onAppResume } from "./composables/useAppResume";
 import { reconnect } from "./composables/useConnectionHealth";
 import { usePullToRefresh } from "./composables/usePullToRefresh";
+import { halloweenDecor } from "./composables/useHalloween";
 
 const adminOpen = ref(false);
 
@@ -251,9 +253,10 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
     <Toast position="top-center" />
     <header v-if="showNav" class="top-bar">
       <div class="brand">
-        <span class="brand-logo">🐾</span>
+        <span class="brand-logo" :class="{ 'hw-logo': halloweenDecor }">{{ halloweenDecor ? "🎃" : "🐾" }}</span>
         <span class="brand-text">Zoo <em>Empire</em></span>
       </div>
+      <span v-if="halloweenDecor" class="hw-spider" aria-hidden="true"><span class="hw-thread"></span><span class="hw-spider-body">🕷️</span></span>
       <div class="top-right">
         <div class="balance">
           <span class="coin">🪙</span>
@@ -355,6 +358,11 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
     </div>
 
     <nav v-if="showNav" class="bottom-nav" :class="{ 'tut-lift': tutorialDimActive && game.tutorialStep === 3 }">
+      <template v-if="halloweenDecor">
+        <span class="hw-perch l" aria-hidden="true">🎃</span>
+        <span class="hw-perch r1" aria-hidden="true">🎃</span>
+        <span class="hw-perch r2" aria-hidden="true">🎃</span>
+      </template>
       <router-link
         to="/shop"
         class="nav-item nav-shop"
@@ -392,6 +400,8 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
       🛠️
       <span v-if="auth.hasUnseenAdminSupport" class="fab-dot-blue"></span>
     </Button>
+
+    <HalloweenDecor v-if="halloweenDecor" />
 
     <AdminModal v-if="adminOpen" @close="adminOpen = false" />
     <AutomationCheckModal v-if="auth.isAuth && game.automationCheck" />

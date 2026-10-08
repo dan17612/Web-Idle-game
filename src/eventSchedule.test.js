@@ -60,6 +60,6 @@ test('laufendes Ereignis ohne Enddatum hat keinen Countdown', () => {
 test('EVENT_KEYS deckt alle Ereignisse der Startseite ab', () => {
   assert.deepEqual(Object.values(EVENT_KEYS).sort(), [
     'blockfall_game', 'boss_endless', 'boss_path', 'breeding_game', 'drift_game',
-    'memory_game', 'merge_game', 'parkour_game', 'wordle_game', 'world_lobby'
+    'halloween_puzzle', 'memory_game', 'merge_game', 'parkour_game', 'wordle_game', 'world_lobby'
   ])
 })

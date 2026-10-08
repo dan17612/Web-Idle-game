@@ -90,7 +90,7 @@ ein Saison-Tier. Name in `SPECIES_NAMES` (de/en/ru).
   best_times jsonb, total_finishes, last_finish_at), RLS an, nur Self-Select.
 - `get_halloween_puzzle_progress()` — ungegatet.
 - `complete_halloween_puzzle(p_level, p_seconds)` — `event_is_active` vor jeder
-  Gutschrift, Level-Sperre, Plausibilität: mindestens 1 s pro Teil, und
+  Gutschrift, Level-Sperre, Plausibilität: mindestens 0,5 s pro Teil, und
   seit dem letzten Abschluss muss mindestens so viel Zeit vergangen sein
   (schützt die Wiederholungs-Belohnung gegen Skripte, ehrliche Spieler
   stoßen nie daran).

@@ -18,8 +18,9 @@ function read(file) {
 }
 
 // world.js und worldEngine.js sind Engine plus Engine-Daten: Jedes Emoji darin
-// wird als Sprite gezeichnet, deshalb zählt hier die ganze Datei.
-const FULL_FILES = ['src/world.js', 'src/worldEngine.js']
+// wird als Sprite gezeichnet, deshalb zählt hier die ganze Datei. Dasselbe gilt
+// für die Bilder des Kürbis-Puzzles (Layout-Daten + Canvas-Zeichnung).
+const FULL_FILES = ['src/world.js', 'src/worldEngine.js', 'src/halloweenPuzzle.js', 'src/halloweenScene.js']
 
 // In DriftGameView zeichnet nur ctx.fillText, alles andere ist Template.
 const CANVAS_LITERALS = {

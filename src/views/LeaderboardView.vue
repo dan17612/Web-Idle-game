@@ -26,7 +26,8 @@ const TABS = [
   { key: 'coins', icon: '🪙', label: 'leaderboard.byCoins' },
   { key: 'memory', icon: '🧠', label: 'leaderboard.byMemory' },
   { key: 'wordle', icon: '🟩', label: 'leaderboard.byWordle' },
-  { key: 'blockfall', icon: '🧱', label: 'leaderboard.byBlockFall' }
+  { key: 'blockfall', icon: '🧱', label: 'leaderboard.byBlockFall' },
+  { key: 'halloween', icon: '🎃', label: 'leaderboard.byHalloween' }
 ]
 const TAB_KEYS = TABS.map(tab => tab.key)
 const mode = ref('overall')
@@ -74,6 +75,16 @@ async function fetchRows(m) {
       current_streak: Number(r.current_streak || 0),
       best_streak: Number(r.best_streak || 0),
       wins: Number(r.wins || 0)
+    }))
+  }
+  if (m === 'halloween') {
+    const { data, error: e } = await supabase.rpc('get_halloween_puzzle_leaderboard', { p_limit: 50 })
+    if (e) throw e
+    return (data || []).map(r => ({
+      username: r.username,
+      avatar_emoji: r.avatar_emoji,
+      highest_level: Number(r.highest_level || 0),
+      stars: Number(r.stars || 0)
     }))
   }
   if (m === 'blockfall') {
@@ -172,7 +183,7 @@ function formatCountdown(ms) {
 }
 
 // Countdown-Banner für Listen, die an einem Ereignis hängen.
-const EVENT_TABS = { memory: 'memory_game', blockfall: 'blockfall_game' }
+const EVENT_TABS = { memory: 'memory_game', blockfall: 'blockfall_game', halloween: 'halloween_puzzle' }
 const eventStatus = computed(() => {
   void now.value
   const key = EVENT_TABS[mode.value]
@@ -187,13 +198,13 @@ const eventStatus = computed(() => {
 const DISC_LABELS = {
   de: { rate: 'Pro Sekunde', coins: 'Münzen', boss_path: 'Bosspfad', boss_endless: 'Endlessboss',
         memory: 'Memory', merge: 'Fusion', wordle: 'Wordle', drift: 'Drift-Rennen', parkour: 'Zoo-Parkour',
-        blockfall: 'BlockFall' },
+        blockfall: 'BlockFall', halloween: 'Kürbis-Puzzle' },
   en: { rate: 'Per second', coins: 'Coins', boss_path: 'Boss path', boss_endless: 'Endless boss',
         memory: 'Memory', merge: 'Merge', wordle: 'Wordle', drift: 'Drift race', parkour: 'Zoo parkour',
-        blockfall: 'BlockFall' },
+        blockfall: 'BlockFall', halloween: 'Pumpkin Puzzle' },
   ru: { rate: 'В секунду', coins: 'Монеты', boss_path: 'Путь босса', boss_endless: 'Эндлесс-босс',
         memory: 'Memory', merge: 'Слияние', wordle: 'Wordle', drift: 'Дрифт', parkour: 'Паркур',
-        blockfall: 'BlockFall' }
+        blockfall: 'BlockFall', halloween: 'Тыквенный пазл' }
 }
 
 function discLabel(key) {
@@ -224,6 +235,7 @@ function discValue(d) {
     case 'wordle': return `${unit('streak')} ${v}`
     case 'memory':
     case 'blockfall':
+    case 'halloween':
     case 'drift':
     case 'parkour': return `${unit('level')} ${v}`
     default: return String(v)
@@ -246,7 +258,8 @@ const SUBTITLES = {
   coins: 'leaderboard.subtitle',
   memory: 'leaderboard.subtitleMemory',
   wordle: 'leaderboard.subtitleWordle',
-  blockfall: 'leaderboard.subtitleBlockFall'
+  blockfall: 'leaderboard.subtitleBlockFall',
+  halloween: 'leaderboard.subtitleHalloween'
 }
 const subtitle = computed(() => t(SUBTITLES[mode.value] || 'leaderboard.subtitleOverall'))
 </script>
@@ -334,6 +347,10 @@ const subtitle = computed(() => t(SUBTITLES[mode.value] || 'leaderboard.subtitle
             <template v-else-if="mode === 'wordle'">
               <span class="primary">🔥 {{ r.current_streak }} {{ t('leaderboard.wordleStreak') }}</span>
               <span class="secondary">🏅 {{ r.wins }} {{ t('leaderboard.wordleWins') }} · ⭐ {{ r.best_streak }}</span>
+            </template>
+            <template v-else-if="mode === 'halloween'">
+              <span class="primary">🎃 {{ t('leaderboard.memoryLevel') }} {{ r.highest_level }}</span>
+              <span class="secondary">⭐ {{ r.stars }}</span>
             </template>
             <template v-else-if="mode === 'blockfall'">
               <span class="primary">🧱 {{ t('leaderboard.memoryLevel') }} {{ r.highest_level }}</span>
