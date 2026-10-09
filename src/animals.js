@@ -39,7 +39,8 @@ const SPECIES_NAMES = {
   hedgehog: { de: 'Igel', en: 'Hedgehog', ru: 'Ёж' },
   leopard: { de: 'Leopard', en: 'Leopard', ru: 'Леопард' },
   gorilla: { de: 'Gorilla', en: 'Gorilla', ru: 'Горилла' },
-  brachiosaurus: { de: 'Brachiosaurus', en: 'Brachiosaurus', ru: 'Брахиозавр' }
+  brachiosaurus: { de: 'Brachiosaurus', en: 'Brachiosaurus', ru: 'Брахиозавр' },
+  bat: { de: 'Fledermaus', en: 'Bat', ru: 'Летучая мышь' }
 }
 
 function humanizeSpeciesKey(key) {

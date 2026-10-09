@@ -41,7 +41,13 @@ const I18N = {
       status_replied: 'Beantwortet',
       status_closed: 'Geschlossen',
       enterReply: 'Antwort eingeben.',
-      threadTitle: 'Verlauf'
+      threadTitle: 'Verlauf',
+      automationTitle: 'Autoklicker-Erkennung (nur Admins sichtbar)',
+      automationNone: 'Keine Erkennungen gespeichert.',
+      automationError: 'Details konnten nicht geladen werden.',
+      automationOpen: 'Code noch offen',
+      automationSolved: 'Code gelöst {time}',
+      automationWrong: 'Fehlversuche: {n}'
     },
     flash: {
       enterMessage: 'Nachricht eingeben',
@@ -153,7 +159,13 @@ const I18N = {
       status_replied: 'Replied',
       status_closed: 'Closed',
       enterReply: 'Please enter a reply.',
-      threadTitle: 'History'
+      threadTitle: 'History',
+      automationTitle: 'Auto clicker detection (admins only)',
+      automationNone: 'No detections stored.',
+      automationError: 'Could not load details.',
+      automationOpen: 'Code still open',
+      automationSolved: 'Code solved {time}',
+      automationWrong: 'Wrong attempts: {n}'
     },
     flash: {
       enterMessage: 'Enter a message',
@@ -265,7 +277,13 @@ const I18N = {
       status_replied: 'Отвечен',
       status_closed: 'Закрыт',
       enterReply: 'Введите ответ.',
-      threadTitle: 'История'
+      threadTitle: 'История',
+      automationTitle: 'Обнаружение автокликера (только для админов)',
+      automationNone: 'Нет сохранённых срабатываний.',
+      automationError: 'Не удалось загрузить детали.',
+      automationOpen: 'Код ещё не введён',
+      automationSolved: 'Код введён {time}',
+      automationWrong: 'Ошибок: {n}'
     },
     flash: {
       enterMessage: 'Введите сообщение',
@@ -383,6 +401,21 @@ const ticketThreads = ref({})
 const expandedTicket = ref(null)
 function toggleTicket(id) {
   expandedTicket.value = expandedTicket.value === id ? null : id
+  const t = expandedTicket.value && tickets.value.find((x) => x.id === id)
+  if (t) loadAutomationInfo(t)
+}
+
+// Autoklicker-Tickets: Erkennungsdetails nur hier für Admins/Sub-Admins
+// (Spieler sehen im Chat bewusst nur einen neutralen Text).
+const automationInfo = ref({})
+function isAutomationTicket(t) {
+  return String(t?.subject || '').startsWith('🤖')
+}
+async function loadAutomationInfo(t) {
+  if (!isAutomationTicket(t) || Array.isArray(automationInfo.value[t.id])) return
+  automationInfo.value = { ...automationInfo.value, [t.id]: 'loading' }
+  const { data, error: e } = await supabase.rpc('admin_automation_checks', { p_ticket_id: t.id })
+  automationInfo.value = { ...automationInfo.value, [t.id]: e ? 'error' : (data || []) }
 }
 // Admin-Nachrichten mit Namen (+ Sub-Admin-Kennzeichen), ältere ohne Namen als „admin“
 function senderLabel(m) {
@@ -727,6 +760,9 @@ async function loadTickets() {
     if (e) throw e
     tickets.value = data || []
     for (const t of tickets.value) loadTicketThread(t.id)
+    automationInfo.value = {}
+    const expanded = tickets.value.find((x) => x.id === expandedTicket.value)
+    if (expanded) loadAutomationInfo(expanded)
     const seen = readAdminSeen()
     for (const t of tickets.value) {
       if (t.last_user_message_at) seen[t.id] = t.last_user_message_at
@@ -1073,6 +1109,22 @@ async function deleteUser(u) {
           </div>
 
           <template v-if="expandedTicket === t.id">
+            <div v-if="isAutomationTicket(t)" class="adm-automation">
+              <div class="adm-automation-title">🔒 {{ tx('tickets.automationTitle') }}</div>
+              <div v-if="automationInfo[t.id] === 'loading'" class="subtitle">…</div>
+              <div v-else-if="automationInfo[t.id] === 'error'" class="subtitle">{{ tx('tickets.automationError') }}</div>
+              <div v-else-if="!(automationInfo[t.id] || []).length" class="subtitle">{{ tx('tickets.automationNone') }}</div>
+              <template v-else>
+                <div v-for="c in automationInfo[t.id]" :key="c.id" class="adm-automation-row">
+                  <div>{{ c.description }}</div>
+                  <div class="subtitle" style="font-size:11px;margin:2px 0 0">
+                    {{ fmtDateTime(c.created_at) }} ·
+                    {{ c.solved_at ? tx('tickets.automationSolved', { time: fmtDateTime(c.solved_at) }) : tx('tickets.automationOpen') }}
+                    · {{ tx('tickets.automationWrong', { n: c.wrong_total }) }}
+                  </div>
+                </div>
+              </template>
+            </div>
             <div class="subtitle" style="margin:6px 0 2px">
               {{ tx('tickets.threadTitle') }} · {{ tx('tickets.created') }}: {{ fmtDateTime(t.created_at) }}
             </div>
@@ -1205,6 +1257,20 @@ async function deleteUser(u) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.adm-automation {
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+  font-size: 13px;
+}
+.adm-automation-title { font-weight: 800; margin-bottom: 4px; }
+.adm-automation-row + .adm-automation-row {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
 }
 .adm-thread { display: flex; flex-direction: column; gap: 6px; }
 .adm-bubble { border-radius: 10px; padding: 6px 9px; max-width: 92%; }

@@ -31,12 +31,15 @@ was ein Agent wissen muss, bevor er Code anfasst.
   (`YYYYMMDD_feature.sql`), angewendet zusätzlich via MCP `apply_migration`.
   Jede neue Tabelle: RLS an, Policies nur Select, Schreiben über RPCs.
   Achtung: Views nach Neuaufbau wieder `security_invoker` setzen.
+  `apply_migration` mit `drop …` (auch `drop policy if exists`) löst beim
+  Supabase-MCP eine Bestätigung aus, die in Cloud-Sessions als „cancelled“
+  abbricht — solche Statements beim Einspielen weglassen bzw. abtrennen.
 - **Tests:** reine Logikmodule (`src/foo.js`) bekommen `src/foo.test.js`;
   Migrationen bekommen `src/fooSql.test.js` mit Regex-Prüfungen auf RLS,
   Revokes, search_path-Pins und Formeln (Vorlage: `src/wordleSql.test.js`).
 - **Routen:** flach, lazy, `meta: { auth: true }` in `src/router.js`;
   Minispiele/Features als eigene Top-Level-Route (`/drift`, `/parkour`,
-  `/wordle`, `/world`).
+  `/wordle`, `/world`, `/halloween`).
 - **Einstiege in GameView:** Jedes Feature bekommt eine Quick-Action-Kachel
   (`.qa-btn`) und einen Full-Width-Kartenlink (Muster `.parkour-link`).
 
@@ -133,6 +136,53 @@ Spec: `docs/superpowers/specs/2026-09-28-support-tab-roadmap-downvotes-design.md
   `admin_set_user_ban`) und Tickets bearbeiten; alle anderen Admin-RPCs prüfen
   `role is distinct from 'admin'`. Antworten speichern `sender_name`/`sender_role`
   (Anzeige im Chat). Neue Admin-RPCs standardmäßig admin-only anlegen.
+
+## Autoklicker-Erkennung — Spezialwissen
+
+Spec: `docs/superpowers/specs/2026-10-06-autoklicker-erkennung-design.md`.
+
+- Zählung über **Trigger** (nicht in den RPCs): `profiles.taps_used`↑,
+  `chest_purchases`, `ticket_chest_purchases`, `shop_purchases` →
+  `_automation_track()` → `automation_slots` (pro Spieler × 5-Min-Slot).
+  Regeln (Dauerlauf 94/96 Slots in 8 h, Takt σ < 1 s über 25 Slots,
+  Klickmuster per Client-Meldung) laufen nur bei der ersten Aktion eines Slots.
+- **Geheimhaltung:** Spieler erfahren nie, welches Muster erkannt wurde.
+  Fenster, Ticket-Text und `automation_status()` bleiben neutral. Details
+  gibt es nur über `admin_automation_checks` (AdminModal → 🤖-Ticket). Im
+  Bundle stehen nur `CLICK_RULES`. Live-Schwellen privat über
+  `app_settings.automation_rules` (JSON) überschreiben, weil das Repo
+  öffentlich ist.
+- Offene Prüfung ⇒ Trigger werfen `automation_check_required` (ganze
+  Transaktion rollt zurück). **Keine automatische Sperre**: Der Spieler tippt
+  den 4-stelligen Code (`automation_verify`), der Admin entscheidet im
+  automatisch eröffneten Support-Ticket.
+- Neue Truhen-/Klick-Quellen: Trigger auf deren Kauf-Tabelle ergänzen und im
+  Client bei Fehlern `game.noteAutomationError(err)` aufrufen. `useAppToast().err`
+  verschluckt Lock-Fehler, weil das globale `AutomationCheckModal` sie erklärt.
+
+## Halloween (`/halloween`) — Spezialwissen
+
+Spec: `docs/superpowers/specs/2026-10-08-halloween-update-design.md`.
+
+- **Kürbis-Puzzle** (Legepuzzle, 24 Level): `src/halloweenPuzzle.js` = reine
+  Logik (`GRIDS`, `starsForTime`, `puzzleReward`, Kanten/Umrisse, `PuzzleGame`,
+  `sceneLayout`), `src/halloweenScene.js` = Canvas (Bild, Teile, Brett),
+  `HalloweenPuzzleView.vue` = Pfad + Vollbild-Spiel (Teile als `<img>`-DataURLs,
+  Ziehen über Window-Pointer-Listener).
+- Der Client meldet nur die **Legezeit**: `complete_halloween_puzzle(p_level,
+  p_seconds)` rechnet die Sterne selbst (`_hpuzzle_stars`) und lehnt
+  < 0,5 s pro Teil ab. Spiegel: `_hpuzzle_pieces/_stars/_reward` ↔
+  `src/halloweenPuzzleSql.test.js`.
+- **Fledermaus** (`bat`) gibt es nur über Level 12/24 (`enabled = false`,
+  `shop_visible = false`) — an der Börse daher Limited Edition.
+- **Saison-Deko** 1.10.–8.11. (lokales Datum): `src/halloween.js`,
+  `composables/useHalloween.js` (Klasse `html.halloween`, Schalter in den
+  Einstellungen), `components/HalloweenDecor.vue`. Vorgabe: deutlich **mehr
+  Kürbisse als Skelette** — `src/halloween.test.js` zählt nach.
+- Die schwebende Deko liegt bei z-index 9 (Spinnweben 11). Vollbild-Overlays
+  brauchen wie bisher z-index ≥ 1100, sonst fliegen Fledermäuse durchs Spiel.
+- Canvas-Emoji nur mit einem Codepoint (`emojiSafe.test.js` scannt beide
+  Puzzle-Dateien komplett).
 
 ## Stolperfallen
 

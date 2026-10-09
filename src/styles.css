@@ -617,3 +617,71 @@ body.no-anim *::after {
   transition-delay: 0ms !important;
   scroll-behavior: auto !important;
 }
+
+/* ── Halloween-Saison ───────────────────────────────────────────────
+   html.halloween setzt src/composables/useHalloween.js (1.10.–8.11., in den
+   Einstellungen abschaltbar). Spec:
+   docs/superpowers/specs/2026-10-08-halloween-update-design.md */
+:root {
+  --hw-orange: #f47c20;
+  --hw-orange-soft: #ffb04a;
+  --hw-orange-deep: #a8460a;
+  --hw-purple: #4a1f6b;
+  --hw-night: #1e0f3a;
+}
+html.halloween {
+  --bg-glow-1: #ffdcb8;
+  --bg-glow-2: #ead8ff;
+  --topbar-line: rgba(244, 124, 32, 0.3);
+}
+html.app-dark.halloween {
+  --bg-glow-1: rgba(244, 124, 32, 0.13);
+  --bg-glow-2: rgba(139, 92, 246, 0.16);
+  --topbar-line: rgba(244, 124, 32, 0.28);
+}
+
+/* Aktiver Nav-Knopf leuchtet kürbisorange statt gold. */
+html.halloween .nav-item.router-link-active .ico,
+html.halloween .nav-item.nav-active .ico {
+  background: linear-gradient(180deg, var(--hw-orange-soft), var(--hw-orange));
+  box-shadow: 0 3px 0 var(--hw-orange-deep), 0 8px 18px rgba(244, 124, 32, 0.45);
+}
+
+/* Kürbis statt Pfote im Logo, wackelt sacht. */
+.brand-logo.hw-logo {
+  border-color: color-mix(in srgb, var(--hw-orange) 55%, var(--border));
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--hw-orange) 45%, var(--border)), 0 0 14px rgba(244, 124, 32, 0.35);
+  animation: hwLogo 3.2s ease-in-out infinite;
+}
+@keyframes hwLogo {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg) scale(1.04); }
+}
+
+/* Spinne baumelt an einem Faden unter der Kopfleiste. */
+.hw-spider {
+  position: absolute; top: 100%; right: 24%;
+  display: flex; flex-direction: column; align-items: center;
+  pointer-events: none; transform-origin: top center;
+  animation: hwSpiderSwing 4.6s ease-in-out infinite;
+}
+.hw-thread { width: 1px; height: 26px; background: var(--muted); opacity: 0.55;
+  animation: hwThread 4.6s ease-in-out infinite; transform-origin: top; }
+.hw-spider-body { font-size: 16px; line-height: 1; margin-top: -2px;
+  animation: hwSpiderDrop 4.6s ease-in-out infinite; }
+@keyframes hwSpiderSwing { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes hwThread { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.6); } }
+@keyframes hwSpiderDrop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(16px); } }
+
+/* Drei Kürbisse sitzen auf der Navigationsleiste. */
+.hw-perch {
+  position: absolute; line-height: 1; pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(120, 50, 10, 0.35));
+}
+.hw-perch.l { left: 16px; top: -21px; font-size: 25px; transform: rotate(-8deg); }
+.hw-perch.r1 { right: 18px; top: -18px; font-size: 21px; transform: rotate(6deg); }
+.hw-perch.r2 { right: 40px; top: -12px; font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo.hw-logo, .hw-spider, .hw-thread, .hw-spider-body { animation: none; }
+}

@@ -14,7 +14,8 @@ export const EVENT_KEYS = {
   wordle: 'wordle_game',
   world: 'world_lobby',
   breeding: 'breeding_game',
-  blockfall: 'blockfall_game'
+  blockfall: 'blockfall_game',
+  halloween: 'halloween_puzzle'
 }
 
 export function eventInfo(schedule, key, now = Date.now()) {

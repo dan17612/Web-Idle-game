@@ -5,6 +5,7 @@ import { SPECIES, speciesInfo, tierInfo, isUpgrading, formatCoins, animalRate } 
 import { groupAnimalsForAutoRelease } from "../autoRelease";
 import { locale } from "../i18n";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
+import { isAutomationLockError } from "../automationCheck";
 
 const game = useGameStore();
 
@@ -438,7 +439,7 @@ async function openChest() {
     await new Promise((r) => setTimeout(r, 500));
     chestAnim.value = { phase: "reveal", species: data.species || [] };
   } catch (e) {
-    shopError.value = e.message;
+    if (!isAutomationLockError(e)) shopError.value = e.message;
     chestAnim.value = null;
     setTimeout(() => (shopError.value = ""), 3000);
   } finally {

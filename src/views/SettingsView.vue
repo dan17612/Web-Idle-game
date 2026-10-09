@@ -6,6 +6,7 @@ import { localePreference, setLocale, t, LOCALE_OPTIONS } from '../i18n'
 import { animationsEnabled } from '../composables/useAnimations'
 import { themePreference, setThemePreference } from '../composables/useTheme'
 import { THEME_OPTIONS } from '../theme'
+import { halloweenPreference, halloweenSeason, setHalloweenPreference } from '../composables/useHalloween'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -48,6 +49,10 @@ const selectedTheme = computed({
     setThemePreference(value)
     flash(t('settings.themeSaved'))
   }
+})
+const halloweenEnabled = computed({
+  get: () => halloweenPreference.value !== 'off',
+  set: (on) => setHalloweenPreference(on)
 })
 const friendRequestsEnabled = computed(() => auth.profile?.friend_requests_enabled !== false)
 
@@ -284,6 +289,22 @@ async function logout() {
             :aria-label="t('settings.animationsLabel')"
           />
         </label>
+
+        <template v-if="halloweenSeason">
+          <div class="pref-sep" />
+
+          <label class="pref-row pref-clickable" for="halloween-enabled">
+            <div class="pref-text">
+              <span class="pref-title">{{ t('settings.halloweenTitle') }}</span>
+              <span class="pref-desc">{{ t('settings.halloweenHint') }}</span>
+            </div>
+            <ToggleSwitch
+              v-model="halloweenEnabled"
+              inputId="halloween-enabled"
+              :aria-label="t('settings.halloweenLabel')"
+            />
+          </label>
+        </template>
       </div>
     </section>
 

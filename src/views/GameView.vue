@@ -22,6 +22,8 @@ import { supabase } from "../supabase";
 import { useAppToast } from "../composables/useAppToast";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { openDailyReward } from "../composables/useDailyRewardModal";
+import { createClickSampler } from "../automationCheck";
+import { halloweenDecor, halloweenSeason } from "../composables/useHalloween";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -99,6 +101,8 @@ const I18N = {
       worldSub: "Lobby & Farmen",
       blockfall: "BlockFall",
       blockfallSub: "30 Level",
+      halloween: "Puzzle",
+      halloweenSub: "Halloween",
       market: "Börse",
       marketSub: "Live-Kurse",
       release: "Tier freilassen"
@@ -182,6 +186,15 @@ const I18N = {
     blockfallLink: {
       title: "🧱 BlockFall",
       sub: "Stapel fallende Blöcke & räum Reihen ab - 30 Level im Pfad"
+    },
+    halloweenLink: {
+      title: "🎃 Kürbis-Puzzle",
+      sub: "Puzzle 24 Gruselbilder zusammen & gewinne eine Fledermaus 🦇"
+    },
+    halloweenBanner: {
+      title: "Halloween im Zoo!",
+      sub: "Kürbis-Puzzle mit 24 Gruselbildern – die Fledermaus 🦇 gibt's nur jetzt.",
+      cta: "Puzzeln"
     },
     breedingLink: {
       title: "💞 Zucht",
@@ -288,6 +301,8 @@ const I18N = {
       worldSub: "Lobby & farms",
       blockfall: "BlockFall",
       blockfallSub: "30 levels",
+      halloween: "Puzzle",
+      halloweenSub: "Halloween",
       market: "Exchange",
       marketSub: "Live prices",
       release: "Release pet"
@@ -371,6 +386,15 @@ const I18N = {
     blockfallLink: {
       title: "🧱 BlockFall",
       sub: "Stack falling blocks & clear lines - 30 levels on the path"
+    },
+    halloweenLink: {
+      title: "🎃 Pumpkin Puzzle",
+      sub: "Piece together 24 spooky pictures & win a bat 🦇"
+    },
+    halloweenBanner: {
+      title: "Halloween at the zoo!",
+      sub: "Pumpkin Puzzle with 24 spooky pictures – the bat 🦇 is only around now.",
+      cta: "Play"
     },
     breedingLink: {
       title: "💞 Breeding",
@@ -477,6 +501,8 @@ const I18N = {
       worldSub: "Лобби и фермы",
       blockfall: "BlockFall",
       blockfallSub: "30 уровней",
+      halloween: "Пазл",
+      halloweenSub: "Хэллоуин",
       market: "Биржа",
       marketSub: "Живые курсы",
       release: "Отпустить питомца"
@@ -560,6 +586,15 @@ const I18N = {
     blockfallLink: {
       title: "🧱 BlockFall",
       sub: "Складывай падающие блоки и очищай ряды - 30 уровней на пути"
+    },
+    halloweenLink: {
+      title: "🎃 Тыквенный пазл",
+      sub: "Собери 24 жуткие картинки и выиграй летучую мышь 🦇"
+    },
+    halloweenBanner: {
+      title: "Хэллоуин в зоопарке!",
+      sub: "Тыквенный пазл с 24 жуткими картинками – летучая мышь 🦇 только сейчас.",
+      cta: "Играть"
     },
     breedingLink: {
       title: "💞 Разведение",
@@ -740,6 +775,11 @@ watch(
 
 const floats = ref([]);
 let floatId = 0;
+// Autoklicker-Erkennung: zu genaue Klickserien (gleiche Stelle + gleicher Takt)
+// werden dem Server gemeldet; erst wiederholte Meldungen lösen die Prüfung aus.
+const clickSampler = createClickSampler({
+  onPattern: (stats) => game.reportAutomation("click_pattern", stats).catch(() => {}),
+});
 const floatTimers = new Set();
 const equipBestBusy = ref(false);
 
@@ -802,6 +842,7 @@ function fmtCountdown(ms) {
 // Jede Feature-Karte am Seitenende. `schedule` verweist auf den Schlüssel in
 // event_schedule; Karten ohne Zeitplan gelten immer als laufend.
 const EVENT_CARDS = [
+  { id: "halloween", to: "/halloween", icon: "🎃", cls: "halloween-link", iconCls: "hwl-icon", title: "halloweenLink.title", sub: "halloweenLink.sub", schedule: EVENT_KEYS.halloween, released: "2026-10-08" },
   { id: "market",  to: "/market",    icon: "📈",  cls: "market-link",    iconCls: "mkl-icon", title: "marketLink.title", sub: "marketLink.sub", released: "2026-09-24" },
   { id: "blockfall", to: "/blockfall", icon: "🧱", cls: "blockfall-link", iconCls: "bfl-icon", title: "blockfallLink.title", sub: "blockfallLink.sub", schedule: EVENT_KEYS.blockfall, released: "2026-09-24" },
   { id: "boss",    to: "/boss-fight", icon: "👑",  cls: "boss-path-link", iconCls: "bpl-icon", title: "bossPath.title",    sub: "bossPath.sub",    schedule: EVENT_KEYS.bossEndless, released: "2026-04-26" },
@@ -848,6 +889,7 @@ const sortedEvents = computed(() =>
   })),
 );
 const activeEvents = computed(() => sortedEvents.value.filter((c) => !c.ended));
+const showHalloweenBanner = computed(() => halloweenSeason.value && game.halloweenPuzzleActive);
 const endedEvents = computed(() => sortedEvents.value.filter((c) => c.ended));
 const endedOpen = ref(false);
 
@@ -885,7 +927,8 @@ const tapTutorialActive = computed(
 const tapsUntilGift = computed(() => Math.max(0, game.tapsMax - game.tapsUsed));
 
 async function tap(e) {
-  if (tapLimitReached.value) return;
+  clickSampler.record(e);
+  if (game.automationCheck || tapLimitReached.value) return;
   const host = sceneWrap.value || e.currentTarget;
   const rect = host.getBoundingClientRect();
   const cx = e.clientX ?? e.touches?.[0]?.clientX;
@@ -1274,6 +1317,19 @@ async function doSplit(animalId) {
       </div>
     </div>
 
+    <router-link v-if="showHalloweenBanner" to="/halloween" class="halloween-banner">
+      <span class="hb2-sky" aria-hidden="true">
+        <span class="hb2-moon"></span>
+        <span class="hb2-bat">🦇</span>
+      </span>
+      <span class="hb2-pumpkin" aria-hidden="true">🎃</span>
+      <span class="hb2-body">
+        <span class="hb2-title">{{ tx("halloweenBanner.title") }}</span>
+        <span class="hb2-sub">{{ tx("halloweenBanner.sub") }}</span>
+      </span>
+      <span class="hb2-cta">{{ tx("halloweenBanner.cta") }} ›</span>
+    </router-link>
+
     <button
       class="daily-banner"
       :class="{ ready: game.dailyRewardAvailable }"
@@ -1305,6 +1361,7 @@ async function doSplit(animalId) {
           disabled: tapLimitReached,
           boosted: game.favoriteBoostActive || game.bossBoostActive,
           'tut-glow': tapTutorialActive,
+          halloween: halloweenDecor,
         }"
         @pointerdown="tap"
       >
@@ -1314,8 +1371,13 @@ async function doSplit(animalId) {
         <div class="cloud c3"></div>
         <div class="grass"></div>
         <span class="deco d1">🌳</span>
-        <span class="deco d2">🌼</span>
-        <span class="deco d3">🌷</span>
+        <span class="deco d2">{{ halloweenDecor ? "🎃" : "🌼" }}</span>
+        <span class="deco d3">{{ halloweenDecor ? "🎃" : "🌷" }}</span>
+        <template v-if="halloweenDecor">
+          <span class="deco hw-d5" aria-hidden="true">🎃</span>
+          <span class="deco hw-bat" aria-hidden="true">🦇</span>
+          <span class="deco hw-ghost" aria-hidden="true">👻</span>
+        </template>
         <span class="deco d4">🌳</span>
         <div v-if="favAnimal" class="fav-flag">★ {{ tx("scene.favorite") }}</div>
         <div
@@ -1537,6 +1599,11 @@ async function doSplit(animalId) {
         <span class="qa-icon">🧱</span>
         <span class="qa-label">{{ tx("quick.blockfall") }}</span>
         <span class="qa-sub">{{ tx("quick.blockfallSub") }}</span>
+      </router-link>
+      <router-link to="/halloween" class="qa-btn qa-halloween">
+        <span class="qa-icon">🎃</span>
+        <span class="qa-label">{{ tx("quick.halloween") }}</span>
+        <span class="qa-sub">{{ tx("quick.halloweenSub") }}</span>
       </router-link>
       <router-link to="/market" class="qa-btn">
         <span class="qa-icon">📈</span>
@@ -3765,5 +3832,109 @@ async function doSplit(animalId) {
   50% {
     transform: scale(1.03);
   }
+}
+
+/* ── Halloween ────────────────────────────────────────────────────── */
+.halloween-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  margin-bottom: 12px;
+  padding: 12px 14px 12px 70px;
+  border-radius: 18px;
+  overflow: hidden;
+  text-decoration: none;
+  color: #fff5e6;
+  background:
+    radial-gradient(circle at 88% 20%, rgba(255, 214, 140, 0.3), transparent 30%),
+    linear-gradient(120deg, #1e0f3a 0%, #4a1f6b 55%, #b8501a 100%);
+  border: 2px solid var(--hw-orange);
+  box-shadow: 0 4px 0 var(--hw-orange-deep), 0 12px 26px rgba(120, 50, 10, 0.28);
+  transition: transform 0.15s ease;
+}
+.halloween-banner:active { transform: scale(0.98); }
+.hb2-sky { position: absolute; inset: 0; pointer-events: none; }
+.hb2-moon {
+  position: absolute; top: 6px; right: 18px; width: 14px; height: 14px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 38%, #fff6d8, #ffd98a);
+  box-shadow: 0 0 14px rgba(255, 217, 138, 0.7);
+}
+.hb2-bat { position: absolute; bottom: 6px; right: 34px; font-size: 12px; animation: hb2Bat 3.4s ease-in-out infinite; }
+@keyframes hb2Bat { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(10px, -6px); } }
+.hb2-pumpkin {
+  position: absolute; left: 10px; top: 50%; font-size: 44px; line-height: 1;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 0 12px rgba(255, 150, 40, 0.85));
+  animation: hb2Wobble 2.4s ease-in-out infinite;
+}
+@keyframes hb2Wobble { 0%, 100% { transform: translateY(-50%) rotate(-7deg); } 50% { transform: translateY(-52%) rotate(7deg); } }
+.hb2-body { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hb2-title { font-size: 16px; font-weight: 900; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3); }
+.hb2-sub { font-size: 12px; font-weight: 700; opacity: 0.9; line-height: 1.3; }
+.hb2-cta {
+  position: relative; flex-shrink: 0; padding: 7px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 900; color: #3a1600;
+  background: linear-gradient(180deg, var(--hw-orange-soft), var(--hw-orange));
+  box-shadow: 0 3px 0 var(--hw-orange-deep);
+}
+.halloween-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(244, 124, 32, 0.3), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.2), transparent 50%),
+    var(--card);
+  border-color: color-mix(in srgb, var(--hw-orange) 45%, var(--border));
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.halloween-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--hw-orange);
+  box-shadow: 0 12px 28px rgba(244, 124, 32, 0.28);
+}
+.hwl-icon {
+  font-size: 36px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgba(255, 150, 40, 0.6));
+  animation: hwlWobble 2.8s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+@keyframes hwlWobble { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+.event-ended .hwl-icon { animation: none; }
+.qa-halloween {
+  border-color: color-mix(in srgb, var(--hw-orange) 50%, var(--border));
+  background:
+    radial-gradient(circle at 50% 0%, rgba(244, 124, 32, 0.22), transparent 70%),
+    var(--card-2);
+}
+
+/* Zoo-Szene in der Abenddämmerung: Mond statt Sonne, Kürbisse statt Blumen. */
+.zoo-scene.halloween {
+  background: linear-gradient(180deg, #2a1650 0%, #6b2f73 48%, #e0773a 100%);
+}
+.zoo-scene.halloween .sun {
+  background: radial-gradient(circle at 40% 38%, #fff6d8, #ffd98a);
+  box-shadow: 0 0 0 10px rgba(255, 233, 168, 0.14), 0 0 40px rgba(255, 217, 138, 0.65);
+}
+.zoo-scene.halloween .cloud { background: rgba(200, 170, 230, 0.35); }
+.zoo-scene.halloween .grass {
+  background: linear-gradient(180deg, #4f8f3a 0%, #34652a 100%);
+  box-shadow: inset 0 6px 0 rgba(255, 190, 120, 0.18);
+}
+.zoo-scene.halloween .deco.d2,
+.zoo-scene.halloween .deco.d3 { font-size: 22px; filter: drop-shadow(0 0 8px rgba(255, 150, 40, 0.8)); }
+.deco.hw-d5 { font-size: 18px; right: 30%; bottom: 4%; filter: drop-shadow(0 0 8px rgba(255, 150, 40, 0.8)); }
+.deco.hw-bat { font-size: 18px; top: 22px; left: 30%; animation: hb2Bat 4s ease-in-out infinite; }
+.deco.hw-ghost { font-size: 22px; left: 12%; top: 34%; opacity: 0.75; animation: hwSceneGhost 5s ease-in-out infinite; }
+@keyframes hwSceneGhost { 0%, 100% { transform: translateY(0); opacity: 0.55; } 50% { transform: translateY(-10px); opacity: 0.85; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hb2-bat, .hb2-pumpkin, .hwl-icon, .deco.hw-bat, .deco.hw-ghost { animation: none; }
 }
 </style>
