@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { MAX_LEVEL, CHAPTERS, GRIDS, levelConfig, starsForTime, puzzleReward } from './halloweenPuzzle.js'
@@ -15,6 +15,22 @@ function fnBody(name) {
   const start = sql.indexOf(`function public.${name}(`)
   assert.ok(start > -1, `${name} fehlt`)
   return sql.slice(start, sql.indexOf('$$;', start))
+}
+
+// Neueste Definition einer Funktion über alle Halloween-Migrationen — das ist,
+// was live läuft (spätere Migrationen ersetzen frühere per create or replace).
+const halloweenSql = readdirSync(path.join(root, 'supabase', 'migrations'))
+  .filter((f) => f.includes('halloween'))
+  .sort()
+  .map((f) => readFileSync(path.join(root, 'supabase', 'migrations', f), 'utf8'))
+
+function latestFnBody(name) {
+  for (let i = halloweenSql.length - 1; i >= 0; i--) {
+    const src = halloweenSql[i]
+    const start = src.indexOf(`function public.${name}(`)
+    if (start > -1) return src.slice(start, src.indexOf('$$;', start))
+  }
+  assert.fail(`${name} fehlt`)
 }
 
 function sqlArray(body) {
@@ -33,17 +49,17 @@ test('Tabelle mit RLS und nur Self-Select', () => {
 })
 
 test('Raster-Spiegel: Teile pro Level wie GRIDS', () => {
-  const pieces = sqlArray(fnBody('_hpuzzle_pieces'))
+  const pieces = sqlArray(latestFnBody('_hpuzzle_pieces'))
   assert.equal(pieces.length, MAX_LEVEL)
   pieces.forEach((n, i) => assert.equal(n, GRIDS[i][0] * GRIDS[i][1], `Level ${i + 1}`))
 })
 
 test('Sterne-Spiegel: Sekunden pro Teil und Grenzen wie starsForTime', () => {
-  const body = fnBody('_hpuzzle_stars')
+  const body = latestFnBody('_hpuzzle_stars')
   assert.deepEqual(sqlArray(body), CHAPTERS.map((c) => c.secPerPiece))
   assert.match(body, /\(p_level - 1\) \/ 6 \+ 1/)
   // SQL-Formel in JS nachbauen und Level für Level an den Grenzen vergleichen.
-  const pieces = sqlArray(fnBody('_hpuzzle_pieces'))
+  const pieces = sqlArray(latestFnBody('_hpuzzle_pieces'))
   const secs = sqlArray(body)
   const sqlStars = (l, s) => {
     const base = pieces[l - 1] * secs[Math.floor((l - 1) / 6)]
@@ -60,7 +76,7 @@ test('Sterne-Spiegel: Sekunden pro Teil und Grenzen wie starsForTime', () => {
 })
 
 test('Reward-Spiegel: SQL und JS liefern für jedes Level dasselbe', () => {
-  const body = fnBody('_hpuzzle_reward')
+  const body = latestFnBody('_hpuzzle_reward')
   const coinsFactor = Number(body.match(/\((\d+) \* p_level \* p_level\)::bigint/)[1])
   const [ticketCase, speciesCase, tierCase] = body.split('\n').filter((l) => l.includes('case p_level'))
   const parse = (line, re) => Object.fromEntries([...line.matchAll(re)].map((m) => [Number(m[1]), m[2]]))
@@ -81,14 +97,14 @@ test('Reward-Spiegel: SQL und JS liefern für jedes Level dasselbe', () => {
 })
 
 test('Abschluss-RPC: Gating und Plausibilität vor jeder Gutschrift', () => {
-  const body = fnBody('complete_halloween_puzzle')
+  const body = latestFnBody('complete_halloween_puzzle')
   const gate = body.indexOf("event_is_active('halloween_puzzle') then raise exception 'event ended'")
   const payout = body.indexOf('update public.profiles')
   const petInsert = body.indexOf('insert into public.animals')
   assert.ok(gate > -1, 'kein Gating')
   assert.ok(payout > gate && petInsert > gate, 'Gating steht nach der Auszahlung')
   assert.match(body, /p_level > v_highest \+ 1 then raise exception 'level locked'/)
-  assert.match(body, /p_level < 1 or p_level > 24/)
+  assert.match(body, new RegExp(`p_level < 1 or p_level > ${MAX_LEVEL}`))
   assert.match(body, /if v_secs \* 2 < v_pieces then raise exception 'too fast'/)
   assert.match(body, /v_last > now\(\) - make_interval\(secs => v_pieces \/ 2\.0\)/)
   assert.match(body, /for update/)
@@ -98,14 +114,14 @@ test('Abschluss-RPC: Gating und Plausibilität vor jeder Gutschrift', () => {
 })
 
 test('Erstabschluss- und Wiederholungsformel wie BlockFall, Tier nur beim Erstabschluss', () => {
-  const body = fnBody('complete_halloween_puzzle')
+  const body = latestFnBody('complete_halloween_puzzle')
   assert.match(body, /if v_run_stars = 3 then\s+v_coins := v_coins \+ v_base\.coins \/ 2;/)
   assert.match(body, /v_coins := greatest\(100, v_base\.coins \/ 20\);\s+v_tickets := 0;/)
   assert.match(body, /if v_first and v_base\.pet_species is not null/)
 })
 
 test('Fortschritt bleibt ungegatet', () => {
-  assert.doesNotMatch(fnBody('get_halloween_puzzle_progress'), /event_is_active/)
+  assert.doesNotMatch(latestFnBody('get_halloween_puzzle_progress'), /event_is_active/)
 })
 
 test('RPCs sind security definer mit gepinntem search_path', () => {

@@ -109,6 +109,48 @@ ein Saison-Tier. Name in `SPECIES_NAMES` (de/en/ru).
 - Einstiege: Halloween-Banner oben auf der Startseite, Schnellaktion,
   Ereignis-Karte, Bestenlisten-Tab „🎃 Puzzle".
 
+### Erweiterung: 🌈 Regenbogen-Fledermaus (2026-10-09)
+
+- Wer **alle 72 Sterne** sammelt (jedes Level ⭐⭐⭐), bekommt einmalig eine
+  Fledermaus in Stufe `rainbow` (live ×10 ⇒ 1,2 Mio. 🪙/s). Damit lohnt es
+  sich, Level für die drei Sterne zu wiederholen.
+- Vergabe serverseitig in `complete_halloween_puzzle`: Nach dem Speichern der
+  Sterne zählt `_stars_total`, bei ≥ `_hpuzzle_rainbow_goal()` (72) und noch
+  leerem `rainbow_claimed_at` wird das Tier angelegt und der Zeitpunkt
+  gesetzt. Antwortfeld `bonus_pet`. Wiederholungen zählen mit (nur die
+  Sterne entscheiden), Gating per `event_is_active` gilt wie für alles andere.
+- Neue Spalte `halloween_puzzle_progress.rainbow_claimed_at` (`add column if
+  not exists`, kein `drop` ⇒ per MCP einspielbar).
+  `get_halloween_puzzle_progress` liefert `rainbow_claimed` und `star_goal`.
+- Spiegel: `RAINBOW_STAR_GOAL` / `RAINBOW_PET` in `src/halloweenPuzzle.js`,
+  Test `src/halloweenRainbowSql.test.js`.
+- Oberfläche: dritter Chip im Banner (🌈 · Sterne x / 72), Fortschrittsbalken
+  bei den Statistiken, im Gewinn-Fenster eigene Regenbogen-Karte.
+
+### Erweiterung: Level 25 „🌕 Geisterstunde“ (Finale, 2026-10-09)
+
+Drei Sterne waren in den 24 Leveln zu leicht (fast alle Spieler hatten sie
+überall), damit war die Regenbogen-Fledermaus nur „alles durchspielen“.
+
+- Eigenes Kapitel mit genau einem Level: **8 × 8 = 64 Teile**, keine Hilfen
+  (kein Geisterbild, keine Umrisse), Teile liegen **verdreht**.
+- Sterne: **4 s pro Teil** für ⭐⭐⭐ (256 s = 4:16), ⭐⭐ bis 512 s. Zum
+  Vergleich: Level 24 erlaubt 7 s pro Teil, die schnellsten Spieler lagen dort
+  bei 4,4 s.
+- Belohnung: `1000 × 25²` = 625 000 Coins, 8 Tickets; ⭐⭐⭐ beim
+  Erstabschluss +50 % wie überall.
+- **Regenbogen-Fledermaus erst bei 75 Sternen** (alle 25 Level ⭐⭐⭐) —
+  also nur mit drei Sternen im Finale. Das Ziel wurde live sofort auf 75
+  gesetzt, damit niemand sie in der Zwischenzeit mit 72 bekommt.
+- Datenbank: Der Check `highest_level between 0 and 24` lässt sich ohne `drop`
+  nicht ändern (Supabase-MCP, siehe AGENTS.md). Das Finale zählt deshalb über
+  die neue Spalte `finale_cleared_at`; das *effektive* höchste Level
+  (`highest_level + 1` nach dem Finale) liefern `get_halloween_puzzle_progress`,
+  `complete_halloween_puzzle` und beide Bestenlisten über
+  `_hpuzzle_effective_level`. Für den Client ist Level 25 ein normales Level.
+- Spiegel: `GRIDS`/`CHAPTERS` (5. Kapitel, `secPerPiece: 4`) ↔
+  `_hpuzzle_pieces` (Index 25 = 64) und `_hpuzzle_stars` (Array 3/4/5/7/4).
+
 ## 2. Halloween-Deko
 
 - **Saison** `1.10. – 8.11.` (lokales Datum), `src/halloween.js`. Schalter in
