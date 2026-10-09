@@ -1,6 +1,8 @@
 // Minimaler Service Worker: App-Shell cachen, für Supabase immer Netz.
-const VERSION = 'zoo-empire-v1'
-const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png']
+// Version erhöhen, sobald sich gecachte Shell-Dateien ändern (z. B. Icons),
+// sonst liefert der Cache-first-Abruf noch das alte Manifest aus.
+const VERSION = 'zoo-empire-v2'
+const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon-halloween.svg', '/icon-halloween-192.png', '/icon-halloween-512.png', '/apple-touch-icon-halloween.png']
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(APP_SHELL)).catch(() => {}))
