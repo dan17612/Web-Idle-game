@@ -109,6 +109,24 @@ ein Saison-Tier. Name in `SPECIES_NAMES` (de/en/ru).
 - Einstiege: Halloween-Banner oben auf der Startseite, Schnellaktion,
   Ereignis-Karte, Bestenlisten-Tab „🎃 Puzzle".
 
+### Erweiterung: 🌈 Regenbogen-Fledermaus (2026-10-09)
+
+- Wer **alle 72 Sterne** sammelt (jedes Level ⭐⭐⭐), bekommt einmalig eine
+  Fledermaus in Stufe `rainbow` (live ×10 ⇒ 1,2 Mio. 🪙/s). Damit lohnt es
+  sich, Level für die drei Sterne zu wiederholen.
+- Vergabe serverseitig in `complete_halloween_puzzle`: Nach dem Speichern der
+  Sterne zählt `_stars_total`, bei ≥ `_hpuzzle_rainbow_goal()` (72) und noch
+  leerem `rainbow_claimed_at` wird das Tier angelegt und der Zeitpunkt
+  gesetzt. Antwortfeld `bonus_pet`. Wiederholungen zählen mit (nur die
+  Sterne entscheiden), Gating per `event_is_active` gilt wie für alles andere.
+- Neue Spalte `halloween_puzzle_progress.rainbow_claimed_at` (`add column if
+  not exists`, kein `drop` ⇒ per MCP einspielbar).
+  `get_halloween_puzzle_progress` liefert `rainbow_claimed` und `star_goal`.
+- Spiegel: `RAINBOW_STAR_GOAL` / `RAINBOW_PET` in `src/halloweenPuzzle.js`,
+  Test `src/halloweenRainbowSql.test.js`.
+- Oberfläche: dritter Chip im Banner (🌈 · Sterne x / 72), Fortschrittsbalken
+  bei den Statistiken, im Gewinn-Fenster eigene Regenbogen-Karte.
+
 ## 2. Halloween-Deko
 
 - **Saison** `1.10. – 8.11.` (lokales Datum), `src/halloween.js`. Schalter in
