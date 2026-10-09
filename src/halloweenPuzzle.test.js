@@ -1,24 +1,31 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  MAX_LEVEL, LEVELS_PER_CHAPTER, CHAPTERS, GRIDS, SNAP_DISTANCE, PUMPKIN, SKULL,
-  levelConfig, chapterOf, starsForTime, puzzleReward, replayCoins, createRng,
+  MAX_LEVEL, LEVELS_PER_CHAPTER, CHAPTERS, CHAPTER_STARTS, GRIDS, SNAP_DISTANCE, PUMPKIN, SKULL,
+  levelConfig, chapterOf, isFinale, starsForTime, puzzleReward, replayCoins, createRng,
   RAINBOW_STAR_GOAL, RAINBOW_PET, totalStars,
   buildEdges, pieceSides, piecePath, PuzzleGame, sceneLayout, countProps
 } from './halloweenPuzzle.js'
 import { findEmojiSequences } from './emojiFont.js'
 
-test('24 Level in 4 Kapiteln, Raster wird nie kleiner', () => {
+test('24 Level in 4 Kapiteln plus Finale, Raster wird nie kleiner', () => {
   assert.equal(GRIDS.length, MAX_LEVEL)
-  assert.equal(CHAPTERS.length * LEVELS_PER_CHAPTER, MAX_LEVEL)
+  assert.equal(MAX_LEVEL, 25)
+  assert.equal(CHAPTERS.reduce((sum, ch) => sum + ch.levels, 0), MAX_LEVEL)
+  assert.deepEqual(CHAPTER_STARTS, [1, 7, 13, 19, 25])
   assert.equal(chapterOf(1), 0)
   assert.equal(chapterOf(6), 0)
   assert.equal(chapterOf(7), 1)
   assert.equal(chapterOf(24), 3)
+  assert.equal(chapterOf(25), 4)
+  // Der SQL-Spiegel rechnet das Kapitel als (Level − 1) / 6.
+  for (let l = 1; l <= MAX_LEVEL; l++) {
+    assert.equal(chapterOf(l), Math.floor((l - 1) / LEVELS_PER_CHAPTER), `Level ${l}`)
+  }
   for (let ch = 0; ch < CHAPTERS.length; ch++) {
-    for (let i = 1; i < LEVELS_PER_CHAPTER; i++) {
-      const prev = levelConfig(ch * LEVELS_PER_CHAPTER + i)
-      const cur = levelConfig(ch * LEVELS_PER_CHAPTER + i + 1)
+    for (let i = 1; i < CHAPTERS[ch].levels; i++) {
+      const prev = levelConfig(CHAPTER_STARTS[ch] + i - 1)
+      const cur = levelConfig(CHAPTER_STARTS[ch] + i)
       assert.ok(cur.pieces >= prev.pieces, `Level ${cur.level} hat weniger Teile`)
     }
   }
@@ -50,6 +57,27 @@ test('Sterne nach Zeit: 3 / 4 / 5 / 7 Sekunden pro Teil', () => {
   assert.equal(levelConfig(24).star3, 56 * 7)
   assert.equal(starsForTime(24, 0), 3)
   assert.equal(starsForTime(24, 'quatsch'), 3)
+})
+
+test('Finale: größtes Puzzle, keine Hilfen, verdreht, strengste drei Sterne', () => {
+  const fin = levelConfig(25)
+  assert.equal(isFinale(25), true)
+  assert.equal(isFinale(24), false)
+  assert.deepEqual([fin.cols, fin.rows, fin.pieces], [8, 8, 64])
+  assert.equal(fin.ghost, 0)
+  assert.equal(fin.outlines, false)
+  assert.equal(fin.rotate, true)
+  assert.equal(fin.star3, 64 * 4)
+  assert.equal(starsForTime(25, 256), 3)
+  assert.equal(starsForTime(25, 257), 2)
+  assert.equal(starsForTime(25, 513), 1)
+  // Pro Teil strenger als jedes andere Kapitel mit gedrehten Teilen.
+  for (let l = 1; l < 25; l++) {
+    const cfg = levelConfig(l)
+    if (cfg.rotate) assert.ok(cfg.star3 / cfg.pieces > fin.star3 / fin.pieces, `Level ${l}`)
+    assert.ok(cfg.pieces < fin.pieces, `Level ${l} ist nicht kleiner als das Finale`)
+  }
+  assert.deepEqual(puzzleReward(25), { coins: 625000, tickets: 8, pet: null })
 })
 
 test('Belohnung: Coins quadratisch, Tickets und Fledermäuse an Meilensteinen', () => {
@@ -183,13 +211,16 @@ test('Bilder: deterministisch, im Bild und nur Ein-Codepoint-Emoji', () => {
   }
 })
 
-test('Regenbogen-Fledermaus: alle 72 Sterne, Summe zählt nur echte Level', () => {
-  assert.equal(RAINBOW_STAR_GOAL, 72)
+test('Regenbogen-Fledermaus: alle 75 Sterne inkl. Finale, Summe zählt nur echte Level', () => {
+  assert.equal(RAINBOW_STAR_GOAL, 75)
   assert.deepEqual(RAINBOW_PET, { species: 'bat', tier: 'rainbow' })
   assert.equal(totalStars(null), 0)
   assert.equal(totalStars({ 1: 3, 2: 2, 3: '1' }), 6)
   const all = Object.fromEntries(Array.from({ length: MAX_LEVEL }, (_, i) => [i + 1, 3]))
   assert.equal(totalStars(all), RAINBOW_STAR_GOAL)
   // Ausreißer werden geklemmt, fremde Schlüssel ignoriert.
-  assert.equal(totalStars({ 1: 9, 25: 3, x: 3, 2: -1 }), 3)
+  assert.equal(totalStars({ 1: 9, 26: 3, x: 3, 2: -1 }), 3)
+  // 72 Sterne ohne Finale reichen nicht.
+  const without = Object.fromEntries(Array.from({ length: 24 }, (_, i) => [i + 1, 3]))
+  assert.ok(totalStars(without) < RAINBOW_STAR_GOAL)
 })

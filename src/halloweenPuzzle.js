@@ -11,24 +11,33 @@
 //
 // Spec: docs/superpowers/specs/2026-10-08-halloween-update-design.md
 
-export const MAX_LEVEL = 24
+export const MAX_LEVEL = 25
 export const LEVELS_PER_CHAPTER = 6
 
 // Hilfen je Kapitel: Geisterbild (Deckkraft) und Umrisse auf dem Brett,
-// gedrehte Teile, Sekunden pro Teil für drei Sterne.
+// gedrehte Teile, Sekunden pro Teil für drei Sterne, Anzahl Level.
+// Das Finale (Level 25) ist ein eigenes Kapitel mit einem Level und den
+// strengsten drei Sternen. Der SQL-Spiegel rechnet das Kapitel als
+// (Level − 1) / 6 — passt, solange nur das letzte Kapitel kürzer ist.
 export const CHAPTERS = [
-  { id: 'patch', icon: '🎃', ghost: 0.35, outlines: true, rotate: false, secPerPiece: 3 },
-  { id: 'castle', icon: '🏰', ghost: 0.15, outlines: true, rotate: false, secPerPiece: 4 },
-  { id: 'woods', icon: '🌲', ghost: 0, outlines: false, rotate: false, secPerPiece: 5 },
-  { id: 'treats', icon: '🍬', ghost: 0, outlines: false, rotate: true, secPerPiece: 7 }
+  { id: 'patch', icon: '🎃', ghost: 0.35, outlines: true, rotate: false, secPerPiece: 3, levels: 6 },
+  { id: 'castle', icon: '🏰', ghost: 0.15, outlines: true, rotate: false, secPerPiece: 4, levels: 6 },
+  { id: 'woods', icon: '🌲', ghost: 0, outlines: false, rotate: false, secPerPiece: 5, levels: 6 },
+  { id: 'treats', icon: '🍬', ghost: 0, outlines: false, rotate: true, secPerPiece: 7, levels: 6 },
+  { id: 'finale', icon: '🌕', ghost: 0, outlines: false, rotate: true, secPerPiece: 4, levels: 1, finale: true }
 ]
+
+// Erstes Level je Kapitel: 1, 7, 13, 19, 25.
+export const CHAPTER_STARTS = CHAPTERS.map((_, i) =>
+  1 + CHAPTERS.slice(0, i).reduce((sum, ch) => sum + ch.levels, 0))
 
 // [Spalten, Reihen] pro Level. Hochformat, damit das Brett aufs Handy passt.
 export const GRIDS = [
   [3, 3], [3, 4], [4, 4], [4, 5], [4, 5], [5, 5],
   [4, 5], [5, 5], [5, 6], [5, 6], [6, 6], [6, 6],
   [5, 6], [5, 6], [6, 6], [6, 7], [6, 7], [6, 8],
-  [5, 6], [6, 6], [6, 7], [6, 7], [7, 7], [7, 8]
+  [5, 6], [6, 6], [6, 7], [6, 7], [7, 7], [7, 8],
+  [8, 8]
 ]
 
 // Wie nah (in Zellen) die Mitte eines Teils an seinem Platz liegen muss.
@@ -43,7 +52,14 @@ function clampLevel(level) {
 }
 
 export function chapterOf(level) {
-  return Math.floor((clampLevel(level) - 1) / LEVELS_PER_CHAPTER)
+  const L = clampLevel(level)
+  let chapter = 0
+  for (let i = 0; i < CHAPTER_STARTS.length; i++) if (L >= CHAPTER_STARTS[i]) chapter = i
+  return chapter
+}
+
+export function isFinale(level) {
+  return !!CHAPTERS[chapterOf(level)].finale
 }
 
 export function levelConfig(level) {
@@ -78,7 +94,7 @@ export function starsForTime(level, seconds) {
 }
 
 // Spiegelt public._hpuzzle_reward.
-export const REWARD_TICKETS = { 6: 2, 12: 3, 18: 4, 24: 6 }
+export const REWARD_TICKETS = { 6: 2, 12: 3, 18: 4, 24: 6, 25: 8 }
 export const REWARD_PETS = {
   12: { species: 'bat', tier: 'normal' },
   24: { species: 'bat', tier: 'gold' }
@@ -98,11 +114,11 @@ export function replayCoins(level) {
 }
 
 // Spiegelt public._hpuzzle_rainbow_goal(): Wer jedes Level mit drei Sternen
-// schafft, bekommt einmalig die Regenbogen-Fledermaus.
+// schafft — also auch das Finale —, bekommt einmalig die Regenbogen-Fledermaus.
 export const RAINBOW_STAR_GOAL = MAX_LEVEL * 3
 export const RAINBOW_PET = { species: 'bat', tier: 'rainbow' }
 
-// Summe der besten Sterne je Level (wie public._stars_total, aber nur 1..24).
+// Summe der besten Sterne je Level (wie public._stars_total, aber nur echte Level).
 export function totalStars(starsMap) {
   const map = starsMap && typeof starsMap === 'object' ? starsMap : {}
   let sum = 0
@@ -300,7 +316,8 @@ export const SCENE_THEMES = [
   { sky: ['#2a1450', '#7a2d6b', '#f08a3c'], hills: ['#3b1d4f', '#24123a'], ground: ['#3a2a1c', '#21160d'], moon: '#ffe9a8', horizon: 0.6 },
   { sky: ['#0d0b2a', '#2b1a5a', '#5a3a8a'], hills: ['#1c1440', '#120c2b'], ground: ['#2a2238', '#17121f'], moon: '#f5f1d6', horizon: 0.64 },
   { sky: ['#06201f', '#0f3b3a', '#2d6b5a'], hills: ['#0b2a26', '#071b18'], ground: ['#1d2b1a', '#101a0e'], moon: '#e9f7c9', horizon: 0.62 },
-  { sky: ['#1a0b33', '#4b1c66', '#c2457f'], hills: ['#2d1347', '#1c0b2e'], ground: ['#33213f', '#1f1427'], moon: '#ffe3f1', horizon: 0.66 }
+  { sky: ['#1a0b33', '#4b1c66', '#c2457f'], hills: ['#2d1347', '#1c0b2e'], ground: ['#33213f', '#1f1427'], moon: '#ffe3f1', horizon: 0.66 },
+  { sky: ['#05030f', '#1a0f3d', '#4a1d5e'], hills: ['#140a2a', '#0a0517'], ground: ['#1f1530', '#0e0918'], moon: '#fff4cc', horizon: 0.62 }
 ]
 
 // Requisiten je Kapitel: [Emoji, Anzahl min, max, Größe min, max, Bereich].
@@ -345,6 +362,17 @@ const PROPS = [
     ['🧛', 0, 1, 0.13, 0.15, 'ground'],
     ['🐼', 0, 1, 0.12, 0.14, 'ground'],
     ['🦇', 2, 3, 0.05, 0.07, 'sky'],
+    [SKULL, 0, 1, 0.05, 0.06, 'ground']
+  ],
+  // Finale „Geisterstunde": Kürbis-Parade unterm Mitternachtsmond.
+  [
+    [PUMPKIN, 8, 11, 0.08, 0.15, 'ground'],
+    ['🏰', 1, 1, 0.3, 0.36, 'horizon'],
+    ['🌲', 2, 3, 0.14, 0.2, 'horizon'],
+    ['👻', 2, 3, 0.1, 0.13, 'sky'],
+    ['🦇', 4, 6, 0.05, 0.08, 'sky'],
+    ['🧙', 1, 1, 0.13, 0.15, 'sky'],
+    ['🍬', 1, 2, 0.05, 0.06, 'ground'],
     [SKULL, 0, 1, 0.05, 0.06, 'ground']
   ]
 ]

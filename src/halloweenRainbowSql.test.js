@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { RAINBOW_STAR_GOAL, RAINBOW_PET, MAX_LEVEL } from './halloweenPuzzle.js'
@@ -17,8 +17,24 @@ function fnBody(name) {
   return sql.slice(start, sql.indexOf('$$;', start))
 }
 
+// Neueste Definition einer Funktion über alle Halloween-Migrationen — das ist,
+// was live läuft (spätere Migrationen ersetzen frühere per create or replace).
+const halloweenSql = readdirSync(path.join(root, 'supabase', 'migrations'))
+  .filter((f) => f.includes('halloween'))
+  .sort()
+  .map((f) => readFileSync(path.join(root, 'supabase', 'migrations', f), 'utf8'))
+
+function latestFnBody(name) {
+  for (let i = halloweenSql.length - 1; i >= 0; i--) {
+    const src = halloweenSql[i]
+    const start = src.indexOf(`function public.${name}(`)
+    if (start > -1) return src.slice(start, src.indexOf('$$;', start))
+  }
+  assert.fail(`${name} fehlt`)
+}
+
 test('Ziel-Spiegel: alle Level mit drei Sternen', () => {
-  const m = fnBody('_hpuzzle_rainbow_goal').match(/select (\d+) \* (\d+);/)
+  const m = latestFnBody('_hpuzzle_rainbow_goal').match(/select (\d+) \* (\d+);/)
   assert.ok(m, 'Ziel nicht lesbar')
   assert.equal(Number(m[1]), MAX_LEVEL)
   assert.equal(Number(m[1]) * Number(m[2]), RAINBOW_STAR_GOAL)
@@ -31,7 +47,7 @@ test('Ohne drop-Statements, Spalte nur ergänzt', () => {
 })
 
 test('Regenbogen-Fledermaus nur einmal und nur mit vollen Sternen', () => {
-  const body = fnBody('complete_halloween_puzzle')
+  const body = latestFnBody('complete_halloween_puzzle')
   const block = body.slice(body.indexOf('-- Regenbogen-Fledermaus'))
   assert.match(block, /if v_rainbow_at is null and v_total_stars >= public\._hpuzzle_rainbow_goal\(\)/)
   assert.match(block, new RegExp(`values \\(uid, '${RAINBOW_PET.species}', '${RAINBOW_PET.tier}', false\\)`))
@@ -44,7 +60,7 @@ test('Regenbogen-Fledermaus nur einmal und nur mit vollen Sternen', () => {
 })
 
 test('Abschluss-RPC behält Gating und Plausibilität vor jeder Gutschrift', () => {
-  const body = fnBody('complete_halloween_puzzle')
+  const body = latestFnBody('complete_halloween_puzzle')
   const gate = body.indexOf("event_is_active('halloween_puzzle') then raise exception 'event ended'")
   assert.ok(gate > -1, 'kein Gating')
   for (const payout of ['update public.profiles', 'insert into public.animals']) {
@@ -60,11 +76,11 @@ test('Abschluss-RPC behält Gating und Plausibilität vor jeder Gutschrift', () 
 })
 
 test('Antwort und Fortschritt kennen Ziel und Status', () => {
-  const body = fnBody('complete_halloween_puzzle')
+  const body = latestFnBody('complete_halloween_puzzle')
   for (const key of ['bonus_pet', 'total_stars', 'star_goal', 'rainbow_claimed']) {
     assert.match(body, new RegExp(`'${key}'`), key)
   }
-  const progress = fnBody('get_halloween_puzzle_progress')
+  const progress = latestFnBody('get_halloween_puzzle_progress')
   assert.match(progress, /'star_goal', public\._hpuzzle_rainbow_goal\(\)/)
   assert.match(progress, /'rainbow_claimed', v_row\.rainbow_claimed_at is not null/)
   assert.doesNotMatch(progress, /event_is_active/)

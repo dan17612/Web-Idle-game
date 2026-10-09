@@ -164,7 +164,7 @@ Spec: `docs/superpowers/specs/2026-10-06-autoklicker-erkennung-design.md`.
 
 Spec: `docs/superpowers/specs/2026-10-08-halloween-update-design.md`.
 
-- **Kürbis-Puzzle** (Legepuzzle, 24 Level): `src/halloweenPuzzle.js` = reine
+- **Kürbis-Puzzle** (Legepuzzle, 24 Level + Finale Level 25): `src/halloweenPuzzle.js` = reine
   Logik (`GRIDS`, `starsForTime`, `puzzleReward`, Kanten/Umrisse, `PuzzleGame`,
   `sceneLayout`), `src/halloweenScene.js` = Canvas (Bild, Teile, Brett),
   `HalloweenPuzzleView.vue` = Pfad + Vollbild-Spiel (Teile als `<img>`-DataURLs,
@@ -177,7 +177,12 @@ Spec: `docs/superpowers/specs/2026-10-08-halloween-update-design.md`.
   `shop_visible = false`) — an der Börse daher Limited Edition. Alle 72 Sterne
   ⇒ einmalig 🌈 Regenbogen-Fledermaus (`rainbow_claimed_at`,
   `_hpuzzle_rainbow_goal` ↔ `RAINBOW_STAR_GOAL`, Test
-  `src/halloweenRainbowSql.test.js`).
+  `src/halloweenRainbowSql.test.js`). Seit dem Finale: alle **75** Sterne.
+- **Finale Level 25** (64 Teile, verdreht, 4 s/Teil für ⭐⭐⭐): Der Check
+  `highest_level between 0 and 24` bleibt (kein `drop` per MCP), das Finale
+  zählt über `finale_cleared_at`; `_hpuzzle_effective_level` liefert überall
+  das echte Level. SQL-Spiegeltests lesen die **neueste** Definition aus allen
+  `*halloween*`-Migrationen (Dateinamen-Reihenfolge, daher `20261009_z_…`).
 - **Saison-Deko** 1.10.–8.11. (lokales Datum): `src/halloween.js`,
   `composables/useHalloween.js` (Klasse `html.halloween`, Schalter in den
   Einstellungen), `components/HalloweenDecor.vue`. Vorgabe: deutlich **mehr
