@@ -171,6 +171,26 @@ Drei Sterne waren in den 24 Leveln zu leicht (fast alle Spieler hatten sie
 - Animationen nur über `transform`/`opacity`; bei `prefers-reduced-motion` und
   „Animationen aus" stehen alle Deko-Elemente still.
 
+## 3. PWA-Icon (2026-10-09)
+
+- Halloween-Variante des App-Icons: die Pfote aus drei Kürbissen, der Ballen
+  als Kürbislaterne, Mondsichel und Sterne auf Nachtlila. Vorlage
+  `public/icon-halloween.svg`, daraus gerendert `icon-halloween-192/512.png`,
+  `icon-halloween-maskable-512.png` (randlos, Motiv in der Safe-Zone) und
+  `apple-touch-icon-halloween.png` (randlos, 180 px).
+- **Neue Dateinamen statt Überschreiben:** Der Service Worker liefert
+  Shell-Dateien cache-first; neue URLs plus `VERSION` → `zoo-empire-v2` sorgen
+  dafür, dass Browser und installierte PWAs das neue Icon wirklich laden. Die
+  Original-Icons bleiben liegen.
+- Manifest, `index.html` und `public/sw.js` zeigen auf die Halloween-Dateien.
+  Nach der Saison (ab 9.11.) alle drei wieder auf die Originale stellen und
+  `VERSION` erneut erhöhen. `src/pwaIcons.test.js` prüft, dass alle verlinkten
+  Icons existieren, die Größen stimmen und der Shell-Cache die Manifest-Icons
+  enthält.
+- Grenzen: Android/Chrome tauscht das Icon installierter Apps beim nächsten
+  Manifest-Abgleich (kann bis zu einem Tag dauern); iOS übernimmt ein neues
+  Home-Bildschirm-Icon erst nach erneutem Hinzufügen.
+
 ## Tests
 
 | Datei | Prüft |
