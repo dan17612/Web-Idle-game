@@ -9,7 +9,7 @@ import { useAppToast } from '../composables/useAppToast'
 import { useReturnRefresh } from '../composables/useReturnRefresh'
 import {
   PuzzleGame, MAX_LEVEL, LEVELS_PER_CHAPTER, CHAPTERS, PIECE_PAD, REWARD_PETS,
-  levelConfig, starsForTime, puzzleReward, replayCoins
+  RAINBOW_STAR_GOAL, RAINBOW_PET, levelConfig, starsForTime, puzzleReward, replayCoins, totalStars as sumStars
 } from '../halloweenPuzzle'
 import { renderScene, renderPiece, renderBoard } from '../halloweenScene'
 
@@ -27,7 +27,9 @@ const I18N = {
     loading: 'Lade Fortschritt...', retry: 'Erneut versuchen',
     eventEnded: 'Ereignis beendet', eventEndedSub: 'Das Halloween-Ereignis ist vorbei. Es können keine Puzzles mehr gestartet werden.',
     endsIn: 'Endet in {time}',
-    batTitle: 'Fledermaus zu gewinnen!', batSub: 'Level 12 schenkt dir eine Fledermaus, Level 24 eine goldene. Gibt es nur an Halloween.',
+    batTitle: 'Fledermaus zu gewinnen!', batSub: 'Level 12 schenkt dir eine Fledermaus, Level 24 eine goldene – und wer alle 72 Sterne sammelt, bekommt die Regenbogen-Fledermaus. Nur an Halloween.',
+    rainbowChip: 'Alle {goal} ⭐', rainbowGoal: '🌈 Regenbogen-Fledermaus bei {goal} Sternen', rainbowDone: '🌈 Regenbogen-Fledermaus gewonnen!',
+    rainbowWon: 'Alle Sterne gesammelt!', rainbowNote: 'Alle {goal} ⭐ = 🌈 Regenbogen-Fledermaus',
     chapter: 'Kapitel {n}', ch_patch: 'Kürbisfeld', ch_castle: 'Spukschloss', ch_woods: 'Hexenwald', ch_treats: 'Süßes oder Saures',
     pieces: 'Teile', grid: 'Raster', bestShort: 'Bestzeit', gridVal: '{cols} × {rows}', helps: 'Hilfen',
     helpGhost: '👻 Geisterbild', helpOutlines: '✏️ Umrisse', helpRotate: '🔄 Teile gedreht', helpNone: 'Keine — nur du und das Bild',
@@ -52,7 +54,7 @@ const I18N = {
     tut2: 'Zieh die Teile aus der Ablage unten an ihren Platz. Passt ein Teil, rastet es ein.',
     tut3: '„Nur Rand" zeigt nur Randteile, 👁 Vorschau (gedrückt halten) blendet das Bild ein.',
     tut4: 'Je schneller du fertig bist, desto mehr Sterne. Ab Kapitel 4 liegen die Teile verdreht: antippen dreht sie.',
-    tut5: 'Level 12 und 24 belohnen dich mit einer Fledermaus 🦇 — nur in diesem Halloween-Event!',
+    tut5: 'Level 12 und 24 belohnen dich mit einer Fledermaus 🦇, alle 72 Sterne mit der Regenbogen-Fledermaus 🌈 — nur in diesem Halloween-Event!',
     tutGot: 'Los geht\'s! 🎃'
   },
   en: {
@@ -61,7 +63,9 @@ const I18N = {
     loading: 'Loading progress...', retry: 'Try again',
     eventEnded: 'Event ended', eventEndedSub: 'The Halloween event is over. No more puzzles can be started.',
     endsIn: 'Ends in {time}',
-    batTitle: 'Win a bat!', batSub: 'Level 12 gives you a bat, level 24 a golden one. Only available at Halloween.',
+    batTitle: 'Win a bat!', batSub: 'Level 12 gives you a bat, level 24 a golden one – collect all 72 stars for the rainbow bat. Only at Halloween.',
+    rainbowChip: 'All {goal} ⭐', rainbowGoal: '🌈 Rainbow bat at {goal} stars', rainbowDone: '🌈 Rainbow bat won!',
+    rainbowWon: 'All stars collected!', rainbowNote: 'All {goal} ⭐ = 🌈 rainbow bat',
     chapter: 'Chapter {n}', ch_patch: 'Pumpkin Patch', ch_castle: 'Haunted Castle', ch_woods: 'Witch Woods', ch_treats: 'Trick or Treat',
     pieces: 'Pieces', grid: 'Grid', bestShort: 'Best time', gridVal: '{cols} × {rows}', helps: 'Helps',
     helpGhost: '👻 Ghost image', helpOutlines: '✏️ Outlines', helpRotate: '🔄 Rotated pieces', helpNone: 'None — just you and the picture',
@@ -86,7 +90,7 @@ const I18N = {
     tut2: 'Drag pieces from the tray at the bottom to their spot. If a piece fits, it snaps in.',
     tut3: '"Edges only" shows just edge pieces, 👁 Preview (press and hold) shows the picture.',
     tut4: 'The faster you finish, the more stars. From chapter 4 pieces are rotated: tap them to turn.',
-    tut5: 'Levels 12 and 24 reward you with a bat 🦇 — only during this Halloween event!',
+    tut5: 'Levels 12 and 24 reward you with a bat 🦇, all 72 stars with the rainbow bat 🌈 — only during this Halloween event!',
     tutGot: 'Let\'s go! 🎃'
   },
   ru: {
@@ -95,7 +99,9 @@ const I18N = {
     loading: 'Загрузка прогресса...', retry: 'Повторить',
     eventEnded: 'Событие завершено', eventEndedSub: 'Хэллоуин закончился. Новые пазлы недоступны.',
     endsIn: 'Закончится через {time}',
-    batTitle: 'Выиграй летучую мышь!', batSub: 'Уровень 12 дарит летучую мышь, уровень 24 — золотую. Только на Хэллоуин.',
+    batTitle: 'Выиграй летучую мышь!', batSub: 'Уровень 12 дарит летучую мышь, уровень 24 — золотую, а за все 72 звезды — радужную. Только на Хэллоуин.',
+    rainbowChip: 'Все {goal} ⭐', rainbowGoal: '🌈 Радужная летучая мышь за {goal} звёзд', rainbowDone: '🌈 Радужная летучая мышь получена!',
+    rainbowWon: 'Все звёзды собраны!', rainbowNote: 'Все {goal} ⭐ = 🌈 радужная летучая мышь',
     chapter: 'Глава {n}', ch_patch: 'Тыквенное поле', ch_castle: 'Замок с привидениями', ch_woods: 'Ведьмин лес', ch_treats: 'Сладость или гадость',
     pieces: 'Детали', grid: 'Сетка', bestShort: 'Рекорд', gridVal: '{cols} × {rows}', helps: 'Подсказки',
     helpGhost: '👻 Призрачная картинка', helpOutlines: '✏️ Контуры', helpRotate: '🔄 Детали повёрнуты', helpNone: 'Нет — только ты и картинка',
@@ -120,7 +126,7 @@ const I18N = {
     tut2: 'Перетаскивай детали снизу на их место. Подходящая деталь защёлкнется.',
     tut3: '«Только края» показывает краевые детали, 👁 «Картинка» (удерживай) показывает картинку.',
     tut4: 'Чем быстрее, тем больше звёзд. С главы 4 детали повёрнуты: нажми, чтобы повернуть.',
-    tut5: 'Уровни 12 и 24 награждают летучей мышью 🦇 — только в этом событии!',
+    tut5: 'Уровни 12 и 24 награждают летучей мышью 🦇, все 72 звезды — радужной 🌈 — только в этом событии!',
     tutGot: 'Поехали! 🎃'
   }
 }
@@ -155,11 +161,10 @@ const showTutorial = ref(false)
 const highest = computed(() => Number(game.halloweenPuzzleProgress?.highest_level || 0))
 const starsMap = computed(() => game.halloweenPuzzleProgress?.stars || {})
 const timesMap = computed(() => game.halloweenPuzzleProgress?.best_times || {})
-const totalStars = computed(() => {
-  let sum = 0
-  for (let i = 1; i <= MAX_LEVEL; i++) sum += Number(starsMap.value[String(i)] || 0)
-  return sum
-})
+const totalStars = computed(() => sumStars(starsMap.value))
+const rainbowClaimed = computed(() => !!game.halloweenPuzzleProgress?.rainbow_claimed)
+const rainbowPct = computed(() => Math.min(100, Math.round(totalStars.value / RAINBOW_STAR_GOAL * 100)))
+const rainbowPet = petInfo(RAINBOW_PET)
 const eventActive = computed(() => game.halloweenPuzzleActive)
 const batPets = computed(() => Object.entries(REWARD_PETS).map(([level, pet]) => ({
   level: Number(level),
@@ -619,7 +624,8 @@ async function finishLevel() {
       coins: Number(data?.coins_added || 0),
       tickets: Number(data?.tickets_added || 0),
       firstClear: !!data?.first_clear,
-      pet: petInfo(data?.pet)
+      pet: petInfo(data?.pet),
+      bonusPet: petInfo(data?.bonus_pet)
     }
   } catch (e) {
     saveError.value = e?.message || tx('saveFailed')
@@ -734,6 +740,12 @@ onUnmounted(() => {
             <span class="hp-pet-lvl">{{ tx('level') }} {{ b.level }}</span>
             <span v-if="b.done" class="hp-pet-check">✓</span>
           </span>
+          <span class="hero-pet rainbow" :class="{ done: rainbowClaimed }">
+            <span class="hp-pet-emoji">{{ rainbowPet.emoji }}</span>
+            <span class="hp-pet-badge">{{ rainbowPet.badge }}</span>
+            <span class="hp-pet-lvl">{{ tx('rainbowChip', { goal: RAINBOW_STAR_GOAL }) }}</span>
+            <span v-if="rainbowClaimed" class="hp-pet-check">✓</span>
+          </span>
         </div>
       </div>
     </section>
@@ -752,7 +764,13 @@ onUnmounted(() => {
           <strong>{{ highest }} / {{ MAX_LEVEL }}</strong><span>{{ tx('best') }}</span>
         </div>
         <div class="hp-stat">
-          <strong>⭐ {{ totalStars }} / {{ MAX_LEVEL * 3 }}</strong><span>{{ tx('stars') }}</span>
+          <strong>⭐ {{ totalStars }} / {{ RAINBOW_STAR_GOAL }}</strong><span>{{ tx('stars') }}</span>
+        </div>
+        <div class="hp-rainbow" :class="{ done: rainbowClaimed }">
+          <div class="hr-label">
+            {{ rainbowClaimed ? tx('rainbowDone') : tx('rainbowGoal', { goal: RAINBOW_STAR_GOAL }) }}
+          </div>
+          <div class="hr-bar"><span :style="{ width: rainbowPct + '%' }"></span></div>
         </div>
       </section>
 
@@ -844,6 +862,7 @@ onUnmounted(() => {
             <div class="sh-star-row"><span class="st">★★★</span> {{ tx('starTime', { time: fmtTime(sheet.star3) }) }}</div>
             <div class="sh-star-row"><span class="st">★★</span> {{ tx('starTime', { time: fmtTime(sheet.star2) }) }}</div>
             <div class="sh-star-row"><span class="st">★</span> {{ tx('star1') }}</div>
+            <div class="sh-note">{{ tx('rainbowNote', { goal: RAINBOW_STAR_GOAL }) }}</div>
           </div>
           <div class="sh-block">
             <div class="sh-label">{{ tx('reward') }}</div>
@@ -1025,6 +1044,11 @@ onUnmounted(() => {
                 <span class="pf-pet-emoji">{{ rewardData.pet.emoji }}</span>
                 <span class="pf-pet-text">{{ tx('newPet') }} {{ rewardData.pet.badge }} {{ rewardData.pet.name }}</span>
               </div>
+              <div v-if="rewardData.bonusPet" class="pf-pet pf-rainbow">
+                <span class="pf-pet-glow"></span>
+                <span class="pf-pet-emoji">{{ rewardData.bonusPet.emoji }}</span>
+                <span class="pf-pet-text">{{ tx('rainbowWon') }} {{ rewardData.bonusPet.badge }} {{ rewardData.bonusPet.name }}</span>
+              </div>
               <div class="pf-items">
                 <div class="pf-item">🪙 +{{ formatCoins(rewardData.coins) }}</div>
                 <div v-if="rewardData.tickets > 0" class="pf-item tickets">🎟️ +{{ rewardData.tickets }}</div>
@@ -1119,6 +1143,17 @@ onUnmounted(() => {
 .hp-pet-emoji { font-size: 16px; }
 .hp-pet-check { color: #9ff5c4; }
 @media (max-width: 380px) { .hero-body { padding-right: 96px; } .hero-pumpkin.p3 { display: none; } }
+.hero-pet.rainbow:not(.done) { border-color: transparent;
+  background: linear-gradient(rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.32)) padding-box,
+    linear-gradient(90deg, #ff5f6d, #ffc371, #7bed9f, #70a1ff, #b56cff) border-box; }
+
+.hp-rainbow { grid-column: 1 / -1; background: var(--card); border: 2px solid var(--border); border-radius: 14px;
+  padding: 10px 12px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 6px; }
+.hr-label { font-size: 12px; font-weight: 900; color: var(--heading); }
+.hr-bar { height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 22%, transparent); overflow: hidden; }
+.hr-bar span { display: block; height: 100%; border-radius: 999px; transition: width 0.3s ease;
+  background: linear-gradient(90deg, #ff5f6d, #ffc371, #7bed9f, #70a1ff, #b56cff); }
+.hp-rainbow.done { border-color: color-mix(in srgb, #b56cff 55%, var(--border)); }
 
 .hp-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .hp-stat { background: var(--card); border: 2px solid var(--border); border-radius: 14px;
@@ -1355,6 +1390,10 @@ onUnmounted(() => {
 @keyframes petGlow { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 .pf-pet-emoji { font-size: 40px; animation: heroBat 2.4s ease-in-out infinite; }
 .pf-pet-text { font-size: 13px; font-weight: 900; }
+.pf-pet.pf-rainbow { border-color: transparent;
+  background: linear-gradient(180deg, #2a1146, #4a1f6b) padding-box,
+    linear-gradient(90deg, #ff5f6d, #ffc371, #7bed9f, #70a1ff, #b56cff) border-box; }
+.pf-rainbow .pf-pet-glow { box-shadow: 0 0 26px rgba(181, 108, 255, 0.7); }
 .pf-items { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 4px 0 6px; }
 .pf-item { border-radius: 14px; padding: 10px 16px; font-size: 17px; font-weight: 900;
   color: var(--accent-deep); background: color-mix(in srgb, var(--accent) 12%, var(--mix-base));

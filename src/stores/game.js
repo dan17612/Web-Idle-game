@@ -394,7 +394,7 @@ export const useGameStore = defineStore('game', {
       if (data?.coins != null) this.coins = Number(data.coins)
       if (data?.tickets != null) this.tickets = Number(data.tickets)
       if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
-      if (data?.pet) {
+      if (data?.pet || data?.bonus_pet) {
         const auth = useAuthStore()
         if (auth.user) {
           const { data: animals } = await supabase.from('animals')

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   MAX_LEVEL, LEVELS_PER_CHAPTER, CHAPTERS, GRIDS, SNAP_DISTANCE, PUMPKIN, SKULL,
   levelConfig, chapterOf, starsForTime, puzzleReward, replayCoins, createRng,
+  RAINBOW_STAR_GOAL, RAINBOW_PET, totalStars,
   buildEdges, pieceSides, piecePath, PuzzleGame, sceneLayout, countProps
 } from './halloweenPuzzle.js'
 import { findEmojiSequences } from './emojiFont.js'
@@ -180,4 +181,15 @@ test('Bilder: deterministisch, im Bild und nur Ein-Codepoint-Emoji', () => {
       assert.deepEqual(findEmojiSequences(p.e), [], `Level ${l}: ${p.e}`)
     }
   }
+})
+
+test('Regenbogen-Fledermaus: alle 72 Sterne, Summe zählt nur echte Level', () => {
+  assert.equal(RAINBOW_STAR_GOAL, 72)
+  assert.deepEqual(RAINBOW_PET, { species: 'bat', tier: 'rainbow' })
+  assert.equal(totalStars(null), 0)
+  assert.equal(totalStars({ 1: 3, 2: 2, 3: '1' }), 6)
+  const all = Object.fromEntries(Array.from({ length: MAX_LEVEL }, (_, i) => [i + 1, 3]))
+  assert.equal(totalStars(all), RAINBOW_STAR_GOAL)
+  // Ausreißer werden geklemmt, fremde Schlüssel ignoriert.
+  assert.equal(totalStars({ 1: 9, 25: 3, x: 3, 2: -1 }), 3)
 })

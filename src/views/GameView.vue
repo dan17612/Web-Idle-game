@@ -193,7 +193,7 @@ const I18N = {
     },
     halloweenBanner: {
       title: "Halloween im Zoo!",
-      sub: "Kürbis-Puzzle mit 24 Gruselbildern – die Fledermaus 🦇 gibt's nur jetzt.",
+      sub: "Kürbis-Puzzle mit 24 Gruselbildern – die Fledermaus 🦇 gibt's nur jetzt, sogar in Regenbogen 🌈.",
       cta: "Puzzeln"
     },
     breedingLink: {
@@ -393,7 +393,7 @@ const I18N = {
     },
     halloweenBanner: {
       title: "Halloween at the zoo!",
-      sub: "Pumpkin Puzzle with 24 spooky pictures – the bat 🦇 is only around now.",
+      sub: "Pumpkin Puzzle with 24 spooky pictures – the bat 🦇 is only around now, even in rainbow 🌈.",
       cta: "Play"
     },
     breedingLink: {
@@ -593,7 +593,7 @@ const I18N = {
     },
     halloweenBanner: {
       title: "Хэллоуин в зоопарке!",
-      sub: "Тыквенный пазл с 24 жуткими картинками – летучая мышь 🦇 только сейчас.",
+      sub: "Тыквенный пазл с 24 жуткими картинками – летучая мышь 🦇 только сейчас, даже радужная 🌈.",
       cta: "Играть"
     },
     breedingLink: {

@@ -97,6 +97,21 @@ export function replayCoins(level) {
   return Math.max(100, Math.floor(puzzleReward(level).coins / 20))
 }
 
+// Spiegelt public._hpuzzle_rainbow_goal(): Wer jedes Level mit drei Sternen
+// schafft, bekommt einmalig die Regenbogen-Fledermaus.
+export const RAINBOW_STAR_GOAL = MAX_LEVEL * 3
+export const RAINBOW_PET = { species: 'bat', tier: 'rainbow' }
+
+// Summe der besten Sterne je Level (wie public._stars_total, aber nur 1..24).
+export function totalStars(starsMap) {
+  const map = starsMap && typeof starsMap === 'object' ? starsMap : {}
+  let sum = 0
+  for (let l = 1; l <= MAX_LEVEL; l++) {
+    sum += Math.max(0, Math.min(3, Math.floor(Number(map[String(l)]) || 0)))
+  }
+  return sum
+}
+
 // Kleiner deterministischer Zufall (mulberry32): gleiches Level = gleiches
 // Bild, gleiche Kanten, gleiche Ablage.
 export function createRng(seed) {

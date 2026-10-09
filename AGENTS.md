@@ -174,7 +174,10 @@ Spec: `docs/superpowers/specs/2026-10-08-halloween-update-design.md`.
   < 0,5 s pro Teil ab. Spiegel: `_hpuzzle_pieces/_stars/_reward` ↔
   `src/halloweenPuzzleSql.test.js`.
 - **Fledermaus** (`bat`) gibt es nur über Level 12/24 (`enabled = false`,
-  `shop_visible = false`) — an der Börse daher Limited Edition.
+  `shop_visible = false`) — an der Börse daher Limited Edition. Alle 72 Sterne
+  ⇒ einmalig 🌈 Regenbogen-Fledermaus (`rainbow_claimed_at`,
+  `_hpuzzle_rainbow_goal` ↔ `RAINBOW_STAR_GOAL`, Test
+  `src/halloweenRainbowSql.test.js`).
 - **Saison-Deko** 1.10.–8.11. (lokales Datum): `src/halloween.js`,
   `composables/useHalloween.js` (Klasse `html.halloween`, Schalter in den
   Einstellungen), `components/HalloweenDecor.vue`. Vorgabe: deutlich **mehr
