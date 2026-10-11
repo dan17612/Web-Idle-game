@@ -4,9 +4,9 @@ Datum: 2026-10-11
 
 ## Ziel
 
-Es gibt bisher nur eine knappe Datenschutzerklärung und keine Spielregeln. Im Fall
-eines Spielers mit Makro-Dauerlauf (21.09.–07.10.) fehlte eine Regel, auf die man sich
-berufen kann. Künftig gilt:
+Es gibt bisher nur eine knappe Datenschutzerklärung und keine Spielregeln. Bei
+Regelverstößen wie Makro-Spielen fehlte eine Regel, auf die man sich berufen kann.
+Künftig gilt:
 
 - Es gibt **Nutzungsbedingungen mit Spielregeln** (u. a. keine Makros/Autoklicker/Bots,
   ein Konto pro Person, kein Echtgeldhandel) und eine überarbeitete
