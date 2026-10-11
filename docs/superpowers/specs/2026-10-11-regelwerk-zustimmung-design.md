@@ -8,8 +8,8 @@ Es gibt bisher nur eine knappe Datenschutzerklärung und keine Spielregeln. Bei
 Regelverstößen wie Makro-Spielen fehlte eine Regel, auf die man sich berufen kann.
 Künftig gilt:
 
-- Es gibt **Nutzungsbedingungen mit Spielregeln** (u. a. keine Makros/Autoklicker/Bots,
-  ein Konto pro Person, kein Echtgeldhandel) und eine überarbeitete
+- Es gibt **Nutzungsbedingungen mit Spielregeln** (u. a. keine Makros/Bots, einfache
+  Autoklicker nur geduldet, mehrere Konten nur nicht gleichzeitig) und eine überarbeitete
   **Datenschutzerklärung**.
 - **Jeder Spieler muss beides mindestens einmal akzeptieren**, bevor er weiterspielt.
   Ändert sich der Text wesentlich, wird die Version erhöht und alle stimmen erneut zu.
@@ -53,14 +53,21 @@ Künftig gilt:
 
 ## Inhalt der Spielregeln (Kurzfassung)
 
-1. Fair spielen: keine Makros, Autoklicker, Bots, Skripte oder sonstige Automatisierung,
-   keine Manipulation von App oder Schnittstellen, Fehler melden statt ausnutzen.
-2. Ein Konto pro Person. Zweitkonten, die einem anderen Konto Vorteile zuschieben, sind
-   verboten.
-3. Kein Handel mit Konten, Tieren, Coins oder Tickets gegen Echtgeld.
-4. Respektvoller Umgang, keine beleidigenden Namen oder Nachrichten.
-5. Maßnahmen bei Verstößen: Hinweis, Prüf-Code, Entfernen der dadurch erlangten Vorteile,
-   befristete oder dauerhafte Sperre. Betroffene können im Support-Chat Stellung nehmen.
+Allgemein formuliert, ohne Bezug auf Einzelfälle.
+
+1. Keine Makros, Bots oder Skripte. Einfache Autoklicker, die beim Tippen nur
+   unterstützen, werden geduldet, solange der Spieler selbst spielt (Duldung, kein
+   Anspruch, jederzeit einschränkbar).
+2. Mehrere Konten sind erlaubt, aber nicht gleichzeitig aktiv.
+3. Keine Manipulation von App oder Schnittstellen, Fehler melden statt ausnutzen,
+   respektvoller Umgang.
+4. Handel außerhalb des Spiels (auch gegen echtes Geld) ist Sache der Beteiligten; wir
+   ersetzen keine Verluste.
+5. Rechte des Betreibers: Maßnahmen nach Ermessen bei Verstoß oder begründetem Verdacht
+   (Verwarnung, Entfernen/Zurücksetzen von Spielinhalten auch nach Weitergabe, Sperre
+   einzelner Funktionen, befristete/dauerhafte Sperre oder Löschung), kein Ersatz für
+   entfernte Inhalte; Spiel und Bedingungen dürfen geändert werden (neue Fassung ⇒
+   erneute Zustimmung oder Konto löschen).
 
 Wie Automatisierung erkannt wird, steht bewusst nicht in den Texten
 (siehe Geheimhaltung in `2026-10-06-autoklicker-erkennung-design.md`).

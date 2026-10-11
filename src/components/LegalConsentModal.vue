@@ -23,11 +23,11 @@ const I18N = {
     updated: 'Wir haben unsere Regeln überarbeitet (Stand {date}). Bitte stimme der neuen Fassung zu.',
     summaryTitle: 'Das Wichtigste in Kürze',
     summary: [
-      'Spiel selbst: keine Makros, Autoklicker, Bots oder Skripte, auch nicht über Nacht.',
-      'Ein Konto pro Person, keine Zweitkonten zum Zuschieben.',
-      'Kein Handel mit Spielinhalten gegen echtes Geld.',
+      'Keine Makros, Bots oder Skripte. Einfache Autoklicker, die dich nur unterstützen, werden geduldet.',
+      'Mehrere Konten sind erlaubt, aber nicht gleichzeitig aktiv.',
+      'Keine Manipulation der App. Fehler meldest du, statt sie auszunutzen.',
       'Respektvoller Umgang mit anderen Spielern und dem Support.',
-      'Bei Verstößen: Verwarnung, Entfernen der dadurch erlangten Vorteile oder Sperre.'
+      'Bei Verstößen können wir Spielinhalte entfernen und Konten sperren.'
     ],
     terms: 'Nutzungsbedingungen lesen',
     privacy: 'Datenschutzerklärung lesen',
@@ -43,11 +43,11 @@ const I18N = {
     updated: 'We have updated our rules (version {date}). Please accept the new version.',
     summaryTitle: 'The key points',
     summary: [
-      'Play yourself: no macros, auto clickers, bots or scripts, not even overnight.',
-      'One account per person, no second accounts to push items around.',
-      'No trading of game content for real money.',
+      'No macros, bots or scripts. Simple auto clickers that only assist you are tolerated.',
+      'Multiple accounts are allowed, but not active at the same time.',
+      'No tampering with the app. Report bugs instead of exploiting them.',
       'Treat other players and the support team with respect.',
-      'Violations lead to a warning, removal of the gained advantages or a ban.'
+      'Violations can lead to removal of game content and account bans.'
     ],
     terms: 'Read the terms of use',
     privacy: 'Read the privacy policy',
@@ -63,11 +63,11 @@ const I18N = {
     updated: 'Мы обновили правила (редакция от {date}). Пожалуйста, примите новую редакцию.',
     summaryTitle: 'Главное коротко',
     summary: [
-      'Играйте сами: никаких макросов, автокликеров, ботов и скриптов, в том числе ночью.',
-      'Один аккаунт на человека, без вторых аккаунтов для передачи ресурсов.',
-      'Никакой торговли игровыми ценностями за реальные деньги.',
+      'Никаких макросов, ботов и скриптов. Простые автокликеры, которые лишь помогают, допускаются.',
+      'Можно иметь несколько аккаунтов, но не использовать их одновременно.',
+      'Не вмешивайтесь в работу приложения. Сообщайте об ошибках, а не используйте их.',
       'Уважительное отношение к игрокам и поддержке.',
-      'За нарушения: предупреждение, удаление полученных преимуществ или блокировка.'
+      'За нарушения мы можем удалить игровые ценности и заблокировать аккаунт.'
     ],
     terms: 'Читать условия использования',
     privacy: 'Читать политику конфиденциальности',
