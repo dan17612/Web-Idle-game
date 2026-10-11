@@ -192,6 +192,24 @@ Spec: `docs/superpowers/specs/2026-10-08-halloween-update-design.md`.
 - Canvas-Emoji nur mit einem Codepoint (`emojiSafe.test.js` scannt beide
   Puzzle-Dateien komplett).
 
+## Regelwerk (`/terms`, `/privacy`) — Spezialwissen
+
+Spec: `docs/superpowers/specs/2026-10-11-regelwerk-zustimmung-design.md`.
+
+- Texte als Daten in `src/legalTexts.js` (`TERMS`, `PRIVACY`, je de/en/ru mit gleicher
+  Abschnittsstruktur, Deutsch maßgeblich), gerendert von `LegalDocument.vue`.
+  `src/legalTexts.test.js` prüft Struktur, Platzhalter und dass alle externen Dienste
+  genannt sind. Neuer externer Dienst (CDN, Analytics, Mail …) ⇒ in `PRIVACY` ergänzen.
+- Pflicht-Zustimmung: `LegalConsentModal.vue` (global in `App.vue`, nach der
+  Autoklicker-Prüfung). Status über `legal_status()`, Zustimmung über
+  `legal_accept(p_version)`; Nachweis in `legal_acceptances (user_id, version, accepted_at)`.
+- Wesentliche Textänderung ⇒ `LEGAL_VERSION` (`src/legal.js`) **und**
+  `_legal_current_version()` (SQL, neue Migration) erhöhen; alle Spieler stimmen erneut zu.
+  `src/legalSql.test.js` vergleicht beide.
+- Betreiberangaben stehen einmalig in `OPERATOR` (`src/legal.js`); leere Felder erscheinen
+  als „[wird ergänzt]“.
+- Wie Automatisierung erkannt wird, gehört nicht in die Texte (Geheimhaltung, siehe oben).
+
 ## Stolperfallen
 
 - `main.js` blockt Pinch/Double-Tap global — eigene Touch-Flächen brauchen

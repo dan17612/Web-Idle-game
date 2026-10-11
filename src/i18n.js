@@ -81,9 +81,11 @@ const messages = {
       continueWithEmail: "Weiter mit E-Mail",
       magicLink: "Einmal mit Link anmelden",
       legalPrefix:
-        "Mit der Nutzung dieses Dienstes erklärst du dich mit unserer",
+        "Mit der Nutzung dieses Dienstes erklärst du dich mit unseren",
       legalSuffix: "einverstanden.",
       privacy: "Datenschutzerklärung",
+      terms: "Nutzungsbedingungen",
+      legalAnd: "und der",
       infoSignedIn: "Angemeldet.",
       infoAccountCreated:
         "Neues Konto erstellt. Falls nötig, bitte E-Mail bestätigen.",
@@ -122,6 +124,8 @@ const messages = {
       email: "E-Mail",
       pending: "Ausstehend",
       privacy: "Datenschutzerklärung",
+      terms: "Nutzungsbedingungen und Spielregeln",
+      legalAccepted: "Zugestimmt am {date}",
       friendRequestsTitle: "Freundschaftsanfragen",
       friendRequestsHint:
         "Wenn deaktiviert, können dir andere Spieler keine neuen Freundschaftsanfragen senden.",
@@ -560,7 +564,9 @@ const messages = {
       magicLink: "Sign in once with a link",
       legalPrefix: "By using this service, you agree to our",
       legalSuffix: ".",
-      privacy: "Privacy policy",
+      privacy: "privacy policy",
+      terms: "terms of use",
+      legalAnd: "and",
       infoSignedIn: "Signed in.",
       infoAccountCreated:
         "New account created. If needed, please confirm your email.",
@@ -598,6 +604,8 @@ const messages = {
       email: "Email",
       pending: "Pending",
       privacy: "Privacy policy",
+      terms: "Terms of use and game rules",
+      legalAccepted: "Accepted on {date}",
       friendRequestsTitle: "Friend requests",
       friendRequestsHint:
         "When disabled, other players cannot send you new friend requests.",
@@ -1028,9 +1036,11 @@ const messages = {
       password: "Пароль",
       continueWithEmail: "Продолжить с Email",
       magicLink: "Войти по одноразовой ссылке",
-      legalPrefix: "Используя сервис, вы соглашаетесь с нашей",
+      legalPrefix: "Используя сервис, вы соглашаетесь с нашими",
       legalSuffix: ".",
       privacy: "политикой конфиденциальности",
+      terms: "условиями использования",
+      legalAnd: "и",
       infoSignedIn: "Вход выполнен.",
       infoAccountCreated:
         "Новый аккаунт создан. При необходимости подтвердите email.",
@@ -1069,6 +1079,8 @@ const messages = {
       email: "Email",
       pending: "Ожидает подтверждения",
       privacy: "Политика конфиденциальности",
+      terms: "Условия использования и правила игры",
+      legalAccepted: "Принято {date}",
       friendRequestsTitle: "Запросы в друзья",
       friendRequestsHint:
         "Если отключено, другие игроки не смогут отправлять вам новые запросы в друзья.",

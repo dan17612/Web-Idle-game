@@ -29,6 +29,7 @@ const routes = [
   { path: '/index', name: 'index', component: () => import('./views/IndexView.vue'), meta: { auth: true } },
   { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue'), meta: { auth: true } },
   { path: '/privacy', name: 'privacy', component: () => import('./views/PrivacyView.vue') },
+  { path: '/terms', name: 'terms', component: () => import('./views/TermsView.vue') },
   { path: '/login', name: 'login', component: () => import('./views/AuthView.vue') },
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
