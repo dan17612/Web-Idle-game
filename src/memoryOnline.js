@@ -27,7 +27,9 @@ export function pickFnError({ data, error, body }) {
   if (data && data.error) return data.error
   if (body && body.error) return body.error
   if (error && error.message) return error.message
-  return 'Fehler'
+  // Leere Message zurückgeben, damit Caller den eigenen lokalisierten Fallback
+  // (`e?.message || tx('error')`) statt eines hartkodierten 'Fehler' nutzen.
+  return ''
 }
 
 export function sortedPlayers(state) {
