@@ -7,7 +7,8 @@ import {
   hidesConsentModal,
   needsLegalAcceptance,
   normalizeLegalStatus,
-  operatorField
+  operatorField,
+  operatorLine
 } from './legal.js'
 
 test('version is a plain date', () => {
@@ -39,7 +40,13 @@ test('consent modal stays out of the legal pages only', () => {
   assert.equal(hidesConsentModal(undefined), false)
 })
 
-test('empty operator fields show a visible placeholder', () => {
-  const v = operatorField('name')
-  assert.ok(v === OPERATOR_PLACEHOLDER || v.length > 0)
+test('operator line drops an empty address, placeholder only for missing fields', () => {
+  assert.equal(operatorLine({ name: 'A B', address: '', email: 'x@y.z' }), 'A B')
+  assert.equal(operatorLine({ name: 'A B', address: 'Str. 1, 12345 Ort', email: '' }), 'A B, Str. 1, 12345 Ort')
+  assert.equal(operatorField('email', { name: 'A', address: '', email: ' ' }), OPERATOR_PLACEHOLDER)
+})
+
+test('operator name and privacy contact are filled in', () => {
+  assert.notEqual(operatorField('name'), OPERATOR_PLACEHOLDER)
+  assert.match(operatorField('email'), /^[^@\s]+@[^@\s]+\.[a-z]+$/)
 })

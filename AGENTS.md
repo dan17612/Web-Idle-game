@@ -206,8 +206,9 @@ Spec: `docs/superpowers/specs/2026-10-11-regelwerk-zustimmung-design.md`.
 - Wesentliche Textänderung ⇒ `LEGAL_VERSION` (`src/legal.js`) **und**
   `_legal_current_version()` (SQL, neue Migration) erhöhen; alle Spieler stimmen erneut zu.
   `src/legalSql.test.js` vergleicht beide.
-- Betreiberangaben stehen einmalig in `OPERATOR` (`src/legal.js`); leere Felder erscheinen
-  als „[wird ergänzt]“.
+- Betreiberangaben stehen einmalig in `OPERATOR` (`src/legal.js`) und erscheinen über die
+  Platzhalter `{operator}` (Name, ggf. Anschrift) und `{operatorEmail}`. Leere Anschrift
+  wird weggelassen, andere leere Felder erscheinen als „[wird ergänzt]“.
 - Wie Automatisierung erkannt wird, gehört nicht in die Texte (Geheimhaltung, siehe oben).
 
 ## Stolperfallen

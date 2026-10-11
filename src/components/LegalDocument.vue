@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { locale } from '../i18n'
-import { operatorField } from '../legal'
+import { operatorField, operatorLine } from '../legal'
 import { useAuthStore } from '../stores/auth'
 import { useGameStore } from '../stores/game'
 
@@ -31,8 +31,7 @@ const pendingConsent = computed(() => auth.isAuth && Boolean(game.legalStatus?.n
 
 function fill(s) {
   return String(s ?? '')
-    .replace(/\{operatorName\}/g, operatorField('name'))
-    .replace(/\{operatorAddress\}/g, operatorField('address'))
+    .replace(/\{operator\}/g, operatorLine())
     .replace(/\{operatorEmail\}/g, operatorField('email'))
 }
 

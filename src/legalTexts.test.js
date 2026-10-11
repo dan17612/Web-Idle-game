@@ -28,7 +28,7 @@ for (const [name, doc] of Object.entries(DOCS)) {
   })
 
   test(`${name}: operator placeholders survive translation`, () => {
-    const count = (lang) => allStrings(doc[lang]).join(' ').match(/\{operator(Name|Address|Email)\}/g)?.length || 0
+    const count = (lang) => allStrings(doc[lang]).join(' ').match(/\{operator(Email)?\}/g)?.length || 0
     for (const lang of LANGS) assert.equal(count(lang), count('de'), `${name}.${lang}`)
   })
 

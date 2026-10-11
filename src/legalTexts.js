@@ -1,5 +1,5 @@
 // Texte des Regelwerks als Daten (de/en/ru mit gleicher Abschnittsstruktur).
-// Deutsch ist maßgeblich. Platzhalter {operatorName}, {operatorAddress},
+// Deutsch ist maßgeblich. Platzhalter {operator} (Name, ggf. Anschrift) und
 // {operatorEmail} füllt LegalDocument.vue aus OPERATOR (src/legal.js).
 // Wesentliche Änderungen ⇒ LEGAL_VERSION in src/legal.js und SQL erhöhen.
 // Spec: docs/superpowers/specs/2026-10-11-regelwerk-zustimmung-design.md
@@ -13,7 +13,7 @@ export const TERMS = {
       {
         title: '1. Anbieter',
         paragraphs: [
-          'Zoo Empire wird betrieben von {operatorName}, {operatorAddress}. Du erreichst uns unter {operatorEmail} oder über den Support-Chat in der App.',
+          'Zoo Empire wird betrieben von {operator}. Du erreichst uns unter {operatorEmail} oder über den Support-Chat in der App.',
           'Zoo Empire ist kostenlos. Es gibt keine Käufe mit echtem Geld.'
         ]
       },
@@ -107,7 +107,7 @@ export const TERMS = {
       {
         title: '1. Provider',
         paragraphs: [
-          'Zoo Empire is operated by {operatorName}, {operatorAddress}. You can reach us at {operatorEmail} or through the support chat in the app.',
+          'Zoo Empire is operated by {operator}. You can reach us at {operatorEmail} or through the support chat in the app.',
           'Zoo Empire is free. There are no purchases with real money.'
         ]
       },
@@ -201,7 +201,7 @@ export const TERMS = {
       {
         title: '1. Оператор',
         paragraphs: [
-          'Оператор Zoo Empire: {operatorName}, {operatorAddress}. Связаться с нами можно по адресу {operatorEmail} или через чат поддержки в приложении.',
+          'Оператор Zoo Empire: {operator}. Связаться с нами можно по адресу {operatorEmail} или через чат поддержки в приложении.',
           'Zoo Empire бесплатна. Покупок за реальные деньги в игре нет.'
         ]
       },
@@ -298,7 +298,7 @@ export const PRIVACY = {
       {
         title: '1. Verantwortlicher',
         paragraphs: [
-          'Verantwortlich ist {operatorName}, {operatorAddress}. Fragen zum Datenschutz schickst du an {operatorEmail} oder über den Support-Chat in der App.'
+          'Verantwortlich ist {operator}. Fragen zum Datenschutz schickst du an {operatorEmail} oder über den Support-Chat in der App.'
         ]
       },
       {
@@ -417,7 +417,7 @@ export const PRIVACY = {
       {
         title: '1. Controller',
         paragraphs: [
-          'The controller is {operatorName}, {operatorAddress}. Send questions about data protection to {operatorEmail} or through the support chat in the app.'
+          'The controller is {operator}. Send questions about data protection to {operatorEmail} or through the support chat in the app.'
         ]
       },
       {
@@ -536,7 +536,7 @@ export const PRIVACY = {
       {
         title: '1. Ответственный за обработку',
         paragraphs: [
-          'Ответственный за обработку: {operatorName}, {operatorAddress}. Вопросы о защите данных направляйте на {operatorEmail} или через чат поддержки в приложении.'
+          'Ответственный за обработку: {operator}. Вопросы о защите данных направляйте на {operatorEmail} или через чат поддержки в приложении.'
         ]
       },
       {

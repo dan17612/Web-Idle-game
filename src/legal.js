@@ -7,18 +7,26 @@
 export const LEGAL_VERSION = '2026-10-11'
 
 // Angaben zum Betreiber für Datenschutz und Nutzungsbedingungen.
-// Leere Felder erscheinen in den Texten als „[wird ergänzt]“.
+// Leere Pflichtfelder erscheinen in den Texten als „[wird ergänzt]“,
+// eine leere Anschrift wird weggelassen.
 export const OPERATOR = Object.freeze({
-  name: '',
+  name: 'Daniil Schiller',
   address: '',
-  email: ''
+  email: 'datenschutz@schiller.pw'
 })
 
 export const OPERATOR_PLACEHOLDER = '[wird ergänzt]'
 
-export function operatorField(key) {
-  const value = String(OPERATOR[key] ?? '').trim()
+export function operatorField(key, operator = OPERATOR) {
+  const value = String(operator[key] ?? '').trim()
   return value || OPERATOR_PLACEHOLDER
+}
+
+// „Name“ oder „Name, Anschrift“ für den Platzhalter {operator}.
+export function operatorLine(operator = OPERATOR) {
+  const address = String(operator.address ?? '').trim()
+  const name = operatorField('name', operator)
+  return address ? `${name}, ${address}` : name
 }
 
 // Formatiert die Version (YYYY-MM-DD) als deutsches Datum.

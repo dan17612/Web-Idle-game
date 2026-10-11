@@ -74,6 +74,7 @@ Wie Automatisierung erkannt wird, steht bewusst nicht in den Texten
 
 ## Offen vor dem Livegang
 
-- Betreiberangaben (Name, ladungsfähige Anschrift, Kontakt-E-Mail) in `OPERATOR`
-  eintragen. Ohne sie ist die Datenschutzerklärung unvollständig (Art. 13 DSGVO).
+- Betreiber (Daniil Schiller) und Datenschutz-Kontakt (datenschutz@schiller.pw) stehen in
+  `OPERATOR`. Eine ladungsfähige Anschrift fehlt noch; solange `address` leer ist, wird
+  sie in den Texten weggelassen.
 - Texte rechtlich prüfen lassen.
