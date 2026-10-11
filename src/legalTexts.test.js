@@ -39,11 +39,28 @@ for (const [name, doc] of Object.entries(DOCS)) {
   })
 }
 
-test('terms forbid macros, second accounts and real-money trading', () => {
+test('terms ban macros, only tolerate assisting auto clickers', () => {
+  const fair = TERMS.de.sections.find((s) => /Fair Play/.test(s.title))
+  const text = (fair.bullets || []).join(' ')
+  assert.match(text, /Makros, Bots und Skripte sind verboten/)
+  assert.match(text, /Autoklicker[^.]*geduldet/)
+  assert.match(text, /kein Anspruch/)
+})
+
+test('terms allow several accounts, but not at the same time', () => {
   const text = allStrings(TERMS.de).join(' ')
-  assert.match(text, /Makros, Autoklicker, Bots/)
-  assert.match(text, /Pro Person ist ein Konto erlaubt/)
-  assert.match(text, /gegen echtes Geld/)
+  assert.match(text, /mehrere Konten/)
+  assert.match(text, /nur mit einem gleichzeitig/)
+  assert.doesNotMatch(text, /Pro Person ist ein Konto erlaubt/)
+})
+
+test('terms reserve the operator rights', () => {
+  const text = allStrings(TERMS.de).join(' ')
+  assert.match(text, /nach unserem Ermessen/)
+  assert.match(text, /befristet oder dauerhaft sperren oder löschen/)
+  assert.match(text, /Wir dürfen diese Bedingungen ändern/)
+  assert.match(text, /Wir dürfen das Spiel jederzeit/)
+  assert.match(text, /ersetzen keine Verluste/)
 })
 
 test('privacy names every external service the app talks to', () => {

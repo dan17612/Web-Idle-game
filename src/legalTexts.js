@@ -20,8 +20,7 @@ export const TERMS = {
       {
         title: '2. Dein Konto',
         bullets: [
-          'Pro Person ist ein Konto erlaubt.',
-          'Zweitkonten, die einem anderen Konto Tiere, Coins oder Tickets zuschieben, sind verboten.',
+          'Du darfst mehrere Konten haben, aber immer nur mit einem gleichzeitig spielen.',
           'Halte deine Zugangsdaten geheim. Was über dein Konto passiert, geht auf dich.',
           'Dein Benutzername darf niemanden beleidigen und nicht vorgeben, jemand anderes zu sein.',
           'Wenn du jünger als 16 bist, brauchst du das Einverständnis deiner Eltern.'
@@ -29,66 +28,73 @@ export const TERMS = {
       },
       {
         title: '3. Fair Play',
-        paragraphs: ['Damit das Spiel für alle fair bleibt, gelten diese Regeln:'],
         bullets: [
-          'Spiel selbst. Makros, Autoklicker, Bots, Skripte und jede andere Software, die für dich tippt, klickt oder kauft, sind verboten. Das gilt auch, wenn so ein Programm nur zeitweise läuft, zum Beispiel über Nacht.',
+          'Makros, Bots und Skripte sind verboten. Das gilt für jede Software, die selbstständig für dich spielt.',
+          'Einfache Autoklicker, die dich beim Tippen nur unterstützen, werden geduldet, solange du selbst am Gerät bist und spielst. Das ist eine Duldung und kein Anspruch, wir können sie jederzeit einschränken.',
           'Verändere weder die App noch ihre Verbindung zum Server, und greif nicht an der App vorbei auf unsere Schnittstellen zu.',
           'Fehler im Spiel meldest du im Support-Chat. Einen Fehler bewusst auszunutzen ist ein Verstoß.',
-          'Konten, Tiere, Coins, Tickets und andere Spielinhalte dürfen nicht gegen echtes Geld oder andere Gegenleistungen außerhalb des Spiels gehandelt werden.',
           'Geh respektvoll mit anderen Spielern und dem Support-Team um. Beleidigungen, Drohungen und Spam sind nicht erlaubt.'
         ]
       },
       {
-        title: '4. Spielinhalte',
+        title: '4. Handel zwischen Spielern',
         paragraphs: [
-          'Tiere, Coins, Tickets und alle anderen Spielinhalte sind virtuell. Sie haben keinen Geldwert und können nicht ausgezahlt werden.',
-          'Wir entwickeln das Spiel weiter und können dabei Werte, Preise, Ereignisse und Funktionen ändern. Wird etwas durch einen technischen Fehler falsch gutgeschrieben, dürfen wir es korrigieren.'
+          'Tausche, Geschenke und Börsen-Geschäfte im Spiel sind freiwillig. Wir sind nicht verpflichtet, sie rückgängig zu machen.',
+          'Absprachen und Geschäfte außerhalb des Spiels, auch gegen echtes Geld, sind Sache der Beteiligten. Wir sind daran nicht beteiligt, prüfen sie nicht und ersetzen keine Verluste, etwa bei Betrug.'
         ]
       },
       {
-        title: '5. Prüfungen und Maßnahmen bei Verstößen',
+        title: '5. Spielinhalte',
         paragraphs: [
-          'Wir prüfen Spielverläufe auf Regelverstöße, teilweise automatisch. Bei Hinweisen auf automatisiertes Spielen kann die App dich bitten, einen Code einzutippen, bevor du weiterspielst.',
-          'Je nach Schwere eines Verstoßes können wir:'
+          'Tiere, Coins, Tickets und alle anderen Spielinhalte sind virtuell. Sie gehören nicht dir, du darfst sie im Rahmen des Spiels nutzen. Sie haben keinen Geldwert und können nicht ausgezahlt werden.',
+          'Wird etwas durch einen technischen Fehler falsch gutgeschrieben, dürfen wir es korrigieren.'
+        ]
+      },
+      {
+        title: '6. Prüfungen und Maßnahmen',
+        paragraphs: [
+          'Wir prüfen Spielverläufe auf Regelverstöße, teilweise automatisch. Dabei kann die App dich bitten, einen Code einzutippen, bevor du weiterspielst.',
+          'Bei einem Verstoß oder einem begründeten Verdacht können wir nach unserem Ermessen:'
         ],
         bullets: [
           'dich verwarnen,',
-          'Spielinhalte entfernen, die durch den Verstoß entstanden sind, auch wenn sie schon umgewandelt oder an ein anderes Konto weitergegeben wurden,',
-          'dein Konto befristet sperren,',
-          'dein Konto dauerhaft sperren.'
+          'Spielinhalte, Fortschritt oder Ranglisten-Plätze entfernen oder zurücksetzen, auch wenn sie schon umgewandelt oder weitergegeben wurden,',
+          'einzelne Funktionen wie Handel oder Ranglisten für dein Konto sperren,',
+          'dein Konto befristet oder dauerhaft sperren oder löschen.'
         ],
         after: [
-          'Wir sagen dir, welche Maßnahme wir ergreifen und warum. Im Support-Chat kannst du dazu Stellung nehmen.'
+          'Wir sagen dir in der Regel, welche Maßnahme wir ergreifen. Im Support-Chat kannst du dazu Stellung nehmen. Einen Ersatz für entfernte Spielinhalte gibt es nicht.'
         ]
       },
       {
-        title: '6. Verfügbarkeit',
+        title: '7. Änderungen am Spiel und Verfügbarkeit',
         paragraphs: [
-          'Wir bemühen uns um einen stabilen Betrieb, können aber nicht garantieren, dass das Spiel jederzeit erreichbar ist. Ereignisse und Minispiele können zeitlich begrenzt sein.'
+          'Wir dürfen das Spiel jederzeit weiterentwickeln, ändern, einschränken oder einstellen. Dazu gehören auch Werte, Preise, Ereignisse und Funktionen.',
+          'Wir bemühen uns um einen stabilen Betrieb, können aber nicht garantieren, dass das Spiel jederzeit erreichbar ist.'
         ]
       },
       {
-        title: '7. Haftung',
+        title: '8. Haftung',
         paragraphs: [
           'Wir haften unbeschränkt bei Vorsatz und grober Fahrlässigkeit sowie bei Schäden an Leben, Körper oder Gesundheit. Im Übrigen haften wir nur, soweit das Gesetz es zwingend vorschreibt.'
         ]
       },
       {
-        title: '8. Konto löschen, Ende des Spiels',
+        title: '9. Konto löschen, Ende des Spiels',
         paragraphs: [
-          'Du kannst dein Konto jederzeit in den Einstellungen löschen. Wir können den Betrieb von Zoo Empire beenden und kündigen das rechtzeitig in der App an.'
+          'Du kannst dein Konto jederzeit in den Einstellungen löschen. Wir können Konten aus wichtigem Grund löschen und den Betrieb von Zoo Empire beenden. Das Ende des Spiels kündigen wir rechtzeitig in der App an.'
         ]
       },
       {
-        title: '9. Änderungen',
+        title: '10. Änderungen dieser Bedingungen',
         paragraphs: [
-          'Ändern wir diese Bedingungen wesentlich, zeigen wir dir die neue Fassung in der App. Weiterspielen kannst du, sobald du ihr zugestimmt hast.'
+          'Wir dürfen diese Bedingungen ändern, zum Beispiel wenn neue Funktionen dazukommen oder sich die Rechtslage ändert. Die neue Fassung zeigen wir dir in der App, und du spielst weiter, sobald du ihr zugestimmt hast. Wenn du nicht zustimmen willst, kannst du dein Konto löschen.'
         ]
       },
       {
-        title: '10. Schlussbestimmungen',
+        title: '11. Schlussbestimmungen',
         paragraphs: [
-          'Es gilt deutsches Recht. Zwingende Verbraucherschutzvorschriften deines Wohnsitzlandes bleiben unberührt. Maßgeblich ist die deutsche Fassung, Übersetzungen dienen dem Verständnis.'
+          'Es gilt deutsches Recht. Zwingende Verbraucherschutzvorschriften deines Wohnsitzlandes bleiben unberührt. Ist eine Bestimmung unwirksam, bleiben die übrigen wirksam. Maßgeblich ist die deutsche Fassung, Übersetzungen dienen dem Verständnis.'
         ]
       }
     ]
@@ -102,81 +108,87 @@ export const TERMS = {
         title: '1. Provider',
         paragraphs: [
           'Zoo Empire is operated by {operatorName}, {operatorAddress}. You can reach us at {operatorEmail} or through the support chat in the app.',
-          'Zoo Empire is free of charge. There are no purchases with real money.'
+          'Zoo Empire is free. There are no purchases with real money.'
         ]
       },
       {
         title: '2. Your account',
         bullets: [
-          'One account per person is allowed.',
-          'Second accounts that send animals, coins or tickets to another account are forbidden.',
-          'Keep your login details secret. Whatever happens through your account is your responsibility.',
+          'You may have several accounts, but only play with one of them at a time.',
+          'Keep your login details secret. You are responsible for everything that happens through your account.',
           'Your username must not insult anyone or pretend to be someone else.',
-          'If you are under 16, you need the consent of your parents.'
+          'If you are younger than 16, you need the consent of your parents.'
         ]
       },
       {
         title: '3. Fair play',
-        paragraphs: ['To keep the game fair for everyone, these rules apply:'],
         bullets: [
-          'Play yourself. Macros, auto clickers, bots, scripts and any other software that taps, clicks or buys for you are forbidden. This also applies if such a program only runs now and then, for example overnight.',
-          'Do not modify the app or its connection to the server, and do not access our interfaces by bypassing the app.',
-          'Report bugs in the game through the support chat. Deliberately exploiting a bug is a violation.',
-          'Accounts, animals, coins, tickets and other game content may not be traded for real money or other considerations outside the game.',
+          'Macros, bots and scripts are forbidden. This applies to any software that plays for you on its own.',
+          'Simple auto clickers that only assist your tapping are tolerated as long as you are at your device and playing yourself. This is a tolerance, not a right, and we can restrict it at any time.',
+          'Do not modify the app or its connection to the server, and do not access our interfaces outside the app.',
+          'Report bugs in the support chat. Deliberately exploiting a bug is a violation.',
           'Treat other players and the support team with respect. Insults, threats and spam are not allowed.'
         ]
       },
       {
-        title: '4. Game content',
+        title: '4. Trading between players',
         paragraphs: [
-          'Animals, coins, tickets and all other game content are virtual. They have no monetary value and cannot be paid out.',
-          'We keep developing the game and may change values, prices, events and features in the process. If something is credited incorrectly because of a technical error, we may correct it.'
+          'Trades, gifts and market deals in the game are voluntary. We are not obliged to reverse them.',
+          'Agreements and deals outside the game, including for real money, are a matter for the people involved. We are not involved, do not check them and do not replace losses, for example in case of fraud.'
         ]
       },
       {
-        title: '5. Checks and measures for violations',
+        title: '5. Game content',
         paragraphs: [
-          'We check game activity for violations, partly automatically. If there are signs of automated play, the app may ask you to type in a code before you continue playing.',
-          'Depending on how serious a violation is, we may:'
+          'Animals, coins, tickets and all other game content are virtual. They do not belong to you; you may use them within the game. They have no monetary value and cannot be paid out.',
+          'If something is credited incorrectly because of a technical error, we may correct it.'
+        ]
+      },
+      {
+        title: '6. Checks and measures',
+        paragraphs: [
+          'We check gameplay for rule violations, partly automatically. The app may ask you to type in a code before you continue playing.',
+          'In case of a violation or a well-founded suspicion, we can at our discretion:'
         ],
         bullets: [
           'warn you,',
-          'remove game content that resulted from the violation, even if it has already been converted or passed on to another account,',
-          'temporarily suspend your account,',
-          'permanently suspend your account.'
+          'remove or reset game content, progress or leaderboard positions, even if they have already been converted or passed on,',
+          'block individual features such as trading or leaderboards for your account,',
+          'suspend your account temporarily or permanently or delete it.'
         ],
         after: [
-          'We tell you which measure we take and why. In the support chat you can state your position.'
+          'We usually tell you which measure we take. You can respond in the support chat. Removed game content is not replaced.'
         ]
       },
       {
-        title: '6. Availability',
+        title: '7. Changes to the game and availability',
         paragraphs: [
-          'We work to keep operations stable, but we cannot guarantee that the game is available at all times. Events and mini-games may be time-limited.'
+          'We may develop, change, restrict or discontinue the game at any time. This includes values, prices, events and features.',
+          'We aim for stable operation but cannot guarantee that the game is always available.'
         ]
       },
       {
-        title: '7. Liability',
+        title: '8. Liability',
         paragraphs: [
-          'We are liable without limitation for intent and gross negligence, and for damage to life, body or health. Otherwise we are only liable to the extent that the law mandatorily requires it.'
+          'We are liable without limitation for intent and gross negligence and for injury to life, body or health. Otherwise we are only liable where the law strictly requires it.'
         ]
       },
       {
-        title: '8. Deleting your account, end of the game',
+        title: '9. Deleting your account, end of the game',
         paragraphs: [
-          'You can delete your account at any time in the settings. We may stop operating Zoo Empire, and we will announce this in good time in the app.'
+          'You can delete your account at any time in the settings. We may delete accounts for good cause and end the operation of Zoo Empire. We will announce the end of the game in the app in good time.'
         ]
       },
       {
-        title: '9. Changes',
+        title: '10. Changes to these terms',
         paragraphs: [
-          'If we make material changes to these terms, we will show you the new version in the app. You can continue playing as soon as you have agreed to it.'
+          'We may change these terms, for example when new features are added or the legal situation changes. We show you the new version in the app, and you continue playing once you have accepted it. If you do not want to accept it, you can delete your account.'
         ]
       },
       {
-        title: '10. Final provisions',
+        title: '11. Final provisions',
         paragraphs: [
-          'German law applies. Mandatory consumer protection rules of your country of residence remain unaffected. The German version is authoritative; translations are provided only to aid understanding.'
+          'German law applies. Mandatory consumer protection rules of your country of residence remain unaffected. If a provision is invalid, the remaining provisions stay valid. The German version is authoritative; translations are for understanding only.'
         ]
       }
     ]
@@ -184,7 +196,7 @@ export const TERMS = {
   ru: {
     title: 'Условия использования и правила игры',
     updated: 'Редакция от 11 октября 2026 г.',
-    intro: 'Эти условия действуют для Zoo Empire в браузере и в приложении для Android. Вы соглашаетесь с ними в приложении до начала игры.',
+    intro: 'Эти условия действуют для Zoo Empire в браузере и в приложении для Android. Вы принимаете их в приложении перед началом игры.',
     sections: [
       {
         title: '1. Оператор',
@@ -196,75 +208,81 @@ export const TERMS = {
       {
         title: '2. Ваш аккаунт',
         bullets: [
-          'На одного человека допускается один аккаунт.',
-          'Запрещены дополнительные аккаунты, которые передают другому аккаунту животных, монеты или билеты.',
-          'Храните свои данные для входа в тайне. За все, что происходит через ваш аккаунт, отвечаете вы.',
-          'Имя пользователя не должно оскорблять других людей и выдавать вас за другого человека.',
-          'Если вам нет 16 лет, необходимо согласие родителей.'
+          'Вы можете иметь несколько аккаунтов, но играть одновременно только с одного из них.',
+          'Храните данные для входа в тайне. Вы отвечаете за всё, что происходит через ваш аккаунт.',
+          'Имя пользователя не должно никого оскорблять и не должно выдавать вас за другого человека.',
+          'Если вам меньше 16 лет, вам нужно согласие родителей.'
         ]
       },
       {
         title: '3. Честная игра',
-        paragraphs: ['Чтобы игра оставалась честной для всех, действуют следующие правила:'],
         bullets: [
-          'Играйте сами. Макросы, автокликеры, боты, скрипты и любое другое ПО, которое нажимает, кликает или покупает за вас, запрещено. Это относится и к программам, которые работают лишь время от времени, например ночью.',
+          'Макросы, боты и скрипты запрещены. Это касается любых программ, которые играют за вас самостоятельно.',
+          'Простые автокликеры, которые лишь помогают вам нажимать, допускаются, пока вы сами находитесь у устройства и играете. Это допущение, а не право, и мы можем ограничить его в любой момент.',
           'Не изменяйте приложение и его соединение с сервером и не обращайтесь к нашим интерфейсам в обход приложения.',
-          'Об ошибках в игре сообщайте в чат поддержки. Намеренное использование ошибки является нарушением правил.',
-          'Аккаунты, животных, монеты, билеты и другой игровой контент нельзя продавать за реальные деньги или обменивать на иные встречные предоставления вне игры.',
-          'Уважительно относитесь к другим игрокам и команде поддержки. Оскорбления, угрозы и спам не допускаются.'
+          'Сообщайте об ошибках в игре в чат поддержки. Намеренное использование ошибки является нарушением.',
+          'Относитесь с уважением к другим игрокам и команде поддержки. Оскорбления, угрозы и спам запрещены.'
         ]
       },
       {
-        title: '4. Игровой контент',
+        title: '4. Торговля между игроками',
         paragraphs: [
-          'Животные, монеты, билеты и весь остальной игровой контент виртуальны. У них нет денежной стоимости, и их нельзя выплатить.',
-          'Мы продолжаем развивать игру и можем при этом менять значения, цены, события и функции. Если из-за технической ошибки что-то зачислено неверно, мы вправе это исправить.'
+          'Обмены, подарки и сделки на бирже в игре добровольны. Мы не обязаны их отменять.',
+          'Договорённости и сделки вне игры, в том числе за реальные деньги, касаются только их участников. Мы в них не участвуем, не проверяем их и не возмещаем потери, например при мошенничестве.'
         ]
       },
       {
-        title: '5. Проверки и меры при нарушениях',
+        title: '5. Игровые ценности',
         paragraphs: [
-          'Мы проверяем игровой процесс на нарушения, частично автоматически. При признаках автоматизированной игры приложение может попросить вас ввести код, прежде чем вы продолжите играть.',
-          'В зависимости от тяжести нарушения мы можем:'
+          'Животные, монеты, билеты и все прочие игровые ценности виртуальны. Они вам не принадлежат, вы можете пользоваться ими в рамках игры. Они не имеют денежной стоимости и не подлежат выплате.',
+          'Если что-то было начислено неверно из-за технической ошибки, мы вправе это исправить.'
+        ]
+      },
+      {
+        title: '6. Проверки и меры',
+        paragraphs: [
+          'Мы проверяем ход игры на нарушения правил, частично автоматически. Приложение может попросить вас ввести код, прежде чем продолжить игру.',
+          'При нарушении или обоснованном подозрении мы можем по своему усмотрению:'
         ],
         bullets: [
           'вынести вам предупреждение,',
-          'удалить игровой контент, возникший в результате нарушения, даже если он уже был преобразован или передан другому аккаунту,',
-          'временно заблокировать ваш аккаунт,',
-          'заблокировать ваш аккаунт навсегда.'
+          'удалить или сбросить игровые ценности, прогресс или места в рейтингах, даже если они уже были преобразованы или переданы,',
+          'заблокировать для вашего аккаунта отдельные функции, например обмен или рейтинги,',
+          'временно или навсегда заблокировать или удалить ваш аккаунт.'
         ],
         after: [
-          'Мы сообщаем вам, какую меру принимаем и почему. В чате поддержки вы можете дать свои пояснения.'
+          'Как правило, мы сообщаем вам о принятой мере. Вы можете высказаться в чате поддержки. Удалённые игровые ценности не возмещаются.'
         ]
       },
       {
-        title: '6. Доступность',
+        title: '7. Изменения игры и доступность',
         paragraphs: [
-          'Мы стараемся обеспечивать стабильную работу, но не можем гарантировать, что игра будет доступна в любое время. События и мини-игры могут быть ограничены по времени.'
+          'Мы вправе в любое время развивать, изменять, ограничивать или прекращать игру. Это касается и значений, цен, событий и функций.',
+          'Мы стремимся к стабильной работе, но не можем гарантировать, что игра будет доступна всегда.'
         ]
       },
       {
-        title: '7. Ответственность',
+        title: '8. Ответственность',
         paragraphs: [
-          'Мы несём неограниченную ответственность за умысел и грубую неосторожность, а также за ущерб жизни, телу или здоровью. В остальных случаях мы отвечаем только в той мере, в какой это прямо предписано законом.'
+          'Мы несём неограниченную ответственность за умысел и грубую неосторожность, а также за вред жизни, телу или здоровью. В остальном мы отвечаем только в случаях, прямо предусмотренных законом.'
         ]
       },
       {
-        title: '8. Удаление аккаунта, окончание игры',
+        title: '9. Удаление аккаунта, окончание игры',
         paragraphs: [
-          'Вы можете удалить свой аккаунт в любое время в настройках. Мы можем прекратить работу Zoo Empire и заблаговременно объявим об этом в приложении.'
+          'Вы можете в любое время удалить свой аккаунт в настройках. Мы вправе удалять аккаунты по уважительной причине и прекратить работу Zoo Empire. Об окончании игры мы заранее сообщим в приложении.'
         ]
       },
       {
-        title: '9. Изменения',
+        title: '10. Изменение этих условий',
         paragraphs: [
-          'Если мы существенно изменим эти условия, мы покажем вам новую редакцию в приложении. Продолжить игру можно будет после того, как вы с ней согласитесь.'
+          'Мы вправе изменять эти условия, например при появлении новых функций или изменении законодательства. Новую редакцию мы покажем вам в приложении, и вы продолжите игру после того, как примете её. Если вы не хотите её принимать, вы можете удалить свой аккаунт.'
         ]
       },
       {
-        title: '10. Заключительные положения',
+        title: '11. Заключительные положения',
         paragraphs: [
-          'Применяется немецкое право. Обязательные нормы защиты прав потребителей по месту вашего проживания остаются в силе. Решающее значение имеет немецкая редакция, переводы служат только для лучшего понимания.'
+          'Применяется немецкое право. Обязательные нормы защиты прав потребителей страны вашего проживания остаются в силе. Если какое-либо положение недействительно, остальные положения сохраняют силу. Решающее значение имеет немецкая редакция, переводы служат только для понимания.'
         ]
       }
     ]
@@ -317,7 +335,7 @@ export const PRIVACY = {
       {
         title: '5. Fair Play und Schutz vor Missbrauch',
         paragraphs: [
-          'Um Makros, Autoklicker und andere Regelverstöße zu erkennen, werten wir Zeitpunkte und Häufigkeit deiner Spielaktionen aus, außerdem statistische Kennzahlen zu Klickfolgen im Spiel. Bildschirminhalte oder Eingaben außerhalb des Spiels erfassen wir nicht.',
+          'Um unerlaubte Automatisierung und andere Regelverstöße zu erkennen, werten wir Zeitpunkte und Häufigkeit deiner Spielaktionen aus, außerdem statistische Kennzahlen zu Klickfolgen im Spiel. Bildschirminhalte oder Eingaben außerhalb des Spiels erfassen wir nicht.',
           'Die Aktivität pro 5-Minuten-Abschnitt wird nach 2 Tagen gelöscht. Prüfungen, die angeschlagen haben, bewahren wir mit dem zugehörigen Support-Ticket auf, damit Entscheidungen nachvollziehbar bleiben. Über Maßnahmen entscheidet immer ein Mensch aus dem Admin-Team.',
           'Rechtsgrundlage ist unser berechtigtes Interesse an einem fairen Spiel für alle (Art. 6 Abs. 1 lit. f DSGVO).'
         ]
@@ -436,7 +454,7 @@ export const PRIVACY = {
       {
         title: '5. Fair play and protection against misuse',
         paragraphs: [
-          'To detect macros, auto clickers and other violations, we analyze the timing and frequency of your game actions, as well as statistical figures on click sequences in the game. We do not record screen content or inputs outside the game.',
+          'To detect unauthorized automation and other violations, we analyze the timing and frequency of your game actions, as well as statistical figures on click sequences in the game. We do not record screen content or inputs outside the game.',
           'Activity per 5-minute segment is deleted after 2 days. Checks that triggered are kept together with the associated support ticket so that decisions remain traceable. A human member of the admin team always decides on measures.',
           'The legal basis is our legitimate interest in a fair game for everyone (Art. 6(1)(f) GDPR).'
         ]
@@ -555,7 +573,7 @@ export const PRIVACY = {
       {
         title: '5. Честная игра и защита от злоупотреблений',
         paragraphs: [
-          'Чтобы выявлять макросы, автокликеры и другие нарушения, мы анализируем время и частоту ваших игровых действий, а также статистические показатели последовательностей кликов в игре. Содержимое экрана или ввод вне игры мы не записываем.',
+          'Чтобы выявлять недопустимую автоматизацию и другие нарушения, мы анализируем время и частоту ваших игровых действий, а также статистические показатели последовательностей кликов в игре. Содержимое экрана или ввод вне игры мы не записываем.',
           'Данные об активности за каждый 5-минутный отрезок удаляются через 2 дня. Сработавшие проверки мы храним вместе с относящимся к ним тикетом поддержки, чтобы решения оставались прослеживаемыми. О мерах всегда решает человек из команды администраторов.',
           'Правовое основание: наш законный интерес в честной игре для всех (ст. 6 ч. 1 лит. f GDPR).'
         ]
