@@ -30,6 +30,7 @@ const I18N = {
     scores: 'Punkte', finished: 'Spiel beendet', winner: '🏆 Sieger: {n}',
     draw: 'Unentschieden', backToLobby: 'Zur Lobby',
     connectionProblem: 'Verbindungsproblem - bitte Seite neu laden', reload: 'Neu laden',
+    error: 'Fehler',
   },
   en: {
     title: '🧠 Memory Online', back: 'Back', loading: 'Loading rooms...',
@@ -46,6 +47,7 @@ const I18N = {
     scores: 'Scores', finished: 'Game over', winner: '🏆 Winner: {n}',
     draw: 'Draw', backToLobby: 'Back to lobby',
     connectionProblem: 'Connection problem - please reload the page', reload: 'Reload',
+    error: 'Error',
   },
   ru: {
     title: '🧠 Memory Онлайн', back: 'Назад', loading: 'Загрузка комнат...',
@@ -62,6 +64,7 @@ const I18N = {
     scores: 'Очки', finished: 'Игра окончена', winner: '🏆 Победитель: {n}',
     draw: 'Ничья', backToLobby: 'В лобби',
     connectionProblem: 'Проблема соединения - перезагрузите страницу', reload: 'Перезагрузить',
+    error: 'Ошибка',
   },
 }
 function tx(key, vars = {}) {
@@ -154,7 +157,7 @@ async function loadRooms(options = {}) {
     markOnlineSuccess()
   } catch (e) {
     markOnlineFailure(trackConnectivity)
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
   } finally {
     loading.value = false
   }
@@ -175,7 +178,7 @@ async function submitCreate() {
     showCreate.value = false
     enterRoom(res)
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
   } finally {
     busy.value = false
   }
@@ -193,7 +196,7 @@ async function doJoin(room, password) {
     showPw.value = false
     enterRoom(res)
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
   } finally {
     busy.value = false
   }
@@ -217,7 +220,7 @@ async function refreshRoom(options = {}) {
     markOnlineSuccess()
   } catch (e) {
     markOnlineFailure(trackConnectivity)
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
   }
 }
 
@@ -261,7 +264,7 @@ async function startGame() {
   try {
     roomState.value = await callOnline('start_game', { room_id: roomId() })
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
   } finally {
     busy.value = false
   }
@@ -351,7 +354,7 @@ async function flipCard(index) {
     })
     roomState.value = res.state
   } catch (e) {
-    appToast.err(e?.message || 'Fehler')
+    appToast.err(e?.message || tx('error'))
     refreshRoom()
   } finally {
     busy.value = false
