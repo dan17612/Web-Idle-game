@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useGameStore } from '../stores/game'
 import { localePreference, setLocale, t, LOCALE_OPTIONS } from '../i18n'
 import { animationsEnabled } from '../composables/useAnimations'
 import { themePreference, setThemePreference } from '../composables/useTheme'
@@ -10,6 +11,15 @@ import { halloweenPreference, halloweenSeason, setHalloweenPreference } from '..
 
 const auth = useAuthStore()
 const router = useRouter()
+const game = useGameStore()
+
+// Datum der Zustimmung zum Regelwerk (src/legal.js).
+const legalAcceptedLabel = computed(() => {
+  const at = game.legalStatus?.acceptedAt
+  if (!at) return ''
+  return t('settings.legalAccepted', { date: new Date(at).toLocaleDateString() })
+})
+onMounted(() => { if (!game.legalStatus) game.loadLegalStatus().catch(() => {}) })
 
 const newEmail = ref('')
 const newUsername = ref('')
@@ -461,6 +471,16 @@ async function logout() {
             @update:modelValue="setFriendRequestsEnabled"
           />
         </label>
+
+        <div class="pref-sep" />
+
+        <router-link class="pref-row pref-clickable" :to="{ name: 'terms' }">
+          <div class="pref-text">
+            <span class="pref-title">{{ t('settings.terms') }}</span>
+            <span v-if="legalAcceptedLabel" class="pref-desc">{{ legalAcceptedLabel }}</span>
+          </div>
+          <i class="pi pi-chevron-right pref-chevron static" />
+        </router-link>
 
         <div class="pref-sep" />
 

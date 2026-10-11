@@ -12,6 +12,8 @@ import AdminModal from "./components/AdminModal.vue";
 import TutorialBubble from "./components/TutorialBubble.vue";
 import ConnectionBanner from "./components/ConnectionBanner.vue";
 import AutomationCheckModal from "./components/AutomationCheckModal.vue";
+import LegalConsentModal from "./components/LegalConsentModal.vue";
+import { hidesConsentModal } from "./legal";
 import HalloweenDecor from "./components/HalloweenDecor.vue";
 import { t } from "./i18n";
 import { onAppResume } from "./composables/useAppResume";
@@ -405,6 +407,9 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
 
     <AdminModal v-if="adminOpen" @close="adminOpen = false" />
     <AutomationCheckModal v-if="auth.isAuth && game.automationCheck" />
+    <LegalConsentModal
+      v-else-if="auth.isAuth && game.legalStatus?.needsAcceptance && !hidesConsentModal(route.name)"
+    />
     <SpeedInsights />
     <Analytics />
   </div>

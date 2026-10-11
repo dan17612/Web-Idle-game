@@ -221,6 +221,8 @@ async function signInGoogle() {
 
         <p class="legal">
           {{ t("auth.legalPrefix") }}
+          <router-link :to="{ name: 'terms' }">{{ t("auth.terms") }}</router-link>
+          {{ t("auth.legalAnd") }}
           <router-link :to="{ name: 'privacy' }"
             >{{ t("auth.privacy") }}</router-link
           >

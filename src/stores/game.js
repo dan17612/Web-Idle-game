@@ -9,6 +9,7 @@ import { firstQueryError } from '../connectionHealth'
 import { EVENT_KEYS, eventInfo } from '../eventSchedule'
 import { normalizeIncubation } from '../eggSlots'
 import { isAutomationLockError, normalizeAutomationStatus } from '../automationCheck'
+import { LEGAL_VERSION, normalizeLegalStatus } from '../legal'
 
 const TAP_MAX = 10
 const TAP_MUL_MAX_LEVEL = 300
@@ -60,7 +61,9 @@ export const useGameStore = defineStore('game', {
     halloweenPuzzleProgress: { highest_level: 0, stars: {}, best_times: {}, max_level: 24 },
     wordleState: null,
     // Offene Autoklicker-Prüfung (src/automationCheck.js) oder null.
-    automationCheck: null
+    automationCheck: null,
+    // Zustimmung zum Regelwerk (src/legal.js) oder null, solange unbekannt.
+    legalStatus: null
   }),
   getters: {
     favoriteAnimal(state) {
@@ -296,6 +299,7 @@ export const useGameStore = defineStore('game', {
       this.loadDriftProgress().catch(() => {})
       this.loadParkourProgress().catch(() => {})
       this.loadAutomationCheck().catch(() => {})
+      this.loadLegalStatus().catch(() => {})
       this.lastLoadedAt = Date.now()
     },
     async loadDailyReward() {
@@ -987,6 +991,21 @@ export const useGameStore = defineStore('game', {
       this.tickets = Number(data?.tickets ?? this.tickets)
       await this.load()
       return data
+    },
+    // Regelwerk: Zustimmungsstatus laden (fehlende RPC = keine Pflicht).
+    async loadLegalStatus() {
+      const auth = useAuthStore()
+      if (!auth.user) return null
+      const { data, error } = await supabase.rpc('legal_status')
+      if (error) return this.legalStatus
+      this.legalStatus = normalizeLegalStatus(data)
+      return this.legalStatus
+    },
+    async acceptLegal() {
+      const { data, error } = await supabase.rpc('legal_accept', { p_version: LEGAL_VERSION })
+      if (error) throw error
+      this.legalStatus = normalizeLegalStatus(data)
+      return this.legalStatus
     },
     // Autoklicker-Prüfung: Status laden (fehlende RPC = keine Prüfung).
     async loadAutomationCheck() {
