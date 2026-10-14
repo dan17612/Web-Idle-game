@@ -7,6 +7,7 @@ import { locale } from "../i18n";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { isAutomationLockError } from "../automationCheck";
 import WeekendBoostBanner from "../components/WeekendBoostBanner.vue";
+import { loadChestQty, saveChestQty, CHEST_QTY_KEYS } from "../chestQty";
 
 const game = useGameStore();
 
@@ -417,7 +418,8 @@ async function buyFromShop(key) {
 }
 
 // ===== Ticket Chest =====
-const chestQty = ref(1);
+const chestQty = ref(loadChestQty(CHEST_QTY_KEYS.tickets));
+watch(chestQty, (q) => saveChestQty(CHEST_QTY_KEYS.tickets, q));
 const chestAnim = ref(null);
 
 const chestRemaining = computed(() =>

@@ -13,6 +13,7 @@ import { useAppToast } from "../composables/useAppToast";
 import { rarityInfo, loadEggCatalog, EGG_TYPES } from "../eggs";
 import { foodShopList, isFoodNotAvailableError } from "../foodShop";
 import WeekendBoostBanner from "../components/WeekendBoostBanner.vue";
+import { loadChestQty, saveChestQty, CHEST_QTY_KEYS } from "../chestQty";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -40,7 +41,8 @@ watch(
     }
   },
 );
-const chestQty = ref(1);
+const chestQty = ref(loadChestQty(CHEST_QTY_KEYS.shop));
+watch(chestQty, (q) => saveChestQty(CHEST_QTY_KEYS.shop, q));
 const chestAnim = ref(null); // { phase: 'shake'|'open'|'reveal'|'done', species: [...] }
 
 async function loadChestStatus() {
