@@ -76,3 +76,8 @@ export function breedChances(power) {
   })
   return out
 }
+
+// Zucht-Ei aus dem Shop: Preis, Brutzeit und Chancen wie eine Verpaarung mit
+// dieser Zuchtkraft. Spiegel: egg_types/egg_drop_pool 'breeding' in
+// supabase/migrations/20261014_wochenend_bonus.sql (src/weekendBoostSql.test.js).
+export const SHOP_EGG_POWER = 3

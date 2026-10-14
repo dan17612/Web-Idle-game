@@ -161,7 +161,8 @@ test('alle RPCs pinnen den search_path', () => {
   }
 })
 
-test('das Zucht-Ei ist nicht kaufbar und das Ereignis angelegt', () => {
+// Seit 20261014_wochenend_bonus.sql ist das Zucht-Ei auch im Shop (src/weekendBoostSql.test.js).
+test('das Zucht-Ei startet unkäuflich und das Ereignis ist angelegt', () => {
   assert.match(sql, /'breeding', 'Zucht-Ei'/)
   assert.match(sql, /shop_visible = false/)
   assert.match(sql, /values \('breeding_game', null, null, true\)/)

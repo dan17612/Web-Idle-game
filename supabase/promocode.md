@@ -11,6 +11,7 @@ Jeder Code kann pro Benutzer nur einmal eingelöst werden, außer es ist anders 
 | `GOLDPIG` | 1× Gold-Schwein und 10 Tickets | 1× pro Benutzer |
 | `ZOO50TAPS` | 50 Bonus-Taps | 1× pro Benutzer |
 | `BOOST` | 5× Diamant-Huhn, 3× Pet-Boost für 30 Minuten und 2500 Coins | 100 Einlösungen total, 1× pro Benutzer, läuft nach 7 Tagen ab |
+| `HALLOWEEN` | 3× Fledermaus 🦇 | 1× pro Benutzer, bis 9.11.2026 (live, Migration `20261014_wochenend_bonus.sql`) |
 
 ## SQL
 
@@ -48,6 +49,16 @@ values (
   '{"coins": 2500, "species": "chicken", "tier": "diamond", "qty": 5, "pet_boost_multiplier": 3, "pet_boost_minutes": 30}'::jsonb,
   100, 1,
   now() + interval '7 days'
+);
+
+-- Code "HALLOWEEN" → 3× Fledermaus (Halloween 2026)
+insert into public.promo_codes(code, rewards, max_uses_per_user, expires_at, note)
+values (
+  'HALLOWEEN',
+  '{"species": "bat", "tier": "normal", "qty": 3, "note": "Halloween-Fledermäuse 🦇"}'::jsonb,
+  1,
+  '2026-11-09 00:00:00+01',
+  'Halloween 2026: 3 Fledermäuse'
 );
 ```
 

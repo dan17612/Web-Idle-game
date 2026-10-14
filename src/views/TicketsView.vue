@@ -6,6 +6,7 @@ import { groupAnimalsForAutoRelease } from "../autoRelease";
 import { locale } from "../i18n";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { isAutomationLockError } from "../automationCheck";
+import WeekendBoostBanner from "../components/WeekendBoostBanner.vue";
 
 const game = useGameStore();
 
@@ -343,7 +344,7 @@ const shopData = ref({
   slot_start: null,
   rotates_at: null,
   chest_price: 0,
-  chest_slot_limit: 5,
+  chest_slot_limit: 10,
   chest_bought: 0,
   buy_divisor: 2
 });
@@ -657,12 +658,13 @@ onUnmounted(() => {
 
     <!-- Ticket Chest -->
     <div class="card fusion-card">
+      <WeekendBoostBanner />
       <div class="fusion-head">
         <h2 class="title" style="margin: 0; font-size: 18px">{{ tx("chestTitle") }}</h2>
         <div class="hint">{{ tx("chestRemaining", { count: chestRemaining }) }}</div>
       </div>
       <p class="hint">
-        {{ tx("chestHint", { limit: shopData.chest_slot_limit || 5 }) }}
+        {{ tx("chestHint", { limit: shopData.chest_slot_limit || 10 }) }}
       </p>
 
       <div class="fm-controls">
