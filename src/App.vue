@@ -13,6 +13,7 @@ import TutorialBubble from "./components/TutorialBubble.vue";
 import ConnectionBanner from "./components/ConnectionBanner.vue";
 import AutomationCheckModal from "./components/AutomationCheckModal.vue";
 import LegalConsentModal from "./components/LegalConsentModal.vue";
+import WeekendBoostModal from "./components/WeekendBoostModal.vue";
 import { hidesConsentModal } from "./legal";
 import HalloweenDecor from "./components/HalloweenDecor.vue";
 import { t } from "./i18n";
@@ -409,6 +410,9 @@ const { pullDistance, refreshing: pulling } = usePullToRefresh({
     <AutomationCheckModal v-if="auth.isAuth && game.automationCheck" />
     <LegalConsentModal
       v-else-if="auth.isAuth && game.legalStatus?.needsAcceptance && !hidesConsentModal(route.name)"
+    />
+    <WeekendBoostModal
+      v-else-if="auth.isAuth && game.weekendBoost && !game.weekendBoost.notice_seen && game.tutorialStep >= 5 && game.legalStatus && !hidesConsentModal(route.name)"
     />
     <SpeedInsights />
     <Analytics />

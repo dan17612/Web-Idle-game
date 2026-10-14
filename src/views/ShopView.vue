@@ -12,6 +12,7 @@ import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
 import { rarityInfo, loadEggCatalog, EGG_TYPES } from "../eggs";
 import { foodShopList, isFoodNotAvailableError } from "../foodShop";
+import WeekendBoostBanner from "../components/WeekendBoostBanner.vue";
 
 const game = useGameStore();
 const auth = useAuthStore();
@@ -640,6 +641,7 @@ function goToTickets() {
         :text="t('tutorial.chest')"
         finger="👇"
       />
+      <WeekendBoostBanner />
       <div class="row between" style="align-items:flex-start">
         <div>
           <div style="font-weight:800;font-size:18px">🎁 {{ t("shop.chestTitle") }}</div>

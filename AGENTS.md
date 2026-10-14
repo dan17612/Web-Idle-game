@@ -173,8 +173,8 @@ Spec: `docs/superpowers/specs/2026-10-08-halloween-update-design.md`.
   p_seconds)` rechnet die Sterne selbst (`_hpuzzle_stars`) und lehnt
   < 0,5 s pro Teil ab. Spiegel: `_hpuzzle_pieces/_stars/_reward` ↔
   `src/halloweenPuzzleSql.test.js`.
-- **Fledermaus** (`bat`) gibt es nur über Level 12/24 (`enabled = false`,
-  `shop_visible = false`) — an der Börse daher Limited Edition. Alle 72 Sterne
+- **Fledermaus** (`bat`) gibt es über Level 12/24 (`enabled = false`,
+  `shop_visible = false`) und 3× über den Promo-Code `HALLOWEEN` (bis 9.11.2026). Alle 72 Sterne
   ⇒ einmalig 🌈 Regenbogen-Fledermaus (`rainbow_claimed_at`,
   `_hpuzzle_rainbow_goal` ↔ `RAINBOW_STAR_GOAL`, Test
   `src/halloweenRainbowSql.test.js`). Seit dem Finale: alle **75** Sterne.
@@ -191,6 +191,26 @@ Spec: `docs/superpowers/specs/2026-10-08-halloween-update-design.md`.
   brauchen wie bisher z-index ≥ 1100, sonst fliegen Fledermäuse durchs Spiel.
 - Canvas-Emoji nur mit einem Codepoint (`emojiSafe.test.js` scannt beide
   Puzzle-Dateien komplett).
+
+## Wochenend-Bonus, Truhenlimits, Zucht-Ei im Shop — Spezialwissen
+
+Spec: `docs/superpowers/specs/2026-10-14-wochenend-bonus-und-truhenlimits-design.md`.
+
+- Truhenlimits pro 5-Min-Rotation: normal 5 (`chest_config.daily_limit`),
+  Ticket 10 (`ticket_config.chest_slot_limit`). Pro Kauf weiterhin 1–5 Stück.
+- **Wochenend-Bonus** Sa+So (Europe/Berlin): rare/epic/legendary ×2,
+  Küken/Huhn/Hase ×0,5. Gilt für `buy_chest`, `ticket_chest_open` und beide
+  Shop-Rotationen (`_rotate_if_needed`, `_ticket_rotate_if_needed`), nicht für
+  Boss-/Merge-/Memory-Truhen. Neue Truhenquellen mit Zufallstier: Gewicht über
+  `_weekend_weight(species, rarity, weight[, ts])` ziehen. Spiegel:
+  `src/weekendBoost.js` ↔ `_weekend_factor`/`_weekend_boost_active`
+  (`src/weekendBoostSql.test.js`).
+- Einmalige Hinweise: `player_notices` + `notice_ack(p_key)` (erlaubte Schlüssel
+  stehen in der RPC). `WeekendBoostModal.vue` hängt in `App.vue` hinter
+  Autoklicker-Prüfung und Regelwerk und erscheint erst nach dem Tutorial.
+- **Zucht-Ei im Shop** wie das Safari-Ei: Preis/Brutzeit/Pool = Verpaarung mit
+  `SHOP_EGG_POWER` (3) aus `src/breeding.js`; der Brachiosaurus bleibt der Zucht
+  vorbehalten. Selbst verpaarte Eier tragen weiter `bred_species`/`bred_minutes`.
 
 ## Regelwerk (`/terms`, `/privacy`) — Spezialwissen
 

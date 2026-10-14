@@ -63,7 +63,9 @@ export const useGameStore = defineStore('game', {
     // Offene Autoklicker-Prüfung (src/automationCheck.js) oder null.
     automationCheck: null,
     // Zustimmung zum Regelwerk (src/legal.js) oder null, solange unbekannt.
-    legalStatus: null
+    legalStatus: null,
+    // Wochenend-Bonus (src/weekendBoost.js) oder null, solange unbekannt.
+    weekendBoost: null
   }),
   getters: {
     favoriteAnimal(state) {
@@ -300,6 +302,7 @@ export const useGameStore = defineStore('game', {
       this.loadParkourProgress().catch(() => {})
       this.loadAutomationCheck().catch(() => {})
       this.loadLegalStatus().catch(() => {})
+      this.loadWeekendBoost().catch(() => {})
       this.lastLoadedAt = Date.now()
     },
     async loadDailyReward() {
@@ -1006,6 +1009,21 @@ export const useGameStore = defineStore('game', {
       if (error) throw error
       this.legalStatus = normalizeLegalStatus(data)
       return this.legalStatus
+    },
+    // Wochenend-Bonus: aktiv?, Hinweis schon gesehen? (fehlende RPC = kein Bonus).
+    async loadWeekendBoost() {
+      const auth = useAuthStore()
+      if (!auth.user) return null
+      const { data, error } = await supabase.rpc('weekend_boost_status')
+      if (error) return this.weekendBoost
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      this.weekendBoost = data || null
+      return this.weekendBoost
+    },
+    async ackWeekendNotice() {
+      if (this.weekendBoost) this.weekendBoost = { ...this.weekendBoost, notice_seen: true }
+      const { error } = await supabase.rpc('notice_ack', { p_key: 'weekend_boost' })
+      if (error) throw error
     },
     // Autoklicker-Prüfung: Status laden (fehlende RPC = keine Prüfung).
     async loadAutomationCheck() {
