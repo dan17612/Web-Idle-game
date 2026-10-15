@@ -211,6 +211,12 @@ Spec: `docs/superpowers/specs/2026-10-14-wochenend-bonus-und-truhenlimits-design
 - **Zucht-Ei im Shop** wie das Safari-Ei: Preis/Brutzeit/Pool = Verpaarung mit
   `SHOP_EGG_POWER` (3) aus `src/breeding.js`; der Brachiosaurus bleibt der Zucht
   vorbehalten. Selbst verpaarte Eier tragen weiter `bred_species`/`bred_minutes`.
+- **Zucht-Boost** (Spec `2026-10-15-zucht-ei-boost-warteschlange-design.md`):
+  Gezüchtete Eier speichern `player_eggs.bred_power`, Shop-Eier bleiben `null`
+  (= `SHOP_EGG_POWER`). Die Eier-Maschine gruppiert über `src/eggQueue.js`
+  nach Sorte + Zuchtkraft (höchster Boost zuerst, ältestes Ei zuerst) und zeigt
+  Chancen/Brutzeit der Gruppe. Neue Eier-Quellen mit `egg_type = 'breeding'`
+  müssen `bred_power` setzen, sonst erscheinen sie als Shop-Ei.
 
 ## Regelwerk (`/terms`, `/privacy`) — Spezialwissen
 

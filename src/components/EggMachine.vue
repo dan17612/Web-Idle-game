@@ -5,6 +5,7 @@ import { useAppToast } from '../composables/useAppToast'
 import { speciesInfo } from '../animals'
 import { rarityInfo, EGG_TYPES, loadEggCatalog } from '../eggs'
 import { slotRemainingMs, slotReady, slotProgress, freeSlots } from '../eggSlots'
+import { groupEggs, groupChances, groupMinutes } from '../eggQueue'
 import { t } from '../i18n'
 
 const game = useGameStore()
@@ -13,7 +14,7 @@ const now = ref(Date.now())
 const open = ref(false)
 const busy = ref(false)
 const hatchResult = ref(null)
-const selectedType = ref('')
+const selectedKey = ref('')
 
 let timer
 onMounted(async () => {
@@ -27,19 +28,20 @@ onUnmounted(() => clearInterval(timer))
 
 const playerEggs = computed(() => game.playerEggs || [])
 
-const groupedEggs = computed(() => {
-  const m = {}
-  for (const e of playerEggs.value) {
-    if (!m[e.egg_type]) m[e.egg_type] = { egg_type: e.egg_type, list: [] }
-    m[e.egg_type].list.push(e)
-  }
-  return Object.values(m)
-})
+// Zucht-Eier sind nach Zuchtkraft getrennt (src/eggQueue.js): höchster
+// Boost zuerst, innerhalb einer Gruppe das älteste Ei zuerst.
+const groupedEggs = computed(() => groupEggs(playerEggs.value))
 
-// Auswahl bleibt gültig, solange noch ein Ei dieses Typs da ist.
+// Auswahl bleibt gültig, solange noch ein Ei dieser Gruppe da ist.
 const selectedGroup = computed(() =>
-  groupedEggs.value.find((g) => g.egg_type === selectedType.value) || null
+  groupedEggs.value.find((g) => g.key === selectedKey.value) || null
 )
+const selectedChances = computed(() => groupChances(selectedGroup.value))
+const selectedMinutes = computed(() => {
+  const g = selectedGroup.value
+  return g ? groupMinutes(g, eggMeta(g.egg_type).incubation_minutes || 60) : 0
+})
+const hasBoosted = computed(() => groupedEggs.value.some((g) => g.power != null))
 
 function eggMeta(type) {
   return EGG_TYPES[type] || {}
@@ -82,8 +84,8 @@ function fmtTime(ms) {
 
 function toggleOpen() {
   open.value = !open.value
-  if (open.value && !selectedType.value && groupedEggs.value.length === 1) {
-    selectedType.value = groupedEggs.value[0].egg_type
+  if (open.value && !selectedKey.value && groupedEggs.value.length === 1) {
+    selectedKey.value = groupedEggs.value[0].key
   }
 }
 
@@ -103,7 +105,7 @@ async function startIncubation(count = 1) {
     toast.err(e)
   } finally {
     busy.value = false
-    if (!selectedGroup.value) selectedType.value = ''
+    if (!selectedGroup.value) selectedKey.value = ''
     // Offen lassen, solange noch ein Platz frei ist und Eier da sind.
     if (free.value < 1 || !groupedEggs.value.length) open.value = false
   }
@@ -203,8 +205,11 @@ const startLabel = computed(() => {
             <div class="fm-slot-body">
               <div v-if="selectedGroup" class="egg-slot-pick">
                 <span class="fm-chip big">{{ eggMeta(selectedGroup.egg_type).emoji || '🥚' }}</span>
+                <span v-if="selectedGroup.power != null" class="egg-boost-chip">
+                  {{ t('eggs.boostLabel', { power: selectedGroup.power }) }}
+                </span>
                 <span class="egg-slot-meta">
-                  ⏳ {{ t('eggs.minutes', { minutes: eggMeta(selectedGroup.egg_type).incubation_minutes || 60 }) }}
+                  ⏳ {{ t('eggs.minutes', { minutes: selectedMinutes }) }}
                 </span>
               </div>
               <div v-else class="hint" style="margin: 0">{{ t('eggs.pickEgg') }}</div>
@@ -234,14 +239,28 @@ const startLabel = computed(() => {
             <div class="fm-species-grid">
               <Button
                 v-for="g in groupedEggs"
-                :key="g.egg_type"
+                :key="g.key"
                 class="fm-sp-btn"
-                :class="{ active: selectedType === g.egg_type }"
-                @click="selectedType = g.egg_type"
+                :class="{ active: selectedKey === g.key }"
+                @click="selectedKey = g.key"
               >
                 <span class="fm-sp-emoji">{{ eggMeta(g.egg_type).emoji || '🥚' }}</span>
+                <span v-if="g.power != null" class="egg-boost-chip">
+                  {{ t('eggs.boostLabel', { power: g.power }) }}
+                </span>
                 <span class="fm-sp-count">{{ eggMeta(g.egg_type).name || g.egg_type }} ×{{ g.list.length }}</span>
               </Button>
+            </div>
+            <p v-if="hasBoosted" class="hint" style="margin: 0">{{ t('eggs.boostHint') }}</p>
+          </div>
+
+          <div v-if="selectedChances" class="egg-chances">
+            <div class="egg-chances-title">{{ t('eggs.boostChances', { power: selectedGroup.power }) }}</div>
+            <div class="egg-chances-row">
+              <span v-for="c in selectedChances" :key="c.species" class="egg-chance-chip">
+                {{ speciesInfo(c.species).emoji }} {{ speciesInfo(c.species).name }}
+                <strong>{{ c.percent }}%</strong>
+              </span>
             </div>
           </div>
 
@@ -546,6 +565,48 @@ const startLabel = computed(() => {
   color: var(--muted);
   text-align: center;
 }
+.egg-boost-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  background: color-mix(in srgb, var(--accent) 18%, var(--mix-base));
+  border: 1px solid var(--accent);
+  color: var(--accent-deep);
+  font-variant-numeric: tabular-nums;
+}
+.egg-chances {
+  background: var(--card-2);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 10px;
+}
+.egg-chances-title {
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.egg-chances-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.egg-chance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--heading);
+}
+.egg-chance-chip strong { font-variant-numeric: tabular-nums; }
 @media (max-width: 520px) {
   .fm-factory { font-size: 48px; }
   .fm-chip { font-size: 22px; padding: 3px 6px; }

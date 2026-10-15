@@ -11,6 +11,7 @@ import SortControl from "../components/SortControl.vue";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
 import { rarityInfo, loadEggCatalog, EGG_TYPES } from "../eggs";
+import { SHOP_EGG_POWER } from "../breeding";
 import { foodShopList, isFoodNotAvailableError } from "../foodShop";
 import WeekendBoostBanner from "../components/WeekendBoostBanner.vue";
 import { loadChestQty, saveChestQty, CHEST_QTY_KEYS } from "../chestQty";
@@ -916,6 +917,9 @@ function goToTickets() {
           <span class="egg-info-animal">{{ d.emoji }} {{ d.name }}</span>
         </div>
       </div>
+      <p v-if="eggInfo.eggType === 'breeding'" class="egg-info-note">
+        {{ t('eggs.shopBreedingNote', { power: SHOP_EGG_POWER }) }}
+      </p>
     </div>
   </div>
 
@@ -1047,6 +1051,13 @@ function goToTickets() {
 .egg-info-rarity { font-size: 18px; }
 .egg-info-pct { font-size: 16px; min-width: 48px; font-variant-numeric: tabular-nums; }
 .egg-info-animal { font-size: 16px; flex: 1; }
+.egg-info-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.4;
+}
 .is-forced {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;

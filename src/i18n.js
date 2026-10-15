@@ -484,6 +484,10 @@ const messages = {
       shopCardDropChances: "Drop-Chancen:",
       buy: "Kaufen",
       buySuccess: "Ei gekauft!",
+      boostLabel: "⚡{power}",
+      boostChances: "Chancen bei Zuchtkraft {power}",
+      boostHint: "Gezüchtete Eier behalten die Zuchtkraft ihrer Eltern. Höchster Boost zuerst, ältestes Ei zuerst.",
+      shopBreedingNote: "Diese Chancen gelten für Zucht-Eier aus dem Shop (Zuchtkraft {power}). Selbst gezüchtete Eier behalten die Chancen ihrer Eltern, siehe Eier-Maschine.",
     },
     rarity: {
       common: "Common",
@@ -958,6 +962,10 @@ const messages = {
       shopCardDropChances: "Drop chances:",
       buy: "Buy",
       buySuccess: "Egg purchased!",
+      boostLabel: "⚡{power}",
+      boostChances: "Chances at breeding power {power}",
+      boostHint: "Bred eggs keep their parents' breeding power. Highest boost first, oldest egg first.",
+      shopBreedingNote: "These chances apply to breeding eggs from the shop (breeding power {power}). Eggs you breed yourself keep their parents' chances, see the egg machine.",
     },
     rarity: {
       common: "Common",
@@ -1434,6 +1442,10 @@ const messages = {
       shopCardDropChances: "Шансы выпадения:",
       buy: "Купить",
       buySuccess: "Яйцо куплено!",
+      boostLabel: "⚡{power}",
+      boostChances: "Шансы при силе разведения {power}",
+      boostHint: "Выведенные яйца сохраняют силу разведения родителей. Сначала самый сильный буст, затем самое старое яйцо.",
+      shopBreedingNote: "Эти шансы действуют для яиц разведения из магазина (сила разведения {power}). Яйца, выведенные самостоятельно, сохраняют шансы родителей — см. машину для яиц.",
     },
     rarity: {
       common: "Обычная",
