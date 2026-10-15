@@ -6,7 +6,7 @@ import { speciesInfo } from '../animals'
 import { rarityInfo, EGG_TYPES, loadEggCatalog } from '../eggs'
 import { slotRemainingMs, slotReady, slotProgress, freeSlots } from '../eggSlots'
 import { groupEggs, groupChances, groupMinutes } from '../eggQueue'
-import { t } from '../i18n'
+import { t, locale } from '../i18n'
 
 const game = useGameStore()
 const toast = useAppToast()
@@ -42,6 +42,14 @@ const selectedMinutes = computed(() => {
   return g ? groupMinutes(g, eggMeta(g.egg_type).incubation_minutes || 60) : 0
 })
 const hasBoosted = computed(() => groupedEggs.value.some((g) => g.power != null))
+
+function boostLabel(g) {
+  return g.shop ? t('eggs.shopLabel') : t('eggs.boostLabel', { power: g.power })
+}
+
+function fmtPct(p) {
+  return Number(p).toLocaleString(locale.value || 'de', { maximumFractionDigits: 1 })
+}
 
 function eggMeta(type) {
   return EGG_TYPES[type] || {}
@@ -206,7 +214,7 @@ const startLabel = computed(() => {
               <div v-if="selectedGroup" class="egg-slot-pick">
                 <span class="fm-chip big">{{ eggMeta(selectedGroup.egg_type).emoji || '🥚' }}</span>
                 <span v-if="selectedGroup.power != null" class="egg-boost-chip">
-                  {{ t('eggs.boostLabel', { power: selectedGroup.power }) }}
+                  {{ boostLabel(selectedGroup) }}
                 </span>
                 <span class="egg-slot-meta">
                   ⏳ {{ t('eggs.minutes', { minutes: selectedMinutes }) }}
@@ -246,7 +254,7 @@ const startLabel = computed(() => {
               >
                 <span class="fm-sp-emoji">{{ eggMeta(g.egg_type).emoji || '🥚' }}</span>
                 <span v-if="g.power != null" class="egg-boost-chip">
-                  {{ t('eggs.boostLabel', { power: g.power }) }}
+                  {{ boostLabel(g) }}
                 </span>
                 <span class="fm-sp-count">{{ eggMeta(g.egg_type).name || g.egg_type }} ×{{ g.list.length }}</span>
               </Button>
@@ -255,11 +263,13 @@ const startLabel = computed(() => {
           </div>
 
           <div v-if="selectedChances" class="egg-chances">
-            <div class="egg-chances-title">{{ t('eggs.boostChances', { power: selectedGroup.power }) }}</div>
+            <div class="egg-chances-title">
+              {{ selectedGroup.shop ? t('eggs.shopChances') : t('eggs.boostChances', { power: selectedGroup.power }) }}
+            </div>
             <div class="egg-chances-row">
               <span v-for="c in selectedChances" :key="c.species" class="egg-chance-chip">
                 {{ speciesInfo(c.species).emoji }} {{ speciesInfo(c.species).name }}
-                <strong>{{ c.percent }}%</strong>
+                <strong>{{ fmtPct(c.percent) }}%</strong>
               </span>
             </div>
           </div>

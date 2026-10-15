@@ -5,13 +5,12 @@ import { useGameStore } from "../stores/game";
 import { useAuthStore } from "../stores/auth";
 import { supabase } from "../supabase";
 import { SPECIES, speciesInfo, formatCoins } from "../animals";
-import { t } from "../i18n";
+import { t, locale } from "../i18n";
 import TutorialBubble from "../components/TutorialBubble.vue";
 import SortControl from "../components/SortControl.vue";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
-import { rarityInfo, loadEggCatalog, EGG_TYPES } from "../eggs";
-import { SHOP_EGG_POWER } from "../breeding";
+import { rarityInfo, loadEggCatalog, EGG_TYPES, formatDropChance } from "../eggs";
 import { foodShopList, isFoodNotAvailableError } from "../foodShop";
 import WeekendBoostBanner from "../components/WeekendBoostBanner.vue";
 import { loadChestQty, saveChestQty, CHEST_QTY_KEYS } from "../chestQty";
@@ -342,9 +341,8 @@ const eggList = computed(() => {
 });
 
 function eggDropPercent(drop, meta) {
-  const total = (meta?.drops || []).reduce((s, d) => s + (d.weight || 0), 0);
-  if (!total) return '0';
-  return String(Math.round((drop.weight / total) * 100));
+  const pct = formatDropChance(drop, meta?.drops || []).replace('%', '');
+  return locale.value === 'en' ? pct : pct.replace('.', ',');
 }
 
 async function buyEgg(eggType) {
@@ -918,7 +916,7 @@ function goToTickets() {
         </div>
       </div>
       <p v-if="eggInfo.eggType === 'breeding'" class="egg-info-note">
-        {{ t('eggs.shopBreedingNote', { power: SHOP_EGG_POWER }) }}
+        {{ t('eggs.shopBreedingNote') }}
       </p>
     </div>
   </div>

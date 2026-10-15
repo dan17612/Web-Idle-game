@@ -7,11 +7,16 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { breedMinutes } from './breeding.js'
+import { breedMinutes, SHOP_EGG_WEIGHTS, BREED_TIERS } from './breeding.js'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const sql = readFileSync(
   path.join(root, 'supabase', 'migrations', '20261015_zucht_ei_boost.sql'),
+  'utf8'
+)
+
+const shopSql = readFileSync(
+  path.join(root, 'supabase', 'migrations', '20261015_shop_zucht_ei_alle_arten.sql'),
   'utf8'
 )
 
@@ -48,4 +53,21 @@ test('breed_animals behält Prüfungen und Reihenfolge', () => {
 test('Grants: nur authenticated', () => {
   assert.match(sql, /grant execute on function public\.breed_animals\(uuid, uuid\) to authenticated;/)
   assert.match(sql, /revoke execute on function public\.breed_animals\(uuid, uuid\) from anon, public;/)
+})
+
+test('Shop-Zucht-Ei: alle Zucht-Arten, Pool spiegelt SHOP_EGG_WEIGHTS', () => {
+  const pool = Object.fromEntries([...shopSql.matchAll(/\('breeding', '(\w+)',\s*(\d+)\)/g)]
+    .map(m => [m[1], Number(m[2])]))
+  assert.deepEqual(pool, SHOP_EGG_WEIGHTS)
+  assert.deepEqual(Object.keys(pool).sort(), BREED_TIERS.flat().sort(), 'jede Zucht-Art im Shop-Pool')
+  assert.match(shopSql, /on conflict \(egg_type, species\) do update set weight = excluded\.weight;/)
+})
+
+test('Shop-Zucht-Ei: seltenste Art 0,5 %, alle Gewichte positiv', () => {
+  const total = Object.values(SHOP_EGG_WEIGHTS).reduce((a, b) => a + b, 0)
+  assert.equal(total, 200)
+  assert.equal(SHOP_EGG_WEIGHTS.brachiosaurus / total, 0.005)
+  for (const [sp, w] of Object.entries(SHOP_EGG_WEIGHTS)) {
+    assert.ok(Number.isInteger(w) && w > 0, `${sp}: ${w}`)
+  }
 })

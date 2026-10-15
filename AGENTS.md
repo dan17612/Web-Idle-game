@@ -208,9 +208,10 @@ Spec: `docs/superpowers/specs/2026-10-14-wochenend-bonus-und-truhenlimits-design
 - Einmalige Hinweise: `player_notices` + `notice_ack(p_key)` (erlaubte Schlüssel
   stehen in der RPC). `WeekendBoostModal.vue` hängt in `App.vue` hinter
   Autoklicker-Prüfung und Regelwerk und erscheint erst nach dem Tutorial.
-- **Zucht-Ei im Shop** wie das Safari-Ei: Preis/Brutzeit/Pool = Verpaarung mit
-  `SHOP_EGG_POWER` (3) aus `src/breeding.js`; der Brachiosaurus bleibt der Zucht
-  vorbehalten. Selbst verpaarte Eier tragen weiter `bred_species`/`bred_minutes`.
+- **Zucht-Ei im Shop** wie das Safari-Ei: Preis/Brutzeit = Verpaarung mit
+  `SHOP_EGG_POWER` (3) aus `src/breeding.js`. Pool seit 15.10. eigene Gewichte
+  `SHOP_EGG_WEIGHTS` (alle vier Zucht-Arten, Brachiosaurus 0,5 %, Summe 200).
+  Selbst verpaarte Eier tragen weiter `bred_species`/`bred_minutes`.
 - **Zucht-Boost** (Spec `2026-10-15-zucht-ei-boost-warteschlange-design.md`):
   Gezüchtete Eier speichern `player_eggs.bred_power`, Shop-Eier bleiben `null`
   (= `SHOP_EGG_POWER`). Die Eier-Maschine gruppiert über `src/eggQueue.js`

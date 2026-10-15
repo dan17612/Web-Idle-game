@@ -42,9 +42,33 @@ gewürfelt), war aber unsichtbar. Neu:
    Shop-Eier (Zuchtkraft 3) gelten und gezüchtete Eier die Chancen ihrer Eltern
    behalten.
 
+## Nachtrag: Shop-Zucht-Ei mit allen Zucht-Arten
+
+Wunsch: Im Shop sollen alle Zucht-Tiere möglich sein, das seltenste mit 0,5 %.
+Migration `20261015_shop_zucht_ei_alle_arten.sql`, Gewichte auf 200 skaliert
+(`egg_drop_pool.weight` ist ganzzahlig):
+
+| Art | Gewicht | Chance |
+|---|---|---|
+| Igel | 133 | 66,5 % |
+| Leopard | 56 | 28 % |
+| Gorilla | 10 | 5 % |
+| Brachiosaurus | 1 | 0,5 % |
+
+Preis und Brutzeit bleiben die von Zuchtkraft 3. Da der Pool nun von
+`breedWeights(3)` abweicht, bekommen Shop-Eier in der Eier-Maschine eine eigene
+Gruppe („🛒 Shop“, Chancen aus `SHOP_EGG_WEIGHTS`) statt mit gezüchteten
+Kraft-3-Eiern zusammenzufallen. Drop-Chancen unter 1 % werden mit einer
+Nachkommastelle angezeigt (`formatDropChance`).
+
+Börse: `_market_model` nimmt das Maximum aus `0,8 · ease(Ei)` und
+`0,6 · ease(Zucht)`. Für den Brachiosaurus steigt die Beschaffbarkeit damit von
+0,40 auf 0,45; sein Modellwert sinkt leicht. Endet das Zucht-Ereignis, bleibt
+er über den Shop beschaffbar und gilt nicht mehr als Limited Edition.
+
 ## Was sich nicht ändert
 
-- Gewichte, Kosten, Brutzeiten und der Shop-Pool bleiben gleich.
+- Zucht-Gewichte, Kosten und Brutzeiten bleiben gleich.
 - Das Ergebnis eines gezüchteten Eis steht weiter beim Verpaaren fest
   (`bred_species`); `bred_power` dient nur der Anzeige.
 - Brutplätze, `start_incubation` und `claim_hatched` bleiben unverändert.
