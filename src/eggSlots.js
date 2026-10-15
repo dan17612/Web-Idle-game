@@ -4,14 +4,15 @@
 
 export const EGG_SLOTS = 2
 
-const EMPTY = Object.freeze({ active: false, slots: [], maxSlots: 1 })
+const EMPTY = Object.freeze({ active: false, slots: [], maxSlots: 1, skips: 0 })
 
 function toTime(v) {
   const t = v ? new Date(v).getTime() : NaN
   return Number.isFinite(t) ? t : null
 }
 
-// get_incubation_status → { active, maxSlots, slots: [{ slot, active, egg_type, started_at, ready_at }] }.
+// get_incubation_status → { active, maxSlots, skips, slots: [{ slot, active, egg_type, started_at, ready_at }] }.
+// skips = Guthaben „Brutzeit überspringen“ (egg_skips, 20261015_brutzeit_ueberspringen.sql).
 // Versteht das neue Format (slots[]) und das alte (nur Top-Level-Felder,
 // Server vor der Migration → genau ein Platz).
 export function normalizeIncubation(data) {
@@ -40,7 +41,8 @@ export function normalizeIncubation(data) {
 
   const slots = []
   for (let n = 1; n <= maxSlots; n++) slots.push(bySlot.get(n) || { slot: n, active: false })
-  return { active: bySlot.size > 0, maxSlots, slots }
+  const skips = Math.max(0, Math.floor(Number(data.egg_skips) || 0))
+  return { active: bySlot.size > 0, maxSlots, skips, slots }
 }
 
 export function slotRemainingMs(slot, nowMs) {

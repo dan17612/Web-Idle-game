@@ -57,3 +57,11 @@ test('Restzeit, Fertig-Status und Fortschritt', () => {
   assert.equal(slotRemainingMs({ slot: 2, active: false }, T0), 0)
   assert.equal(slotReady({ slot: 2, active: false }, T0), false)
 })
+
+test('Guthaben „Brutzeit überspringen“ wird gelesen und abgesichert', () => {
+  assert.equal(normalizeIncubation({ active: false, slots: [], max_slots: 2, egg_skips: 3 }).skips, 3)
+  assert.equal(normalizeIncubation({ active: false, slots: [], max_slots: 2 }).skips, 0)
+  assert.equal(normalizeIncubation({ active: false, slots: [], egg_skips: -2 }).skips, 0)
+  assert.equal(normalizeIncubation({ active: false, slots: [], egg_skips: 'x' }).skips, 0)
+  assert.equal(normalizeIncubation(null).skips, 0)
+})

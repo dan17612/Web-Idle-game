@@ -219,6 +219,16 @@ Spec: `docs/superpowers/specs/2026-10-14-wochenend-bonus-und-truhenlimits-design
   Chancen/Brutzeit der Gruppe. Neue Eier-Quellen mit `egg_type = 'breeding'`
   müssen `bred_power` setzen, sonst erscheinen sie als Shop-Ei.
 
+## Brutzeit überspringen — Spezialwissen
+
+Spec: `docs/superpowers/specs/2026-10-15-brutzeit-ueberspringen-design.md`.
+
+- Guthaben in `egg_skip_tokens` (nur Select auf eigene Zeile), Einlösen über
+  `egg_skip_use(p_slot)` (setzt `ready_at = now()`), Verschenken über
+  `admin_gift_egg_skips(p_usernames, p_qty)` (admin-only, `@all`/`@online`/Namen,
+  1–10). `get_incubation_status` liefert `egg_skips` → `incubation.skips`.
+- Admin-Menü → 🎁 → Block „⏩ Brutzeit überspringen schenken“.
+
 ## Regelwerk (`/terms`, `/privacy`) — Spezialwissen
 
 Spec: `docs/superpowers/specs/2026-10-11-regelwerk-zustimmung-design.md`.

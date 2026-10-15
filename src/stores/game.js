@@ -452,6 +452,13 @@ export const useGameStore = defineStore('game', {
       await this.loadPlayerEggs()
       return data
     },
+    async useEggSkip(slot) {
+      const { data, error } = await supabase.rpc('egg_skip_use', { p_slot: slot })
+      if (error) throw error
+      if (data?.server_now) this.serverOffset = new Date(data.server_now).getTime() - Date.now()
+      await this.loadIncubation()
+      return data
+    },
     async startIncubation(eggId) {
       const { data, error } = await supabase.rpc('start_incubation', { p_egg_id: eggId })
       if (error) throw error
