@@ -77,7 +77,22 @@ export function breedChances(power) {
   return out
 }
 
-// Zucht-Ei aus dem Shop: Preis, Brutzeit und Chancen wie eine Verpaarung mit
-// dieser Zuchtkraft. Spiegel: egg_types/egg_drop_pool 'breeding' in
+// Zucht-Ei aus dem Shop: Preis und Brutzeit wie eine Verpaarung mit dieser
+// Zuchtkraft. Spiegel: egg_types 'breeding' in
 // supabase/migrations/20261014_wochenend_bonus.sql (src/weekendBoostSql.test.js).
 export const SHOP_EGG_POWER = 3
+
+// Pool des Shop-Zucht-Eis: alle Zucht-Arten, die seltenste mit 0,5 %.
+// Auf 200 skaliert, weil egg_drop_pool.weight eine ganze Zahl ist.
+// Spiegel: supabase/migrations/20261015_shop_zucht_ei_alle_arten.sql
+// (src/eggBoostSql.test.js).
+export const SHOP_EGG_WEIGHTS = { hedgehog: 133, leopard: 56, gorilla: 10, brachiosaurus: 1 }
+
+export function shopEggChances() {
+  const total = Object.values(SHOP_EGG_WEIGHTS).reduce((a, b) => a + b, 0)
+  return BREED_TIERS.flatMap((species, i) => species.map(key => ({
+    species: key,
+    percent: Math.round((SHOP_EGG_WEIGHTS[key] || 0) / total * 1000) / 10,
+    tier: i + 1
+  })))
+}

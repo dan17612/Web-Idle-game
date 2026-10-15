@@ -432,7 +432,7 @@ export const useGameStore = defineStore('game', {
       const auth = useAuthStore()
       if (!auth.user) return
       const { data } = await supabase.from('player_eggs')
-        .select('id, egg_type, acquired_at')
+        .select('id, egg_type, acquired_at, bred_power')
         .eq('owner_id', auth.user.id)
         .order('acquired_at')
       this.playerEggs = data || []

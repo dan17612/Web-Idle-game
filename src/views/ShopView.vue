@@ -5,12 +5,12 @@ import { useGameStore } from "../stores/game";
 import { useAuthStore } from "../stores/auth";
 import { supabase } from "../supabase";
 import { SPECIES, speciesInfo, formatCoins } from "../animals";
-import { t } from "../i18n";
+import { t, locale } from "../i18n";
 import TutorialBubble from "../components/TutorialBubble.vue";
 import SortControl from "../components/SortControl.vue";
 import { useReturnRefresh } from "../composables/useReturnRefresh";
 import { useAppToast } from "../composables/useAppToast";
-import { rarityInfo, loadEggCatalog, EGG_TYPES } from "../eggs";
+import { rarityInfo, loadEggCatalog, EGG_TYPES, formatDropChance } from "../eggs";
 import { foodShopList, isFoodNotAvailableError } from "../foodShop";
 import WeekendBoostBanner from "../components/WeekendBoostBanner.vue";
 import { loadChestQty, saveChestQty, CHEST_QTY_KEYS } from "../chestQty";
@@ -341,9 +341,8 @@ const eggList = computed(() => {
 });
 
 function eggDropPercent(drop, meta) {
-  const total = (meta?.drops || []).reduce((s, d) => s + (d.weight || 0), 0);
-  if (!total) return '0';
-  return String(Math.round((drop.weight / total) * 100));
+  const pct = formatDropChance(drop, meta?.drops || []).replace('%', '');
+  return locale.value === 'en' ? pct : pct.replace('.', ',');
 }
 
 async function buyEgg(eggType) {
@@ -916,6 +915,9 @@ function goToTickets() {
           <span class="egg-info-animal">{{ d.emoji }} {{ d.name }}</span>
         </div>
       </div>
+      <p v-if="eggInfo.eggType === 'breeding'" class="egg-info-note">
+        {{ t('eggs.shopBreedingNote') }}
+      </p>
     </div>
   </div>
 
@@ -1047,6 +1049,13 @@ function goToTickets() {
 .egg-info-rarity { font-size: 18px; }
 .egg-info-pct { font-size: 16px; min-width: 48px; font-variant-numeric: tabular-nums; }
 .egg-info-animal { font-size: 16px; flex: 1; }
+.egg-info-note {
+  margin: 12px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.4;
+}
 .is-forced {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;

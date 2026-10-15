@@ -35,3 +35,10 @@ test('formatDropChance handles empty pool', () => {
   assert.equal(formatDropChance({ weight: 5 }, []), '0%')
   assert.equal(formatDropChance({ weight: 0 }, [{ weight: 0 }]), '0%')
 })
+
+test('formatDropChance zeigt halbe Prozente mit Nachkommastelle', () => {
+  const drops = [{ weight: 133 }, { weight: 56 }, { weight: 10 }, { weight: 1 }]
+  assert.equal(formatDropChance(drops[3], drops), '0.5%')
+  assert.equal(formatDropChance(drops[0], drops), '66.5%')
+  assert.equal(formatDropChance(drops[1], drops), '28%')
+})

@@ -17,5 +17,6 @@ export function sortByRarity(list) {
 export function formatDropChance(drop, allDrops) {
   const total = allDrops.reduce((s, d) => s + (d.weight || 0), 0)
   if (!total) return '0%'
-  return Math.round((drop.weight / total) * 100) + '%'
+  // Eine Nachkommastelle, wo nötig (0,5 % soll nicht als 1 % erscheinen).
+  return Math.round((drop.weight / total) * 1000) / 10 + '%'
 }
