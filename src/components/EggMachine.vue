@@ -63,6 +63,7 @@ const maxSlots = computed(() => game.incubation?.maxSlots || slots.value.length 
 const free = computed(() => freeSlots(game.incubation))
 const busyCount = computed(() => maxSlots.value - free.value)
 const anyActive = computed(() => busyCount.value > 0)
+const skips = computed(() => game.incubation?.skips || 0)
 
 const slotRows = computed(() => slots.value.map((s) => {
   const meta = eggMeta(s.egg_type)
@@ -119,6 +120,15 @@ async function startIncubation(count = 1) {
   }
 }
 
+async function skip(slot) {
+  if (busy.value || skips.value < 1 || slotReady(slot, serverNow.value)) return
+  busy.value = true
+  try {
+    await game.useEggSkip(slot.slot)
+    toast.ok(t('eggs.skipDone'))
+  } catch (e) { toast.err(e) } finally { busy.value = false }
+}
+
 async function claim(slot) {
   if (busy.value || !slotReady(slot, serverNow.value)) return
   busy.value = true
@@ -143,6 +153,9 @@ const startLabel = computed(() => {
         <h2 class="title" style="margin: 0; font-size: 18px">{{ t('eggs.machineTitle') }}</h2>
         <span class="egg-slots-pill" :class="{ full: free < 1 }">
           {{ t('eggs.slotsCount', { busy: busyCount, max: maxSlots }) }}
+        </span>
+        <span v-if="skips > 0" class="egg-slots-pill egg-skip-pill" :title="t('eggs.skipHint')">
+          {{ t('eggs.skipsLeft', { n: skips }) }}
         </span>
       </div>
       <Button class="btn fusion-toggle" @click="toggleOpen">
@@ -178,7 +191,16 @@ const startLabel = computed(() => {
             </div>
             <div class="craft-job-bar"><span :style="{ width: s.pct + '%' }"></span></div>
           </div>
-          <Button class="btn small" :disabled="!s.ready || busy" @click="claim(s)">
+          <Button
+            v-if="!s.ready && skips > 0"
+            class="btn secondary small"
+            :disabled="busy"
+            :title="t('eggs.skipHint')"
+            @click="skip(s)"
+          >
+            {{ t('eggs.skip') }}
+          </Button>
+          <Button v-else class="btn small" :disabled="!s.ready || busy" @click="claim(s)">
             {{ t('eggs.claim') }}
           </Button>
         </div>
@@ -379,6 +401,11 @@ const startLabel = computed(() => {
   border: 1px solid rgba(168, 85, 247, 0.4);
   color: var(--purple-deep);
   font-variant-numeric: tabular-nums;
+}
+.egg-skip-pill {
+  background: color-mix(in srgb, var(--accent) 16%, var(--mix-base));
+  border-color: var(--accent);
+  color: var(--accent-deep);
 }
 .egg-slots-pill.full {
   background: rgba(244, 169, 18, 0.14);

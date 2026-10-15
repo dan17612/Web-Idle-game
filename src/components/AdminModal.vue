@@ -87,6 +87,13 @@ const I18N = {
       queueGift: 'Geschenk einreihen',
       noneSpecies: '- keine -'
     },
+    eggSkip: {
+      title: '⏩ Brutzeit überspringen schenken',
+      subtitle: 'Spieler können damit ein laufendes Ei sofort fertig machen. Wird zum Guthaben addiert.',
+      qty: 'Anzahl pro Spieler (1–10)',
+      send: 'Überspringen schenken',
+      sent: '{count} Spieler haben {qty}× Überspringen bekommen'
+    },
     shop: {
       rerollNow: 'Sofort neu wuerfeln',
       weightStatus: 'Weight {weight} · {status}',
@@ -205,6 +212,13 @@ const I18N = {
       queueGift: 'Queue gift',
       noneSpecies: '- none -'
     },
+    eggSkip: {
+      title: '⏩ Gift incubation skips',
+      subtitle: 'Players can finish a running egg instantly. Added to their balance.',
+      qty: 'Amount per player (1–10)',
+      send: 'Gift skips',
+      sent: '{count} players received {qty}× skip'
+    },
     shop: {
       rerollNow: 'Reroll now',
       weightStatus: 'Weight {weight} · {status}',
@@ -322,6 +336,13 @@ const I18N = {
       notePlaceholder: 'например: Добро пожаловать',
       queueGift: 'Поставить подарок в очередь',
       noneSpecies: '- нет -'
+    },
+    eggSkip: {
+      title: '⏩ Подарить пропуск инкубации',
+      subtitle: 'Игроки смогут сразу завершить инкубацию яйца. Добавляется к балансу.',
+      qty: 'Количество на игрока (1–10)',
+      send: 'Подарить пропуск',
+      sent: '{count} игроков получили {qty}× пропуск'
     },
     shop: {
       rerollNow: 'Обновить сейчас',
@@ -465,6 +486,7 @@ function fmtDateTime(s) {
 }
 
 const giftForm = ref({ username: '', coins: 0, species: '', tier: 'normal', qty: 1, note: '' })
+const skipForm = ref({ username: '@all', qty: 1 })
 const TIERS = ['normal', 'gold', 'diamond', 'epic', 'rainbow']
 const giftTierOptions = computed(() => TIERS.map((tier) => ({ label: tx(`tiers.${tier}`), value: tier })))
 const giftSpeciesOptions = computed(() => {
@@ -571,6 +593,29 @@ async function sendGift() {
     if (missed.length) msg += ` · ${tx('flash.notFound')}: ${missed.join(', ')}`
     flash(msg, missed.length > 0 && sent === 0)
     if (sent > 0) giftForm.value = { username: '', coins: 0, species: '', tier: 'normal', qty: 1, note: '' }
+  } catch (e) {
+    flash(e.message, true)
+  } finally {
+    busy.value = ''
+  }
+}
+
+async function sendEggSkips() {
+  const f = skipForm.value
+  if (!f.username.trim()) return flash(tx('flash.enterUserOrAll'), true)
+  const qty = Math.max(1, Math.min(10, Math.floor(Number(f.qty) || 1)))
+  busy.value = 'egg-skip'
+  try {
+    const { data, error: e } = await supabase.rpc('admin_gift_egg_skips', {
+      p_usernames: f.username.trim(),
+      p_qty: qty
+    })
+    if (e) throw e
+    const sent = Number(data?.sent ?? 0)
+    const missed = Array.isArray(data?.missed) ? data.missed : []
+    let msg = tx('eggSkip.sent', { count: sent, qty })
+    if (missed.length) msg += ` · ${tx('flash.notFound')}: ${missed.join(', ')}`
+    flash(msg, missed.length > 0 && sent === 0)
   } catch (e) {
     flash(e.message, true)
   } finally {
@@ -900,6 +945,18 @@ async function deleteUser(u) {
         <Button class="btn full" :disabled="busy==='gift'" @click="sendGift">
           {{ busy==='gift' ? '...' : tx('gift.queueGift') }}
         </Button>
+
+        <div class="egg-skip-gift">
+          <h3 class="egg-skip-title">{{ tx('eggSkip.title') }}</h3>
+          <p class="subtitle">{{ tx('eggSkip.subtitle') }}</p>
+          <label class="subtitle">{{ tx('gift.recipientLabel') }} <code>@all</code> / <code>@online</code></label>
+          <InputText v-model="skipForm.username" :placeholder="tx('gift.recipientPlaceholder')" style="width:100%;margin-bottom:8px" />
+          <label class="subtitle">{{ tx('eggSkip.qty') }}</label>
+          <InputText type="number" min="1" max="10" v-model.number="skipForm.qty" style="width:100%;margin-bottom:10px" />
+          <Button class="btn full" :disabled="busy==='egg-skip'" @click="sendEggSkips">
+            {{ busy==='egg-skip' ? '...' : tx('eggSkip.send') }}
+          </Button>
+        </div>
       </template>
 
       <template v-if="tab === 'shop' && isFullAdmin">
@@ -1186,6 +1243,16 @@ async function deleteUser(u) {
 </template>
 
 <style scoped>
+.egg-skip-gift {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 2px dashed var(--border);
+}
+.egg-skip-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--heading);
+}
 .admin-row {
   display: flex;
   justify-content: space-between;
